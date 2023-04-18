@@ -17,7 +17,7 @@
     "imageSize": 512,
     "pulsePerPixel": 1,
     "scanWait": 56,
-    "scanBackLeftPixelTwice": 28,
-    "scanBackRightPixelTwice": 28
+    "scanBackLeftPixelTwice": 34,
+    "scanBackRightPixelTwice": 34
   }
 }
