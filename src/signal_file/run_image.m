@@ -2,4 +2,6 @@
 % 
 % image_to_binary("【AES】 横条纹.jpg","cutsomImage_horizontalStripe.csv")
 
-image_to_binary("libo.jpg","libo2.csv")
+% 0代表黑，1代表白
+
+image_to_binary("smile.png","smile.csv")
