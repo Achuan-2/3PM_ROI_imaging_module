@@ -1,20 +1,26 @@
 {
+  "defaultConfig": {
+    "pulseOn": 0,
+    "pulseOff": 1,
+    "configPath": "./config/",
+    "roimaskPath": "./roi_mask/"
+  },
   "waveformConfig": {
     "resourceID": "Dev1",
     "gain": 3.3,
     "offset": 0,
     "sampleRate": 1.0007E+6,
     "delayTime": 0,
-    "mode": "Continuous",
-    "clockSource": "OnboardClock",
-    "triggerOn": false,
+    "mode": "Stepped",
+    "clockSource": "ClkIn",
+    "triggerOn": true,
     "triggerPort": "PFI0",
-    "exportSignalOn": false,
+    "exportSignalOn": true,
     "exportSignalType": "DataMarker",
     "exportSignalPort": "PFI1"
   },
   "scannerConfig": {
-    "imageSize": 256,
+    "imageSize": 512,
     "pulsePerPixel": 1,
     "scanWait": 56,
     "scanBackLeftPixelTwice": 40,

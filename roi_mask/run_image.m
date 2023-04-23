@@ -4,4 +4,4 @@
 
 % 0代表黑，1代表白
 
-image_to_binary("smile.png","smile.csv")
+image_to_binary("square-in-square.png","square-in-square.png.csv")

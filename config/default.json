@@ -1,4 +1,10 @@
 {
+  "defaultConfig": {
+    "pulseOn": 0,
+    "pulseOff": 1,
+    "configPath": "./config/",
+    "roimaskPath": "./roi_mask/"
+  },
   "waveformConfig": {
     "resourceID": "Dev1",
     "gain": 3.3,
@@ -17,7 +23,7 @@
     "imageSize": 512,
     "pulsePerPixel": 1,
     "scanWait": 56,
-    "scanBackLeftPixelTwice": 34,
-    "scanBackRightPixelTwice": 34
+    "scanBackLeftPixelTwice": 40,
+    "scanBackRightPixelTwice": 40
   }
 }
