@@ -5,7 +5,7 @@ function imgStackCombine =  tiff_combine(imgStack)
     imgStackCombine = zeros(imageSize, imageSize,realFrames );
     
     colNum = floor(imageSize/10);
-    % 把10帧图片合并为一帧
+    % 把10帧图片合并为一帧，合并的规则为取第i帧的i:10:512列
     for iframe = 1:realFrames
         temp_frame =  zeros(imageSize, imageSize);
         count = 1; %计数，十帧里的哪一帧

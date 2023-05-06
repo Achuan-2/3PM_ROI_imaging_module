@@ -7,8 +7,8 @@
   },
   "waveformConfig": {
     "resourceID": "Dev1",
-    "gain": 3.3,
-    "offset": 0,
+    "gain": 6,
+    "offset": 3,
     "sampleRate": 1.0007E+6,
     "delayTime": 0,
     "mode": "Stepped",
