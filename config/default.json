@@ -7,8 +7,8 @@
   },
   "waveformConfig": {
     "resourceID": "Dev1",
-    "gain": 6,
-    "offset": 3,
+    "gain": 3.3,
+    "offset": 0,
     "sampleRate": 1.0007E+6,
     "delayTime": 0,
     "mode": "Stepped",
@@ -22,8 +22,8 @@
   "scannerConfig": {
     "imageSize": 512,
     "pulsePerPixel": 1,
-    "scanWait": 56,
-    "scanBackLeftPixelTwice": 40,
-    "scanBackRightPixelTwice": 40
+    "scanWait": 57,
+    "scanBackLeftPixelTwice": 28,
+    "scanBackRightPixelTwice": 28
   }
 }

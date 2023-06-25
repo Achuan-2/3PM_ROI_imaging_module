@@ -10,7 +10,7 @@ function [dev,status] = connect(resourceID,simulateState)
         catch
             % 如果报错，dev为空
             msgbox("Can't not connect the device! Please check if the device is turned on or connected ",'Warning','error');
-            dev = false;
+            dev = 'none';
             status = false;
             return
         end
