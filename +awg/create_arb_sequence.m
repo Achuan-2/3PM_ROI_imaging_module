@@ -1,5 +1,5 @@
 function create_arb_sequence(dev,sequenceHandle,waveformConfig)
-    configureOutputMode(dev,"OUTPUT_SEQ");
+    configureOutputMode(dev,"OUTPUT_SEQ"); % OUTPUT_FUNC,OUTPUT_ARB,OUTPUT_SEQ
 
     % configure for arbitrary waveform or arb sequence
     awg.arb_configure(dev, waveformConfig);

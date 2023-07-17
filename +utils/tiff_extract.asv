@@ -1,4 +1,4 @@
-function imgStackCombine =  tiff_combine(imgStack)
+function imgStackCombine =  tiff_extract(imgStack)
     % 每十帧合并为一帧
     nFrames = size(imgStack,3); % 获取总帧数
     imageSize = size(imgStack,1); 
@@ -33,7 +33,7 @@ function imgStackCombine =  tiff_combine(imgStack)
         imgStackCombine = int16(imgStackCombine);
     end
 end
-% function imgStackCombine =  tiff_combine(imgStack)
+% function imgStackCombine =  tiff_extract(imgStack)
 %     nFrames = size(imgStack,3);
 %     imageSize = size(imgStack,1);
 %     realFrames = nFrames/10;
