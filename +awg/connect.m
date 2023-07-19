@@ -2,7 +2,6 @@ function [dev,status] = connect(resourceID,simulateState)
     if simulateState
         % 仿真模式
         dev = ividev("NIFGEN","",Simulate=true);
-        assignin('base','awgDevice',dev);
     else
         % 连接实际设备
         try
