@@ -16,3 +16,4 @@ function [dev,status] = connect(resourceID,simulateState)
         
     end
     status = true;
+

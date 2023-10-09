@@ -1,0 +1,2 @@
+call activate cellpose
+cellpose
