@@ -1,2 +1,0 @@
-call activate cellpose
-cellpose
