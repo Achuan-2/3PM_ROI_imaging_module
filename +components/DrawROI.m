@@ -43,6 +43,36 @@ classdef DrawROI < handle
     end
 
     methods
+        function delete_cell(self,x,y)
+            % Ctrl+Click to delete cell
+            % Get the roi index of current position
+            roi_index = self.mask(round(y),round(x));
+            if roi_index % Roi index has to be >0
+                % Get the position of selected roi
+                self.delete_selected_cell(roi_index);
+            end      
+        end
+        function delete_selected_cell(self,roi_index)
+            arguments
+                self
+                roi_index = 0
+            end
+            % delete selected cell
+            if roi_index
+                roi_position = self.mask == roi_index;
+            else
+                roi_position = self.mask == self.last_selected_roi_index;
+            end
+            roi_position_3D = repmat(roi_position,1,1,3);
+            self.mask(roi_position) = 0;
+            self.colored_mask(roi_position_3D) = 0;
+            % renumber roi
+            self.mask = components.drawRoi.mask_reorder(self.mask);
+            % update layer
+            self.mask_layer.CData = self.colored_mask;
+            self.mask_layer.AlphaData(roi_position) = 0;
+            self.last_selected_roi_index = 0;
+        end
         function select_cell(self,x,y)
         % Click on ROI to make it white
             % Get the roi index of current position
