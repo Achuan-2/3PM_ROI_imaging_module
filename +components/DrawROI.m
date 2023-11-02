@@ -16,6 +16,7 @@ classdef DrawROI < handle
 
     % draw
     properties
+        flag logical = false; % 判断是否开启手动圈选
         current_plot
         start_drawing
         start_position
@@ -28,6 +29,11 @@ classdef DrawROI < handle
         plot_current_handle
         
     end
+    % click and delete
+    properties
+        last_selected_roi_index;
+        last_selected_roi_color;
+    end
 
 
     methods (Hidden)
@@ -37,7 +43,38 @@ classdef DrawROI < handle
     end
 
     methods
-        
+        function select_cell(self,x,y)
+        % Click on ROI to make it white
+            % Get the roi index of current position
+            roi_index = self.mask(round(y),round(x));
+            if  self.last_selected_roi_index
+                if roi_index ~= self.last_selected_roi_index
+                    % 如果上次有选择roi，已经使其变白，点击另外一个roi，就要让它恢复原来颜色
+                    last_roi_position = self.mask == self.last_selected_roi_index;
+                    last_roi_position_3D = repmat(last_roi_position,1,1,3);
+                    self.colored_mask(last_roi_position_3D) = repmat(self.last_selected_roi_color,sum(last_roi_position,'all'),1);
+                    % Update layer
+                    self.mask_layer.CData = self.colored_mask;
+                    self.mask_layer.AlphaData(last_roi_position) = self.mask_opacity;
+                end
+            end
+            if roi_index % Roi index has to be >0
+                % Get the position of selected roi
+                roi_position = self.mask == roi_index;
+                roi_position_3D = repmat(roi_position,1,1,3);
+                % Selected roi assign white color
+                self.last_selected_roi_color = self.colored_mask(round(y),round(x),:);
+                self.colored_mask(roi_position_3D) = repmat([255,255,255],sum(roi_position,'all'),1);
+                self.mask_layer.AlphaData(roi_position) = 0.7;
+                % Update layer
+                self.mask_layer.CData = self.colored_mask;
+                % Save selected roi index
+                self.last_selected_roi_index = roi_index;
+            else
+                % Click on the blank space, mask
+                self.last_selected_roi_index = 0;
+            end
+        end
         function result = create_colormap(~)
             % colormap hsv的矩阵的维度是256*3，RGB通道一通道值都为1，一个通道值都为0，另一个通道为0-1的小数
             height = 43;
