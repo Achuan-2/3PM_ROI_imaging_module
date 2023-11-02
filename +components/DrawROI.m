@@ -47,10 +47,10 @@ classdef DrawROI < handle
             colormap_matrix(:,2) = 0;
             colormap_matrix(:,3) = linspace(0,1,height);
 
+            % 6种排列组合
             permutations = perms(1:3);
-
             % 遍历每个排列组合
-            for i = 1:size(permutations, 1) % 6种排列组合
+            for i = 1:size(permutations, 1) 
                 % 获取当前排列组合的列索引
                 indices = permutations(i, :);
 
@@ -64,9 +64,11 @@ classdef DrawROI < handle
 
             % 二维矩阵按行进行去重，如果有重复的行，则删除(因为1，0，0排列组合只有3个，[1,0,1]排列组合只有3个，而默认按6种排列组合进行排列，会有重复
             result = unique(result, 'rows', 'stable');
+            % 随机排序
             randomIdx = randperm(size(result,1));
             result = result(randomIdx,:);
-            result = result*255;
+            % 0-1 变为 0-255
+            result = result*255; 
         end
     end
     methods
