@@ -7,7 +7,9 @@ classdef Segmentation < handle
         ops
         seg_mask = [];
         seg_flow = [];
+        seg_mask_matlab = [];
         adjust_threshold = false; % 是否可以调节阈值重新生成分割图，当run model的时候改为true，重新修改model的时候，设置为false
+
     end
     
     methods
@@ -33,6 +35,7 @@ classdef Segmentation < handle
             self.seg_mask = results{1};
             self.seg_flow = results{2};
             mask_matlab = uint8(self.seg_mask);
+            self.seg_mask_matlab = mask_matlab;
         end
 
         function mask_matlab = change_threshold(self,threshold)

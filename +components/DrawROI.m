@@ -7,10 +7,13 @@ classdef DrawROI < handle
         mask (:,:) uint8
         mask_size (:,:) double
         colored_mask (:,:,3) uint8 
-        mask_alphadata;
         colormaps;
-        
     end
+    properties (Dependent, SetAccess = private)
+        binary_mask (:,:) logical
+        mask_alphadata;
+    end
+
     % draw
     properties
         current_plot
@@ -26,9 +29,6 @@ classdef DrawROI < handle
         
     end
 
-    properties (Dependent, SetAccess = private)
-        binary_mask (:,:) logical
-    end
 
     methods (Hidden)
         function self = DrawROI()
@@ -37,6 +37,7 @@ classdef DrawROI < handle
     end
 
     methods
+        
         function result = create_colormap(~)
             % colormap hsv的矩阵的维度是256*3，RGB通道一通道值都为1，一个通道值都为0，另一个通道为0-1的小数
             height = 43;
@@ -72,6 +73,9 @@ classdef DrawROI < handle
         end
     end
     methods
+        function set.mask(self,value)
+            self.mask = value;
+        end
         function result = get.binary_mask(self)
             result = logical(self.mask);
         end
