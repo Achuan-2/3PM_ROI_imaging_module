@@ -1,7 +1,8 @@
-function color_mask = mask_to_rgb(mask)
+function color_mask = mask_to_rgb(mask,colormaps)
     % transform roi mask to colored roi mask
     arguments(Input)
         mask
+        colormaps
     end
     arguments(Output)
         color_mask uint8
@@ -14,9 +15,7 @@ function color_mask = mask_to_rgb(mask)
         % Transform 2D logical array to 3D logical array to index 3D Array
         roi_3D = repmat(roi_position,1,1,3);
         % Assign a value to the specified position
-        color_mask(roi_3D) = repmat(rand(1,3),sum(roi_position,'all'),1); 
+        randowm_rgb_color = colormaps(randi([1,length(colormaps)]),:);
+        color_mask(roi_3D) = repmat(randowm_rgb_color,sum(roi_position,'all'),1); 
     end
-    % Transform to uint8 image
-    color_mask = color_mask*255;
-
 end
