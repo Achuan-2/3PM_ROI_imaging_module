@@ -59,6 +59,9 @@ classdef DrawROI < handle
                         self.mask_layer.CData = self.binary_mask*255; %因为使用imageshow的Cdatga更改图像，scale不会改变，需要手动调整图像对比度
                         self.mask_layer.AlphaData = 1;
                 end
+                self.last_selected_roi_index = 0;
+                self.outline_layer.CData =  zeros([size(self.mask_size),3]);
+                self.outline_layer.AlphaData = 0;
             end
         end
         function delete_cell(self,x,y)
@@ -87,9 +90,11 @@ classdef DrawROI < handle
             % renumber roi
             self.mask = components.drawRoi.mask_reorder(self.mask);
             % update layer
+            self.last_selected_roi_index = 0;
             self.mask_layer.CData = self.colored_mask;
             self.mask_layer.AlphaData(roi_position) = 0;
-            self.last_selected_roi_index = 0;
+            self.outline_layer.CData =  zeros([size(self.mask_size),3]);
+            self.outline_layer.AlphaData = 0;
         end
         function select_cell(self,x,y)
         % Click on ROI to make it white
@@ -107,7 +112,8 @@ classdef DrawROI < handle
                 roi_position = self.mask == roi_index;
 
                 outline = components.drawRoi.mask_to_outline(roi_position);
-                
+                SE = strel('square',2);
+                outline = imdilate(outline ,SE);
                 outline_3D = repmat(outline,1,1,3);
                 % Selected roi assign white color
                 outline_mask = zeros([size(outline),3]);
