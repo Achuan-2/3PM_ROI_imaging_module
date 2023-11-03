@@ -1,6 +1,11 @@
 function outline = mask_to_outline(mask)
-    % 考虑到有些roi会重叠，所以不应该直接把mask变为二值化mask
-    % 最好还是一个个转化？
+    % mask_to_outline : convert roi mask to outline mask
+    arguments (Input)
+        mask (:,:) double
+    end
+    arguments (Output)
+        outline (:,:) logical
+    end
     outline = zeros(size(mask));
     n_roi = max(max(mask));
     for i = 1:n_roi
@@ -10,6 +15,4 @@ function outline = mask_to_outline(mask)
         linearIndices = sub2ind(size(outline), boundary(:, 1), boundary(:, 2));
         outline(linearIndices) = 1;
     end
-    
-    outline  =uint8(outline);
 end

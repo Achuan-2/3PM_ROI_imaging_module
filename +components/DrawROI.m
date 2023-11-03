@@ -79,23 +79,27 @@ classdef DrawROI < handle
             roi_index = self.mask(round(y),round(x));
             if  self.last_selected_roi_index
                 if roi_index ~= self.last_selected_roi_index
-                    % 如果上次有选择roi，已经使其变白，点击另外一个roi，就要让它恢复原来颜色
+                    % If had chosen ROI last time, recover it.
                     last_roi_position = self.mask == self.last_selected_roi_index;
-                    last_roi_position_3D = repmat(last_roi_position,1,1,3);
-                    self.colored_mask(last_roi_position_3D) = repmat(self.last_selected_roi_color,sum(last_roi_position,'all'),1);
+                    last_outline = components.drawRoi.mask_to_outline(last_roi_position);
+                    last_outline_3D = repmat(last_outline,1,1,3);
+                    self.colored_mask(last_outline_3D) = repmat(self.last_selected_roi_color,sum(last_outline,'all'),1);
                     % Update layer
                     self.mask_layer.CData = self.colored_mask;
-                    self.mask_layer.AlphaData(last_roi_position) = self.mask_opacity;
+                    self.mask_layer.AlphaData(last_outline) = self.mask_opacity;
                 end
             end
             if roi_index % Roi index has to be >0
                 % Get the position of selected roi
                 roi_position = self.mask == roi_index;
-                roi_position_3D = repmat(roi_position,1,1,3);
+
+                outline = components.drawRoi.mask_to_outline(roi_position);
+                
+                outline_3D = repmat(outline,1,1,3);
                 % Selected roi assign white color
                 self.last_selected_roi_color = self.colored_mask(round(y),round(x),:);
-                self.colored_mask(roi_position_3D) = repmat([255,255,255],sum(roi_position,'all'),1);
-                self.mask_layer.AlphaData(roi_position) = 0.7;
+                self.colored_mask(outline_3D) = repmat([255,255,255],sum(outline,'all'),1);
+                self.mask_layer.AlphaData(outline) = 1;
                 % Update layer
                 self.mask_layer.CData = self.colored_mask;
                 % Save selected roi index
