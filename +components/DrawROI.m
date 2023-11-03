@@ -62,6 +62,13 @@ classdef DrawROI < handle
                 self.last_selected_roi_index = 0;
                 self.outline_layer.CData =  zeros([size(self.mask_size),3]);
                 self.outline_layer.AlphaData = 0;
+
+                %% Caculate roi info
+                self.app.ROIsEditField.Value = max(double(self.app.DrawROI.mask),[],'all');
+                roiRatio = round(length(find(self.app.DrawROI.mask>0))/numel(self.app.DrawROI.mask),4);
+                self.app.ROIRatioEditField_2.Value = roiRatio;
+                self.app.ROIRatioEditField.Value = roiRatio;
+
             end
         end
         function delete_cell(self,x,y)
@@ -91,8 +98,9 @@ classdef DrawROI < handle
             self.mask = components.drawRoi.mask_reorder(self.mask);
             % update layer
             self.last_selected_roi_index = 0;
-            self.mask_layer.CData = self.colored_mask;
-            self.mask_layer.AlphaData(roi_position) = 0;
+
+            self.update_mask_layer();
+
             self.outline_layer.CData =  zeros([size(self.mask_size),3]);
             self.outline_layer.AlphaData = 0;
         end
