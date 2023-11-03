@@ -1,8 +1,12 @@
 classdef DrawROI < handle
     % 绘制ROI以及手动绘制ROI模块
     % mask
+    properties
+        app
+    end
     properties (SetAccess = public)
         mask_layer matlab.graphics.primitive.Image
+        outline_layer matlab.graphics.primitive.Image
         mask_opacity double = 0.3 
         mask (:,:) uint8
         mask_size (:,:) double
@@ -37,12 +41,26 @@ classdef DrawROI < handle
 
 
     methods (Hidden)
-        function self = DrawROI()
+        function self = DrawROI(app)
             self.colormaps = self.create_colormap();
+            self.app = app;
         end
     end
 
     methods
+        function update_mask_layer(self)
+            if self.app.MaskOnCheckBox.Value
+                value = self.app.MaskDropDown.Value;
+                switch value
+                    case 'Colored'
+                        self.mask_layer.CData = self.colored_mask;
+                        self.mask_layer.AlphaData = self.mask_alphadata;
+                    case 'Binary'
+                        self.mask_layer.CData = self.binary_mask*255; %因为使用imageshow的Cdatga更改图像，scale不会改变，需要手动调整图像对比度
+                        self.mask_layer.AlphaData = 1;
+                end
+            end
+        end
         function delete_cell(self,x,y)
             % Ctrl+Click to delete cell
             % Get the roi index of current position
@@ -79,14 +97,9 @@ classdef DrawROI < handle
             roi_index = self.mask(round(y),round(x));
             if  self.last_selected_roi_index
                 if roi_index ~= self.last_selected_roi_index
-                    % If had chosen ROI last time, recover it.
-                    last_roi_position = self.mask == self.last_selected_roi_index;
-                    last_outline = components.drawRoi.mask_to_outline(last_roi_position);
-                    last_outline_3D = repmat(last_outline,1,1,3);
-                    self.colored_mask(last_outline_3D) = repmat(self.last_selected_roi_color,sum(last_outline,'all'),1);
                     % Update layer
-                    self.mask_layer.CData = self.colored_mask;
-                    self.mask_layer.AlphaData(last_outline) = self.mask_opacity;
+                    self.outline_layer.CData =  zeros([size(self.mask_size),3]);
+                    self.outline_layer.AlphaData = 0;
                 end
             end
             if roi_index % Roi index has to be >0
@@ -97,11 +110,19 @@ classdef DrawROI < handle
                 
                 outline_3D = repmat(outline,1,1,3);
                 % Selected roi assign white color
-                self.last_selected_roi_color = self.colored_mask(round(y),round(x),:);
-                self.colored_mask(outline_3D) = repmat([255,255,255],sum(outline,'all'),1);
-                self.mask_layer.AlphaData(outline) = 1;
+                outline_mask = zeros([size(outline),3]);
+                if self.app.MaskOnCheckBox.Value
+                    switch self.app.MaskDropDown.Value
+                        case 'Colored'
+                            outline_mask(outline_3D) = repmat([255,255,255],sum(outline,'all'),1);
+                        case 'Binary'
+                            outline_mask(outline_3D) = repmat([255,0,0],sum(outline,'all'),1);
+                    end
+                end
                 % Update layer
-                self.mask_layer.CData = self.colored_mask;
+                self.outline_layer.CData = outline_mask;
+                self.outline_layer.AlphaData = outline;
+
                 % Save selected roi index
                 self.last_selected_roi_index = roi_index;
             else
