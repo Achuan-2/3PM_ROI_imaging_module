@@ -51,6 +51,11 @@ classdef DrawROI < handle
         move_down = 0;
     end
 
+    % dilate mask
+    properties
+        mask_dilate_before;
+        colored_mask_dilate_before;
+    end
 
     methods (Hidden)
         function self = DrawROI(app)
