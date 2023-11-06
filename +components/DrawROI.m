@@ -289,13 +289,14 @@ classdef DrawROI < handle
             end
         end
         
-        function select_cell(self,x,y)
+        function selecting_roi = select_cell(self,x,y)
         % Click on ROI to make it white
             % Get the roi index of current position
             try
                 roi_index = self.mask(round(y),round(x));
             catch
                 % 当缩小figure，x，y可能会超过image size
+                selecting_roi = false;
                 return
             end
             if  self.last_selected_roi_index
@@ -329,9 +330,11 @@ classdef DrawROI < handle
                 self.outline_layer.AlphaData = outline;
 
                 % Save selected roi index
+                selecting_roi = true;
                 self.last_selected_roi_index = roi_index;
             else
                 % Click on the blank space, mask
+                selecting_roi = false;
                 self.last_selected_roi_index = 0;
             end
         end
