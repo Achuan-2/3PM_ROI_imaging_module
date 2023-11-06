@@ -9,6 +9,7 @@ function color_mask = mask_to_rgb(mask,colormaps)
     end
 
     color_mask = zeros([size(mask), 3], 'single');
+    
     for i = 1:max(mask(:))
         % Get the position of roi  for each roi
         roi_position = (mask == i);
