@@ -226,7 +226,7 @@ classdef DrawROI < handle
             self.update_mask_layer(move_mask_reset=true);
         end
         
-        function move_mask(self)
+        function move_mask_update(self)
             % move_mask: move binary mask and colored mask in GUI
             row = self.mask_size(1);
             col = self.mask_size(2);
