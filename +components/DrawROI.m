@@ -71,26 +71,24 @@ classdef DrawROI < handle
     methods
         function handroi_start(self,x,y)
             % 手动圈选ROI 绘制起点
-            if self.app.UIAxes.UserData.status ~= "handroi_drawing" && self.app.drawroi_enable
-                % for dilate mask: if have dilated mask，revert it
-                if self.is_dilating
-                    self.app.ROIdilateSpinner.Value = 0;
-                    self.three_fold_mask = self.three_fold_mask_dilate_before;
-                    self.three_fold_colored_mask = self.three_fold_colored_mask_dilate_before;
-                    self.move_mask_update();
-                end
-                % start draw flag set true
-                self.app.UIAxes.UserData.status = "handroi_drawing";
-
-                self.start_position = [x,y];
-                self.last_position = [x,y];
-                self.current_stroke = [self.current_stroke;self.start_position];
-
-                % draw a red circle at the starting point.
-                self.plot_current_handle = plot(self.app.UIAxes,x,y, 'ro', 'MarkerSize', 8);
-                self.plot_handles = [self.plot_handles, self.plot_current_handle];
-                self.start_drawing = true;
+            % for dilate mask: if have dilated mask，revert it
+            if self.is_dilating
+                self.app.ROIdilateSpinner.Value = 0;
+                self.three_fold_mask = self.three_fold_mask_dilate_before;
+                self.three_fold_colored_mask = self.three_fold_colored_mask_dilate_before;
+                self.move_mask_update();
             end
+            % start draw flag set true
+            self.app.UIAxes.UserData.status = "handroi_drawing";
+
+            self.start_position = [x,y];
+            self.last_position = [x,y];
+            self.current_stroke = [self.current_stroke;self.start_position];
+
+            % draw a red circle at the starting point.
+            self.plot_current_handle = plot(self.app.UIAxes,x,y, 'ro', 'MarkerSize', 8);
+            self.plot_handles = [self.plot_handles, self.plot_current_handle];
+            self.start_drawing = true;
         end
 
         function handroi_motion(self,x,y)
@@ -371,6 +369,8 @@ classdef DrawROI < handle
                             self.mask_layer = imshow(self.colored_mask,[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
                             self.outline_layer = imshow(uint8(zeros([self.mask_size,3])),[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
                             self.outline_layer.AlphaData = 0;
+                            self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
+                            self.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
                         else
                             self.mask_layer.CData = self.colored_mask;
                         end
@@ -382,6 +382,8 @@ classdef DrawROI < handle
                             self.mask_layer = imshow(self.binary_mask*255,[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
                             self.outline_layer = imshow(uint8(zeros([self.mask_size,3])),[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
                             self.outline_layer.AlphaData = 0;
+                            self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
+                            self.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
                         else
                             self.mask_layer.CData = self.binary_mask*255; %因为使用imageshow的Cdatga更改图像，scale不会改变，需要手动调整图像对比度
                         end
