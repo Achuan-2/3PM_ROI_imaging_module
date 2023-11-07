@@ -8,8 +8,6 @@ classdef Segmentation < handle
         seg_mask = [];
         seg_flow = [];
         seg_mask_matlab = [];
-        adjust_threshold = false; % 是否可以调节阈值重新生成分割图，当run model的时候改为true，重新修改model的时候，设置为false
-
     end
     
     methods
@@ -17,8 +15,8 @@ classdef Segmentation < handle
             %UNTITLED Construct an instance of this class
             %   Detailed explanation goes here
             self.ops = py.segmodule.seg_default_ops();
-            self.ops{'model_type'} =model_type;
-            self.ops{'flow_threshold'} =flow_threshold;
+            self.ops{'model_type'} = model_type;
+            self.ops{'flow_threshold'} = flow_threshold;
             self.img_nparray = components.segmentation.mat2nparray(img);
         end
         
