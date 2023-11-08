@@ -303,6 +303,7 @@ classdef DrawROI < handle
             self.reset_three_fold_mask();
             self.update_mask_layer();
         end
+        
         function reset_three_fold_mask(self)
             self.move_right = 0;
             self.move_down = 0;

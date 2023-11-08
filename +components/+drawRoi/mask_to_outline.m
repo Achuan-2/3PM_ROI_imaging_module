@@ -20,7 +20,6 @@ function outline = mask_to_outline(mask)
     currentIndex = 1;
     for k = 1:numBoundaries
         boundary = B{k};
-        plot(boundary(:, 2), boundary(:, 1),'r', 'LineWidth', 2);
         % 将当前区域的轮廓点添加到allBoundaries矩阵中
         boundarySize = size(boundary, 1);
         allBoundaries(currentIndex:currentIndex+boundarySize-1, :) = boundary;
