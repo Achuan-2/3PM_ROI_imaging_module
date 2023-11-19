@@ -24,19 +24,13 @@ classdef DrawROI < handle
 
     % Draw roi manually
     properties
-        current_plot;
-        start_drawing;
-        start_position;
-        last_position;
-        n_ROI = 0;
-        current_stroke;
-        brush_size = 4;
+        brush_size = 3;
         plot_handles;
-        plot_current_handle;
+        current_stroke;
         thresh_out = 12;
         thresh_in = 5;
-        
     end
+    
     % Click and delete
     properties
         last_selected_roi_index;
@@ -78,13 +72,11 @@ classdef DrawROI < handle
 
             
             % store start point
-            self.start_position = [x,y];
-            self.last_position = [x,y];
-            self.current_stroke = [self.current_stroke;self.start_position];
+            self.current_stroke = [self.current_stroke;[x,y]];
 
             % draw a red circle at the starting point.
-            self.plot_current_handle = plot(self.app.UIAxes,x,y, 'ro', 'MarkerSize', 8);
-            self.plot_handles = [self.plot_handles, self.plot_current_handle];
+            plot_current_handle = plot(self.app.UIAxes,x,y, 'ro', 'MarkerSize', 8);
+            self.plot_handles = [self.plot_handles, plot_current_handle];
 
             % set status
             self.app.UIAxes.UserData.status = "handroi_drawing";
@@ -98,24 +90,21 @@ classdef DrawROI < handle
 
             if ~self.handroi_end()
                 % Draw current point
-                self.plot_current_handle = plot(self.app.UIAxes,[self.last_position(1), x], [self.last_position(2), y], Color='r',LineWidth=3);  % 绘制红色线段
+                last_position = self.current_stroke(end,:);
+                plot_current_handle = plot(self.app.UIAxes,[last_position(1), x], [last_position(2), y], 'Color', 'r','LineWidth',self.brush_size);  % 绘制红色线段
                 
                 % Save current point to current stroke and current handle
-                self.plot_handles = [self.plot_handles, self.plot_current_handle];
-                self.last_position = [x, y];
+                self.plot_handles = [self.plot_handles, plot_current_handle];
                 self.current_stroke = [self.current_stroke;[x,y]];
             else
                 % Finish stroke, clear variable
                 self.app.UIAxes.UserData.status = "idle";
-                self.last_position = zeros(1,2);
-                self.start_position = [];
                 for i = 1:length(self.plot_handles)
                     delete(self.plot_handles(i));
                 end
                 self.plot_handles = [];
 
                 % Current stroke  to a roi area
-                self.n_ROI = self.n_ROI + 1;
                 new_mask = components.drawRoi.stroke_to_mask(self.current_stroke,self.mask_size);
                 self.current_stroke = [];
 
@@ -141,9 +130,8 @@ classdef DrawROI < handle
         
         function result = handroi_end(self)
             % There must be at least four points
-            % any dist> self.thresh_out && any dist < self.thresh_in → true
             if length(self.current_stroke)>3 
-
+                % any dist> self.thresh_out && any dist < self.thresh_in → true
                 dist = sqrt(sum((self.current_stroke(1,:)-self.current_stroke(2:end,:)).^2, 2));
                 dist = dist(:);
                 has_left = find(dist > self.thresh_out);
@@ -354,7 +342,7 @@ classdef DrawROI < handle
                             hold(self.app.UIAxes,'on');
                             self.mask_layer = imshow(self.colored_mask,[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
                             self.outline_layer = imshow(uint8(zeros([self.mask_size,3])),[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
-                            self.outline_layer.AlphaData = 0;
+                            self.outline_layer.AlphaData = zeros(self.mask_size);
                             axis(self.app.UIAxes,[0,self.mask_size(2),0,self.mask_size(1)]);
                             self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
                             self.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
@@ -368,7 +356,7 @@ classdef DrawROI < handle
                             hold(self.app.UIAxes,'on');
                             self.mask_layer = imshow(self.binary_mask*255,[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
                             self.outline_layer = imshow(uint8(zeros([self.mask_size,3])),[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
-                            self.outline_layer.AlphaData = 0;
+                            self.outline_layer.AlphaData = zeros(self.mask_size);
                             self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
                             self.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
                         else
@@ -378,8 +366,8 @@ classdef DrawROI < handle
                         self.mask_layer.AlphaData = 1;
                 end
                 self.last_selected_roi_index = 0;
-                self.outline_layer.CData =  zeros([size(self.mask_size),3]);
-                self.outline_layer.AlphaData = 0;
+                self.outline_layer.CData =  zeros([self.mask_size,3]);
+                self.outline_layer.AlphaData = zeros(self.mask_size);
 
                 %% Caculate roi info
                 self.app.ROIsEditField.Value = length(unique(self.app.DrawROI.mask))-1;
@@ -403,8 +391,8 @@ classdef DrawROI < handle
             if  self.last_selected_roi_index
                 if roi_index ~= self.last_selected_roi_index
                     % Update layer
-                    self.outline_layer.CData =  zeros([size(self.mask_size),3]);
-                    self.outline_layer.AlphaData = 0;
+                    self.outline_layer.CData =  zeros([self.mask_size,3]);
+                    self.outline_layer.AlphaData = zeros(self.mask_size);
                 end
             end
             if roi_index % Roi index has to be >0
@@ -496,8 +484,6 @@ classdef DrawROI < handle
             %self.update_three_fold_mask();
             self.update_mask_layer();
 
-            self.outline_layer.CData =  zeros([size(self.mask_size),3]);
-            self.outline_layer.AlphaData = 0;
         end
 
         function result = create_colormap(~)
