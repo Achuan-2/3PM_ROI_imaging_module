@@ -30,11 +30,10 @@ classdef DrawROI < handle
         thresh_out = 12;
         thresh_in = 5;
     end
-    
+
     % Click and delete
     properties
         last_selected_roi_index;
-        last_selected_roi_color;
     end
     
     % Move mask
@@ -121,7 +120,8 @@ classdef DrawROI < handle
 
                 % Update three_fold_mask
                 self.update_three_fold_mask();
-
+                self.three_fold_mask_dilate_before = self.three_fold_mask;
+                self.three_fold_colored_mask_dilate_before = self.three_fold_colored_mask;
                 % Update mask layer
                 self.update_mask_layer();
 
@@ -163,15 +163,122 @@ classdef DrawROI < handle
         end
     end
 
+    % Click and delete
+    methods
+        % Click on ROI to make it white
+        function selecting_roi = select_cell(self,x,y)
+            % Get the roi index of current position
+            try
+                roi_index = self.mask(round(y),round(x));
+            catch
+                % When zoom out figure,x,y may exceed image size
+                selecting_roi = false;
+                return
+            end
+
+            % delete the outline of last selected roi
+            if self.last_selected_roi_index
+                if roi_index ~= self.last_selected_roi_index
+                    % reset layer
+                    self.outline_layer.CData =  zeros([self.mask_size,3]);
+                    self.outline_layer.AlphaData = zeros(self.mask_size);
+                end
+            end
+
+            if roi_index % ROI index has to be >0
+                % Get the position of selected roi
+                roi_position = self.mask == roi_index;
+                
+                % Get the outline mask of roi
+                outline = components.drawRoi.mask_to_outline(roi_position);
+                
+                % Dilate the outline
+                SE = strel('square',2);
+                outline = imdilate(outline ,SE);
+
+                % Selected roi assign white color
+                outline_3D = repmat(outline,1,1,3);
+                outline_mask = zeros([size(outline),3]);
+                if self.app.MaskOnCheckBox.Value
+                    switch self.app.MaskDropDown.Value
+                        case 'Colored'
+                            outline_mask(outline_3D) = repmat([255,255,255],sum(outline,'all'),1);
+                        case 'Binary'
+                            outline_mask(outline_3D) = repmat([255,0,0],sum(outline,'all'),1);
+                    end
+                end
+                
+                % Update layer
+                self.outline_layer.CData = outline_mask;
+                self.outline_layer.AlphaData = outline;
+
+                % Save selected roi index
+                selecting_roi = true;
+                self.last_selected_roi_index = roi_index;
+            else
+                % Click on the blank space, mask
+                selecting_roi = false;
+                self.last_selected_roi_index = 0;
+            end
+        end
+
+        % Ctrl+Click to delete cell
+        function delete_cell(self,x,y)
+            % Get the roi index of current position
+            roi_index = self.mask(round(y),round(x));
+            if roi_index % Roi index has to be >0
+                % Get the position of selected roi
+                self.delete_selected_cell(roi_index);
+            end      
+        end
+        
+        function delete_selected_cell(self,input_index)
+            arguments
+                self
+                input_index = 0
+            end
+            % delete selected cell
+            if input_index
+                roi_index = input_index;
+            else
+                roi_index = self.last_selected_roi_index;
+            end
+
+            roi_position = self.mask == roi_index;
+            roi_position_3D = repmat(roi_position,1,1,3);
+            self.mask(roi_position) = 0;
+            self.colored_mask(roi_position_3D) = 0;
+            self.last_selected_roi_index = 0;
+
+            % update three_fold_mask
+            self.update_three_fold_mask();
+
+            % delete roi in three_fold_mask_dilate_before
+            roi_dilate_before_position = self.three_fold_mask_dilate_before == roi_index;
+            self.three_fold_mask_dilate_before(roi_dilate_before_position) = 0;
+            roi_dilate_before_position_3D = repmat(roi_dilate_before_position,1,1,3);
+            self.three_fold_colored_mask_dilate_before(roi_dilate_before_position_3D) = 0;
+            self.three_fold_mask_dilate_before = components.drawRoi.mask_reorder(self.three_fold_mask_dilate_before);
+
+            % reorder roi index
+            self.three_fold_mask = components.drawRoi.mask_reorder(self.three_fold_mask);
+
+            % update mask
+            self.move_mask_update();
+
+        end
+    end
+
     % update mask functions
     methods
         function dilate_mask(self,value)
+            % dilate mask
             SE = strel('disk',value);
             self.three_fold_mask = imdilate(self.three_fold_mask_dilate_before ,SE);
             self.three_fold_colored_mask = imdilate(self.three_fold_colored_mask_dilate_before ,SE);
 
 
-            % update move mask
+            % update mask
             row = self.mask_size(1);
             col = self.mask_size(2);
             row_range = row+1:2*row;
@@ -196,18 +303,19 @@ classdef DrawROI < handle
                     self.app.MaskDropDown.Value = "Binary";
                     self.reset_three_fold_mask();
                     self.update_mask_layer();
-                case '.png'
+                case {'.png','.jpg','.jpeg'}
                     imMask = imread(fullfile(path,filename));
                     dims = ndims(imMask);
                     if dims == 2
-                        %如果导入的图片是黑白图 imMask(imMask~=0) = 1;
+                        % gray image
                         self.mask = single(imMask);
                         if length(unique(self.mask)) == 2
+                            % binary image
                             self.mask = logical(self.mask);
                         end
 
                     else
-                        %如果导入的图片是rgb图
+                        % rgb image
                         self.mask = logical(rgb2gray(imMask));
                     end
                     self.mask_size = size(self.mask);
@@ -216,14 +324,17 @@ classdef DrawROI < handle
                     self.reset_three_fold_mask();
                     self.update_mask_layer();
                 case '.mat'
+                    % load variable from .mat
                     S = load(fullfile(path,filename));
                     self.three_fold_mask = S.three_fold_mask;
                     self.three_fold_colored_mask = uint8(S.three_fold_colored_mask);
                     self.mask_size = size(self.three_fold_mask)/3;
                     self.move_down = S.move_down;
                     self.move_right = S.move_right;
+
                     self.three_fold_mask_dilate_before = self.three_fold_mask;
                     self.three_fold_colored_mask_dilate_before = self.three_fold_colored_mask;
+                    
                     % update mask layer
                     self.move_mask_update();
             end
@@ -238,17 +349,17 @@ classdef DrawROI < handle
 
             %% Delete roi first
             if any(delete_area,'all')
-                %获取要删除的编号
+                % Obtain the indexes to be deleted
                 delete_indexes = unique(self.mask(delete_area),'sort');
                 for i = 1:length(delete_indexes)
-                    % 获取要删除的roi的位置
+                    % Obtain the location of the ROI to be deleted
                     roi_position = self.mask==delete_indexes(i);
                     roi_position_3D = repmat(roi_position,1,1,3);
-                    % 在 mask 里删除 roi
+                    % Delete ROI in mask
                     self.mask(roi_position) =0;
                     self.colored_mask(roi_position_3D) = 0;
                 end
-                % 由于删除后，需要对seg mask进行重新排序
+                % Reorder the seg mask
                 self.mask = components.drawRoi.mask_reorder(self.mask);
 
 
@@ -257,15 +368,15 @@ classdef DrawROI < handle
             n_roi = max(self.mask,[],'all');
             %% Add roi
             if any(add_area,'all')
-                % 获取新增roi的位置
+                % Obtain the indexes of the new ROIs
                 add_indexes = unique(new_mask(add_area),'sort');
                 for i = 1:length(add_indexes)
-                    % 获取要增加的roi的位置
+                    % Obtain the location of the newly added ROI
                     new_roi_position = new_mask==add_indexes(i);
-                    % add roi to seg_mask
+                    % Add ROI to seg_mask
                     n_roi = n_roi + 1;
-                    self.mask(new_roi_position) = n_roi; % add new roi
-                    % add new roi area to previous mask
+                    self.mask(new_roi_position) = n_roi; 
+                    % Add new roi area to previous mask
                     self.colored_mask = components.drawRoi.rgb_add_area(self.colored_mask,new_roi_position,self.colormaps);
 
                 end
@@ -298,18 +409,15 @@ classdef DrawROI < handle
         end
 
         function update_three_fold_mask(self)
-            % 新增roi的时候需要update
             row = self.mask_size(1);
             col = self.mask_size(2);
             row_range = row+1:2*row;
             col_range = col+1:2*col;
-            % move mask
+            
+            % update three_fold_mask
             self.three_fold_mask(row_range+self.move_down,col_range+self.move_right) = self.mask;
             self.three_fold_colored_mask(row_range+self.move_down,col_range+self.move_right,:) = self.colored_mask;
 
-            % 需要考虑dilate mask吗
-            self.three_fold_mask_dilate_before = self.three_fold_mask;
-            self.three_fold_colored_mask_dilate_before = self.three_fold_colored_mask;
         end
 
         function move_mask_update(self)
@@ -322,8 +430,6 @@ classdef DrawROI < handle
             self.mask = self.three_fold_mask(row_range+self.move_down,col_range+self.move_right);
             self.colored_mask = self.three_fold_colored_mask(row_range+self.move_down,col_range+self.move_right,:);
 
-            % 需要考虑dilate mask吗
-            % 暂时不考虑
 
             % update mask layer
             self.update_mask_layer();
@@ -334,42 +440,21 @@ classdef DrawROI < handle
                 self
             end
             if self.app.MaskOnCheckBox.Value
-                %% update mask layer
+                % Update mask layer
                 value = self.app.MaskDropDown.Value;
                 switch value
                     case 'Colored'
-                        if isempty(self.mask_layer)
-                            hold(self.app.UIAxes,'on');
-                            self.mask_layer = imshow(self.colored_mask,[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
-                            self.outline_layer = imshow(uint8(zeros([self.mask_size,3])),[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
-                            self.outline_layer.AlphaData = zeros(self.mask_size);
-                            axis(self.app.UIAxes,[0,self.mask_size(2),0,self.mask_size(1)]);
-                            self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
-                            self.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
-                        else
-                            self.mask_layer.CData = self.colored_mask;
-                        end
-
+                        self.mask_layer.CData = self.colored_mask;
                         self.mask_layer.AlphaData = self.mask_alphadata;
                     case 'Binary'
-                        if isempty(self.mask_layer)
-                            hold(self.app.UIAxes,'on');
-                            self.mask_layer = imshow(self.binary_mask*255,[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
-                            self.outline_layer = imshow(uint8(zeros([self.mask_size,3])),[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
-                            self.outline_layer.AlphaData = zeros(self.mask_size);
-                            self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
-                            self.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
-                        else
-                            self.mask_layer.CData = self.binary_mask*255; %因为使用imageshow的Cdatga更改图像，scale不会改变，需要手动调整图像对比度
-                        end
-                        
+                        self.mask_layer.CData = self.binary_mask*255; % rescale to [0,255]
                         self.mask_layer.AlphaData = 1;
                 end
                 self.last_selected_roi_index = 0;
                 self.outline_layer.CData =  zeros([self.mask_size,3]);
                 self.outline_layer.AlphaData = zeros(self.mask_size);
 
-                %% Caculate roi info
+                % Caculate roi info
                 self.app.ROIsEditField.Value = length(unique(self.app.DrawROI.mask))-1;
                 roiRatio = round(length(find(self.app.DrawROI.mask>0))/numel(self.app.DrawROI.mask),4);
                 self.app.ROIRatioEditField_2.Value = roiRatio;
@@ -377,146 +462,35 @@ classdef DrawROI < handle
 
             end
         end
-        
-        function selecting_roi = select_cell(self,x,y)
-        % Click on ROI to make it white
-            % Get the roi index of current position
-            try
-                roi_index = self.mask(round(y),round(x));
-            catch
-                % 当缩小figure，x，y可能会超过image size
-                selecting_roi = false;
-                return
-            end
-            if  self.last_selected_roi_index
-                if roi_index ~= self.last_selected_roi_index
-                    % Update layer
-                    self.outline_layer.CData =  zeros([self.mask_size,3]);
-                    self.outline_layer.AlphaData = zeros(self.mask_size);
-                end
-            end
-            if roi_index % Roi index has to be >0
-                %fprintf("ROI:%d Selected\n",roi_index);
-                % Get the position of selected roi
-                roi_position = self.mask == roi_index;
+  
 
-                outline = components.drawRoi.mask_to_outline(roi_position);
-                SE = strel('square',2);
-                outline = imdilate(outline ,SE);
-                outline_3D = repmat(outline,1,1,3);
-                % Selected roi assign white color
-                outline_mask = zeros([size(outline),3]);
-                if self.app.MaskOnCheckBox.Value
-                    switch self.app.MaskDropDown.Value
-                        case 'Colored'
-                            outline_mask(outline_3D) = repmat([255,255,255],sum(outline,'all'),1);
-                        case 'Binary'
-                            outline_mask(outline_3D) = repmat([255,0,0],sum(outline,'all'),1);
-                    end
-                end
-                % Update layer
-                self.outline_layer.CData = outline_mask;
-                self.outline_layer.AlphaData = outline;
-
-                % Save selected roi index
-                selecting_roi = true;
-                self.last_selected_roi_index = roi_index;
-            else
-                % Click on the blank space, mask
-                selecting_roi = false;
-                self.last_selected_roi_index = 0;
-            end
-        end
-
-        function delete_cell(self,x,y)
-            % Ctrl+Click to delete cell
-            % Get the roi index of current position
-            roi_index = self.mask(round(y),round(x));
-            if roi_index % Roi index has to be >0
-                % Get the position of selected roi
-                self.delete_selected_cell(roi_index);
-            end      
-        end
-        
-        function delete_selected_cell(self,input_index)
-            arguments
-                self
-                input_index = 0
-            end
-            %% delete selected cell
-            if input_index
-                roi_index = input_index;
-            else
-                roi_index = self.last_selected_roi_index;
-            end
-
-            roi_position = self.mask == roi_index;
-
-            roi_position_3D = repmat(roi_position,1,1,3);
-            self.mask(roi_position) = 0;
-            self.colored_mask(roi_position_3D) = 0;
-            
-            %% for move mask
-            row = self.mask_size(1);
-            col = self.mask_size(2);
-            row_range = row+1:2*row;
-            col_range = col+1:2*col;
-            self.three_fold_mask(row_range+self.move_down,col_range+self.move_right) = self.mask;
-            self.three_fold_colored_mask(row_range+self.move_down,col_range+self.move_right,:) = self.colored_mask;
-            
-
-            
-            %% renumber roi
-            self.three_fold_mask = components.drawRoi.mask_reorder(self.three_fold_mask);
-            self.mask = self.three_fold_mask(row_range+self.move_down,col_range+self.move_right);
-            
-            %% for dilate mask
-            roi_dilate_before_position = self.three_fold_mask_dilate_before == roi_index;
-            self.three_fold_mask_dilate_before(roi_dilate_before_position) = 0;
-            roi_dilate_before_position_3D = repmat(roi_dilate_before_position,1,1,3);
-            self.three_fold_colored_mask_dilate_before(roi_dilate_before_position_3D) = 0;
-            self.three_fold_mask_dilate_before = components.drawRoi.mask_reorder(self.three_fold_mask_dilate_before);
-
-
-            %% update layer
-            self.last_selected_roi_index = 0;
-
-            %self.update_three_fold_mask();
-            self.update_mask_layer();
-
-        end
-
+        % create custom colormap for draw colored roi
         function result = create_colormap(~)
             % colormap hsv的矩阵的维度是256*3，RGB通道一通道值都为1，一个通道值都为0，另一个通道为0-1的小数
             height = 43;
             colormap_matrix = zeros(height,3);
-            % 创建一个空矩阵用于存储拼接后的结果
+            % Create an empty matrix to store the concatenated results
             result = zeros(height*6,3);
             colormap_matrix(:,1) = 1;
             colormap_matrix(:,2) = 0;
             colormap_matrix(:,3) = linspace(0,1,height);
 
-            % 6种排列组合
             permutations = perms(1:3);
-            % 遍历每个排列组合
+            % Traverse each permutation
             for i = 1:size(permutations, 1) 
-                % 获取当前排列组合的列索引
+
                 indices = permutations(i, :);
-
-                % 按照列索引重新排列矩阵的列
                 permuted_matrix = colormap_matrix(:, indices);
-
-                % 拼接矩阵
                 rowRange = ((i-1)*height+1):(i*height);
                 result(rowRange,:) = permuted_matrix;
             end
 
-            % 二维矩阵按行进行去重，如果有重复的行，则删除(因为1，0，0排列组合只有3个，[1,0,1]排列组合只有3个，而默认按6种排列组合进行排列，会有重复
+            % Unique result
             result = unique(result, 'rows', 'stable');
-            % 随机排序
+            % Random Sort
             randomIdx = randperm(size(result,1));
             result = result(randomIdx,:);
-            % 0-1 变为 0-255
+            % To uint8 color
             result = result*255; 
         end
     end
