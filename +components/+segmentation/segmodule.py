@@ -83,8 +83,7 @@ def seg_default_ops():
         'model_loaded': True
     }
 
-def test():
-    print("hello")
+
 def dynamic_compute(masks, flows, ops):
     transform_flow = [[], [], []]
     transform_flow[0] = flows[0].copy()  # RGB flow

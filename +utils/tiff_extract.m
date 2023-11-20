@@ -5,33 +5,43 @@ function imgStackCombine =  tiff_extract(imgStack)
     realFrames = nFrames/10;
     imgStackCombine = zeros(imageSize, imageSize,realFrames );
     
-    colNum = floor(imageSize/10);
-    % 把10帧图片合并为一帧
-    for iframe = 1:realFrames
-        temp_frame =  zeros(imageSize, imageSize);
-        count = 1; %计数，十帧里的哪一帧
-        for i = 1:10
-            img = imgStack(:, :, 10*(iframe-1)+count);
-            start_f = i;
-            if start_f>10
-                % 如果i大于10，自动处理
-                start_f = start_f -10;
-            end
+    for i = 1:realFrames
+        start_frame = (i-1)*10+1;
+        end_frame = i*10;
+        imgStackCombine(:,:,i) = mean(imgStack(:,:,start_frame:end_frame),3);
 
-            start_col = (start_f-1)*colNum +1 ;
-
-            if start_f == 10 % 如果是i=10的填充
-                temp_frame(:,start_col:end) = img(:,start_col:end);
-            else
-                fill_col = start_col:start_col+colNum-1;
-                temp_frame(:,fill_col) = img(:,fill_col);
-            end
-
-            count = count +1;
-        end
-        imgStackCombine(:,:,iframe) = temp_frame;
-        imgStackCombine = int16(imgStackCombine);
     end
+    imgStackCombine = im2int16(mat2gray(double(imgStackCombine)));
+
+
+
+%     % 把10帧图片合并为一帧
+%     colNum = floor(imageSize/10);
+%     for iframe = 1:realFrames
+%         temp_frame =  zeros(imageSize, imageSize);
+%         count = 1; %计数，十帧里的哪一帧
+%         for i = 1:10
+%             img = imgStack(:, :, 10*(iframe-1)+count);
+%             start_f = i;
+%             if start_f>10
+%                 % 如果i大于10，自动处理
+%                 start_f = start_f -10;
+%             end
+% 
+%             start_col = (start_f-1)*colNum +1 ;
+% 
+%             if start_f == 10 % 如果是i=10的填充
+%                 temp_frame(:,start_col:end) = img(:,start_col:end);
+%             else
+%                 fill_col = start_col:start_col+colNum-1;
+%                 temp_frame(:,fill_col) = img(:,fill_col);
+%             end
+% 
+%             count = count +1;
+%         end
+%         imgStackCombine(:,:,iframe) = temp_frame;
+%         imgStackCombine = int16(imgStackCombine);
+%     end
 end
 % function imgStackCombine =  tiff_extract(imgStack)
 %     nFrames = size(imgStack,3);

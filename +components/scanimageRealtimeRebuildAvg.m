@@ -7,7 +7,7 @@
 % 2. 支持检测scanimage的通道数，
 % 3. 可以直接关闭改重建通道图而不再弹出
 % 4. 重建方式改为平均图
-classdef scanimageRealtimeRebuildAvg < handle
+classdef ScanimageRealtimeRebuildAvg < handle
     properties
         hSI = scanimage.SI.empty; % scanimage的变量
         listeners = cell(1,2); % 监听事件
@@ -25,13 +25,17 @@ classdef scanimageRealtimeRebuildAvg < handle
     end
 
     methods(Hidden)
-        function obj = scanimageRealtimeRebuildAvg(hSI)
+        function obj = ScanimageRealtimeRebuildAvg(hSI)
             obj.hSI = hSI;
             obj.imageSize = obj.hSI.hRoiManager.pixelsPerLine;
 
             % TODO：这里的位置可以去三光子电脑具体确认下
            
-            figPositions = {[10,10,408,408],[540,10,408,408]};
+            absolutePositions = {[566,354.3,408,408],[1813,755,408,408]};
+            screenSize = get(0, 'ScreenSize');
+
+
+
 
             
             for iChannel = 1:4
@@ -41,9 +45,12 @@ classdef scanimageRealtimeRebuildAvg < handle
             % 根据scanimage的channel数量显示
 
             for idx = 1:length(obj.hSI.hChannels.channelDisplay)
+
+
                 iChannel = obj.hSI.hChannels.channelDisplay(idx);
+                figPosition =  absolutePositions{iChannel} ./ [screenSize(3), screenSize(4), screenSize(3), screenSize(4)];
                 obj.figChannels{iChannel} = figure('Name',sprintf('Channel %d (Processed)',iChannel),'Visible','On',...
-                    'ColorMap',gray(255),'NumberTitle','off','Menubar','none','Tag','image_channel1','Position',figPositions{iChannel});
+                    'ColorMap',gray(255),'NumberTitle','off','Menubar','none','Tag','image_channel1','Units','normalized','Position',figPosition);
                 obj.rebuildFrameChannels{iChannel} =  zeros(obj.imageSize, obj.imageSize);
 
                 obj.bufferChannels{iChannel} =  zeros(10,obj.imageSize, obj.imageSize);
@@ -121,9 +128,14 @@ classdef scanimageRealtimeRebuildAvg < handle
 
             else % 如果是第十帧,则buffer完毕取平均
                 obj.bufferChannels{options.channel}(10,:,:) = channelFrame;
+                data = obj.bufferChannels{options.channel};
+                
+                % adjust contrast accroding to scanimage
+                data = obj.data_rescale(data,options.channel);
+                obj.bufferChannels{options.channel} = data;
                 rebuildFrameData = squeeze(mean(obj.bufferChannels{options.channel},1));
 
-                %显示图片
+                % display image
                 obj.displayImageChannel(rebuildFrameData,channel = options.channel);
 
                 obj.bufferChannels{options.channel} = zeros(10,obj.imageSize,obj.imageSize);
@@ -138,16 +150,15 @@ classdef scanimageRealtimeRebuildAvg < handle
                 data
                 options.channel
             end
-            % TODO还不确定是不是乘以10:由于是10张取一张平均图，所以还需要乘10
-            data = data*10;
-            chanDataRescaled = obj.data_rescale(data,options.channel);
+            chanDataRescaled = im2uint8(mat2gray(double(data)));
+
 
 
             % 解决标题闪烁的问题: handle = imshow();handle.CData = new_image;
             if obj.firstDrawFlags(options.channel)
 
                 figure(obj.figChannels{options.channel});
-                obj.imageShowHandles{options.channel} = imshow(chanDataRescaled,'border','tight','InitialMagnification', 'fit');
+                obj.imageShowHandles{options.channel} = imshow(chanDataRescaled,[0,255],'border','tight','InitialMagnification', 'fit');
 
                 obj.firstDrawFlags(options.channel) = false;
             else

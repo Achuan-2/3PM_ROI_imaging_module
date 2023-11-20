@@ -466,7 +466,6 @@ classdef DrawROI < handle
 
         % create custom colormap for draw colored roi
         function result = create_colormap(~)
-            % colormap hsv的矩阵的维度是256*3，RGB通道一通道值都为1，一个通道值都为0，另一个通道为0-1的小数
             height = 43;
             colormap_matrix = zeros(height,3);
             % Create an empty matrix to store the concatenated results
