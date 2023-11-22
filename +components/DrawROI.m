@@ -468,8 +468,7 @@ classdef DrawROI < handle
                             self.outline_layer.AlphaData = zeros(self.mask_size);
                             axis(self.app.UIAxes,[0,self.mask_size(2),0,self.mask_size(1)]);
                             self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
-                            se
-                            lf.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
+                            self.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
                             hold(self.app.UIAxes,'off');
                         else
                             self.mask_layer.CData = self.binary_mask*255; %因为使用imageshow的Cdatga更改图像，scale不会改变，需要手动调整图像对比度
@@ -483,7 +482,6 @@ classdef DrawROI < handle
                 % Caculate roi info
                 self.app.ROIsEditField.Value = length(unique(self.app.DrawROI.mask))-1;
                 roiRatio = round(length(find(self.app.DrawROI.mask>0))/numel(self.app.DrawROI.mask),4);
-                self.app.ROIRatioEditField_2.Value = roiRatio;
                 self.app.ROIRatioEditField.Value = roiRatio;
 
             end
