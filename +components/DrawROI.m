@@ -1,5 +1,5 @@
 classdef DrawROI < handle
-    % 绘制ROI以及手动绘制ROI模块
+    % DrawROI: Draw roi mask in axes and support add/delete rois manually
     properties
         app roi_imaging_module;% roi_imaging_module app
     end
