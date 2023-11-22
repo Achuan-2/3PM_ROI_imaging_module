@@ -444,11 +444,37 @@ classdef DrawROI < handle
                 value = self.app.MaskDropDown.Value;
                 switch value
                     case 'Colored'
-                        self.mask_layer.CData = self.colored_mask;
-                        self.mask_layer.AlphaData = self.mask_alphadata;
+                        if isempty(self.mask_layer)
+                            hold(self.app.UIAxes,'on');
+                            self.mask_layer = imshow(self.colored_mask,[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
+                            self.mask_layer.AlphaData = self.mask_alphadata;
+                            self.outline_layer = imshow(uint8(zeros([self.mask_size,3])),[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
+                            self.outline_layer.AlphaData = zeros(self.mask_size);
+                            axis(self.app.UIAxes,[0,self.mask_size(2),0,self.mask_size(1)]);
+                            self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
+                            self.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
+                            hold(self.app.UIAxes,'off');
+                        else
+                            self.mask_layer.CData = self.colored_mask;
+                            self.mask_layer.AlphaData = self.mask_alphadata;
+                        end
+                        
                     case 'Binary'
-                        self.mask_layer.CData = self.binary_mask*255; % rescale to [0,255]
-                        self.mask_layer.AlphaData = 1;
+                        if isempty(self.mask_layer)
+                            hold(self.app.UIAxes,'on');
+                            self.mask_layer = imshow(self.binary_mask*255,[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
+                            self.mask_layer.AlphaData = ones(self.mask_size);
+                            self.outline_layer = imshow(uint8(zeros([self.mask_size,3])),[0,255],'parent',self.app.UIAxes,'border','tight','initialmagnification','fit');
+                            self.outline_layer.AlphaData = zeros(self.mask_size);
+                            axis(self.app.UIAxes,[0,self.mask_size(2),0,self.mask_size(1)]);
+                            self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
+                            se
+                            lf.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
+                            hold(self.app.UIAxes,'off');
+                        else
+                            self.mask_layer.CData = self.binary_mask*255; %因为使用imageshow的Cdatga更改图像，scale不会改变，需要手动调整图像对比度
+                            self.mask_layer.AlphaData = ones(self.mask_size);
+                        end
                 end
                 self.last_selected_roi_index = 0;
                 self.outline_layer.CData =  zeros([self.mask_size,3]);
