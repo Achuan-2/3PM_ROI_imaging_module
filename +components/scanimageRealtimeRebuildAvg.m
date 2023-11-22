@@ -31,8 +31,7 @@ classdef ScanimageRealtimeRebuildAvg < handle
 
             % TODO：这里的位置可以去三光子电脑具体确认下
            
-            absolutePositions = {[566,354.3,408,408],[1813,755,408,408]};
-            screenSize = get(0, 'ScreenSize');
+            normalizedPositions = {[0.5471 0.5222 0.1594 0.2833],[0.7094 0.5227 0.1594 0.2833]};
 
 
 
@@ -48,7 +47,7 @@ classdef ScanimageRealtimeRebuildAvg < handle
 
 
                 iChannel = obj.hSI.hChannels.channelDisplay(idx);
-                figPosition =  absolutePositions{iChannel} ./ [screenSize(3), screenSize(4), screenSize(3), screenSize(4)];
+                figPosition =   normalizedPositions{idx};
                 obj.figChannels{iChannel} = figure('Name',sprintf('Channel %d (Processed)',iChannel),'Visible','On',...
                     'ColorMap',gray(255),'NumberTitle','off','Menubar','none','Tag','image_channel1','Units','normalized','Position',figPosition);
                 obj.rebuildFrameChannels{iChannel} =  zeros(obj.imageSize, obj.imageSize);
