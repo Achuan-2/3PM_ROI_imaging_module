@@ -101,7 +101,9 @@ classdef ScanimageRealtimeRebuildAvg < handle
             % 平均10帧保存为一张图
 
             for idx = 1:length(obj.hSI.hChannels.channelDisplay)
-                iChannel = obj.hSI.hChannels.channelDisplay(idx);
+                iChannel = idx;
+                %iChannel = obj.hSI.hChannels.channelDisplay(idx); %
+                %兼容只开ch1、ch3，不开ch2
                 if isvalid(obj.figChannels{iChannel})
                     
                     obj.processImageChannel(channel = iChannel);
@@ -117,6 +119,7 @@ classdef ScanimageRealtimeRebuildAvg < handle
             end
 
             % 获取当前帧
+
             channelFrame = single(obj.hSI.hDisplay.lastFrame{options.channel});
 
             % 对十帧图像进行重建
