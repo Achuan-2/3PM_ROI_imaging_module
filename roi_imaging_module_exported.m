@@ -87,15 +87,18 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         AwgControlApp;
         SimulationApp;
         PowerCaculateAPP;
-        awgDevice= ividev.NIFGEN.empty; % AWG Device Object, default:empty
+        
         roiMask % Dilate之后
-        roiMaskRaw; % 原图
-        listeners;
+            
+        % AWG
+        awgDevice= ividev.NIFGEN.empty; % AWG Device Object, default:empty
+
+        % Scaniamge变量
         hSI = scanimage.SI.empty;
         hSICtl = scanimage.SIController.empty;
 
         % components
-        structureRebuild = components.ScanimageRealtimeRebuildAvg.empty;
+        StructureRebuilder = components.ScanimageRealtimeRebuildAvg.empty;
         DrawROI = components.DrawROI.empty; % Description;
         Segmentation = components.Segmentation.empty;
     end
@@ -120,9 +123,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
     % listener
     properties (Access = private)
         structureListener = event.listener.empty;% listener for structure imaging
-        roiImagingListener = event.listener.empty;% listener for roi imaging
-        roiImagingDoneListener = event.listener.empty;% listener for roi imaging end
-        powerListener  = event.listener.empty;
         img_seg_name % Description
         img_seg_ext
     end
@@ -277,8 +277,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function process_structure_image(app,filename,path)
             % 分割tif为两个通道
             fullpath = fullfile(path, filename);
-            [imgStackCh1,imgStackCh2] = utils.tiff_read_volume(fullpath,'nChannel',2);
-            tagstruct = utils.tiff_info(fullpath);
+            [imgStackCh1,imgStackCh2] = utils.tiff_read(fullpath,2);
+            % 读取分辨率信息
+            t = Tiff(fullpath, 'r');
+            tagstruct.XResolution = t.getTag("XResolution");
+            tagstruct.YResolution = tagstruct.XResolution;
+            t.close();
 
             % 需要去ripple noise
             rippleNoise = 700;
@@ -286,10 +290,9 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             imgStackCh2(imgStackCh2<rippleNoise) = 0;
 
             % 每十张组合成一张图
-            imgStackCombineCh1 =  utils.tiff_extract(imgStackCh1);
-            imgStackCombineCh2 =  utils.tiff_extract(imgStackCh2);
+            imgStackCh1 =  utils.tiff_extract(imgStackCh1);
+            imgStackCh2 =  utils.tiff_extract(imgStackCh2);
 
-            frames = size(imgStackCombineCh1,3);
 
             % 创建Processed文件夹
             folderProcessed = fullfile(path,'Stucture'); % TODO：这个也作为配置文件？
@@ -298,32 +301,31 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             end
 
             % 保存为raw tif
-            [~, name, ext] = fileparts(filename);
-            utils.tiff_save(fullfile(folderProcessed, [name,'_ch1',ext]),imgStackCombineCh1,tagstruct);
-            utils.tiff_save(fullfile(folderProcessed, [name,'_ch2',ext]),imgStackCombineCh2,tagstruct);
+            frames = size(imgStackCh1,3);
+            [~, fname, fext] = fileparts(filename);
+            utils.tiff_save(imgStackCh1,fullfile(folderProcessed, [fname,'_ch1',fext]),tagstruct);
+            utils.tiff_save(imgStackCh2,fullfile(folderProcessed, [fname,'_ch2',fext]),tagstruct);
 
-            % 保存平均图
-            imgAvgCh1 = utils.tiff_save_avg(fullfile(folderProcessed, [name,'_ch1_AVG',ext]),imgStackCombineCh1);
-            imgAvgCh2 = utils.tiff_save_avg(fullfile(folderProcessed, [name,'_ch2_AVG',ext]),imgStackCombineCh2);
+
+            % 保存为average tif
+            imgAvgCh1 = utils.tiff_projection_avg(imgStackCh1);
+            utils.tiff_save(imgAvgCh1,fullfile(folderProcessed, sprintf('%s_ch1_%d_Frames_AVG%s', fname,frames, fext)),tagstruct);
+            imgAvgCh2 = utils.tiff_projection_avg(imgStackCh2);
+            utils.tiff_save(imgAvgCh2,fullfile(folderProcessed, sprintf('%s_ch2_%d_Frames_AVG%s', fname,frames, fext)),tagstruct);
 
             % 自动调整对比度 EnhanceContrast
-            app.img_avg_Ch1 = utils.tiff_adjust(fullfile(folderProcessed, sprintf('%s_ch1_%d_Frames_AVG_EnhanceContrast%s', name,frames, ext)),imgAvgCh1);
-            app.img_avg_Ch2 = utils.tiff_adjust(fullfile(folderProcessed, sprintf('%s_ch2_%d_Frames_AVG_EnhanceContrast%s', name,frames, ext)),imgAvgCh2);
+            app.img_avg_Ch1 = imadjust(imgAvgCh1);
+            app.img_avg_Ch2 = imadjust(imgAvgCh2);
+            utils.tiff_save(app.img_avg_Ch1,fullfile(folderProcessed, sprintf('%s_ch1_%d_Frames_AVG_EnhanceContrast%s', fname,frames, fext)),tagstruct);
+            utils.tiff_save(app.img_avg_Ch2,fullfile(folderProcessed, sprintf('%s_ch2_%d_Frames_AVG_EnhanceContrast%s', fname,frames, fext)),tagstruct);
 
-            %% 保存结构图
-            % 保存max图
-            utils.tiff_save_max(fullfile(folderProcessed,[name,'_ch1_MAX_AVG',ext]),imgStackCombineCh1,0.05);
-            utils.tiff_save_max(fullfile(folderProcessed, [name,'_ch2_MAX_AVG',ext]),imgStackCombineCh2,0.05);
-
-            % 保存std图
-            utils.tiff_save_std(fullfile(folderProcessed,[name,'_ch1_STD',ext]),imgStackCombineCh1);
-            utils.tiff_save_std(fullfile(folderProcessed, [name,'_ch2_STD',ext]),imgStackCombineCh2);
 
             % 加载Ch1的图像
             app.ChannelDropDown.Enable = "on";
 
             hold(app.UIAxes,'off');
             app.img_seg_data = app.img_avg_Ch1;
+            app.ChannelDropDown.Value = 'CH1';
             imshow(app.img_seg_data,[],'parent',app.UIAxes,'border','tight','initialmagnification','fit');
 
             img_size = size(app.img_seg_data);
@@ -333,8 +335,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % init DrawROI components
             app.init_DrawROI();
             % for save mask
-            app.img_seg_name = name;
-            app.img_seg_ext =  ext;
+            app.img_seg_name = fname;
+            app.img_seg_ext =  fext;
             app.img_seg_filename = [app.img_seg_name,'_ch1',app.img_seg_ext];
             app.last_seg_tiff_path = fullfile(path,'Stucture');
         end
@@ -419,42 +421,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.StructureImagingLamp.Color = [0.93,0.69,0.13];
             app.ROIImagingLamp.Color = [0.90,0.90,0.90];
             disp("ROI Imaging Module: Laser Keep On");
-
-            % scanimage
-            delete(app.structureRebuild);
-
-        end
-
-        function laser_1on_9off(app)
-            % avoid awg device is not connected
-            if isempty(app.awgDevice)
-                uialert(app.RoiImagingModuleUIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
-                return
-            end
-
-            reset(app.awgDevice);
-            % create pulse for keeping laser off
-            modulatedArray = [app.defaultConfig.pulseOn,repmat(app.defaultConfig.pulseOff,1,9)];
-            waveformDataArray = repmat(modulatedArray,1,2);
-            waveformHandle = awg.create_waveform_handle(app.awgDevice,waveformDataArray);
-
-            % generate Arb waveform with no trigger(do not wait until scanimage grab a image)
-            awg.create_arb_waveform_notrigger(app.awgDevice,waveformHandle,app.waveformConfig);
-
-            % turn on structure lamp
-            app.StructureImagingLamp.Color = [0.90,0.90,0.90];
-            pause(0.1);
-            app.StructureImagingLamp.Color = [0.00,1.00,0.00];
-            app.ROIImagingLamp.Color = [0.90,0.90,0.90];
-            disp("ROI Imaging Module: 0.1MHz Imaging");
-
-            % TODO, 这个可以设置为配置选项，比如在config.json文件里设置两个
-            % scanimage
-            if isvalid(app.hSI)
-                app.hSI.hChannels.channelLUT{1} = [200,400]; % [black,white]
-                app.hSI.hChannels.channelLUT{2} = [200,400];
-                app.hSI.hScan2D.pixelBinFactor = 10;
-            end
         end
 
 
@@ -611,7 +577,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 return
             end
             app.ScanimageButton.BackgroundColor = [0.33,0.60,0.85];
-
+            app.ScanimageButton.Value = true;
 
 
 
@@ -667,7 +633,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function RoiImagingModuleUIFigureCloseRequest(app, event)
             % when exit MainApp
             % disconnect awg device
-            delete(app.structureRebuild);
+            if isvalid (app.StructureRebuilder)
+                delete(app.StructureRebuilder);
+            end
+            if isvalid(app.structureListener)
+                delete(app.structureListener);
+            end
 
             if isvalid(app.awgDevice)
                 reset(app.awgDevice);
@@ -675,17 +646,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 pause(2);
                 awg.disconnect(app.awgDevice);
             end
-            if isvalid(app.structureListener)
-                delete(app.structureListener);
-            end
 
-            if isvalid(app.roiImagingListener)
-                delete(app.roiImagingListener);
-                delete(app.roiImagingDoneListener);
-            end
-            if isvalid(app.powerListener)
-                delete(app.powerListener);
-            end
+
             % close subapp
             if app.AwgSettingsApp ~= 0
                 delete(app.AwgSettingsApp)
@@ -979,24 +941,15 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 % save path for next click
                 app.last_seg_tiff_path = path;
                 app.img_seg_filename = filename;
-                [~,~,ext] = fileparts(app.img_seg_filename);
+                info = imfinfo(fullfile(path,filename));
 
-
-                % load tiff/png
-                switch ext
-                    case '.tif'
-                        app.img_seg_data= tiffreadVolume(fullfile(app.last_seg_tiff_path,filename));
-                    case '.png'
-                        app.img_seg_data= imread(fullfile(app.last_seg_tiff_path,filename));
-                end
-
-
-                % process loaded image
-                if ndims(app.img_seg_data) == 3
+                % load image
+                if length(info)>1
                     % stacked frames
-                    app.process_structure_image(filename,path);
+                    process_structure_image(app,filename,path);
                 else
                     % single frame
+                    app.img_seg_data= imread(fullfile(app.last_seg_tiff_path,filename));
                     app.ChannelDropDown.Enable = 'off';
                     hold(app.UIAxes,'off');
                     app.img_seg_data = imadjust(app.img_seg_data);
@@ -1369,7 +1322,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         % Button pushed function: SaveMaskButton
         function SaveMaskButtonPushed(app, event)
-
+            
             [~, file_name, ~]  = fileparts(app.img_seg_filename);
 
             non_modal_filename_input(app,file_name);
@@ -1433,15 +1386,14 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 return
             end
 
-            % delete 0.1MHz listener
-            delete(app.structureRebuild);
-            if isvalid(app.structureListener)
-                delete(app.structureRebuild);
-                delete(app.structureListener);
-                disp("ROI Imaging Module: Delete 0.1 MHz Listener to SCANIMAGE for ROI imaging!");
+            % delete 0.1MHz listener and Rebuild
+            if isvalid (app.StructureRebuilder)
+                delete(app.StructureRebuilder);
             end
 
-
+            if isvalid(app.structureListener)
+                delete(app.structureListener);
+            end
             %% set AWG output
             % reset AWG device for new waveform
             reset(app.awgDevice);
@@ -1456,12 +1408,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % create waveform
             waveformHandle = awg.create_waveform_handle(app.awgDevice,framePulse);
 
-            % % generate Arb waveform
-            % awg.create_arb_waveform(app.awgDevice,waveformHandle,app.waveformConfig);
-
-            % generate Arb waveform with no trigger(do not wait until scanimage grab a image)
-            %temp_config = app.waveformConfig;
-
+            % generate Arb waveform
             awg.create_arb_waveform(app.awgDevice,waveformHandle,app.waveformConfig);
             %% light lamp
             app.RegularImagingButton.FontWeight = 'normal';
@@ -1485,14 +1432,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.laser_keep_on();
 
             % Delete 0.1 MHz Listener to SCANIMAGE for Laser Keep On!
-            if isvalid(app.structureListener)
-                delete(app.structureRebuild);
-                delete(app.structureListener);
+            if isvalid (app.StructureRebuilder)
+                delete(app.StructureRebuilder);
             end
 
-            if isvalid(app.roiImagingListener)
-                delete(app.roiImagingListener);
-                delete(app.roiImagingDoneListener);
+            if isvalid(app.structureListener)
+                delete(app.structureListener);
             end
         end
 
@@ -1502,24 +1447,21 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 uialert(app.RoiImagingModuleUIFigure,"Please Connect Scanimage First",'Warning','Icon','warning');
                 return
             end
+
             % 控制AWG进行十分之一成像
             app.structure_imaging_callback();
 
-            % 实时成像重建
-            delete(app.structureRebuild);
-
-            % 根据scanimage当前打开的channel进行重建？
-            app.structureRebuild= components.ScanimageRealtimeRebuildAvg(app.hSI);
-            app.structureRebuild.listen_to_scanimage();
-
+            % 实时成像重建：根据scanimage当前打开的channel进行重建
+            delete(app.StructureRebuilder);
+            app.StructureRebuilder= components.ScanimageRealtimeRebuildAvg(app.hSI);
+            app.StructureRebuilder.listen_to_scanimage();
+            
+            % 0.1MHZ 监听程序
             if isa(app.hSI,'scanimage.SI')
                 if isvalid(app.structureListener)
                     delete(app.structureListener);
                 end
-                if isvalid(app.roiImagingListener)
-                    delete(app.roiImagingListener);
-                    delete(app.roiImagingDoneListener);
-                end
+                %TODO：目前这个貌似没有意义了，因为不需要第一帧就是最左边开始拍
                 app.structureListener = addlistener(app.hSI.hUserFunctions, 'acqModeStart', @app.structure_imaging_callback); % focus或grab结束后，自动重置结构成像
                 disp("ROI Imaging Module: Listener to SCANIMAGE for 0.1MHz");
             else
