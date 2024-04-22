@@ -2,8 +2,8 @@ function imgStackCombine =  tiff_extract(imgStack)
     % 每十帧合并为一帧
     nFrames = size(imgStack,3); % 获取总帧数
     imageSize = size(imgStack,1); 
-    realFrames = nFrames/10;
-    imgStackCombine = zeros(imageSize, imageSize,realFrames );
+    realFrames = floor(nFrames/10); % 需要考虑帧不为10倍整数的情况
+    imgStackCombine = zeros(imageSize, imageSize,realFrames);
     
     for i = 1:realFrames
         start_frame = (i-1)*10+1;
@@ -13,7 +13,7 @@ function imgStackCombine =  tiff_extract(imgStack)
     end
     imgStackCombine = im2int16(mat2gray(double(imgStackCombine)));
 
-
+end
 
 %     % 把10帧图片合并为一帧
 %     colNum = floor(imageSize/10);
@@ -42,7 +42,7 @@ function imgStackCombine =  tiff_extract(imgStack)
 %         imgStackCombine(:,:,iframe) = temp_frame;
 %         imgStackCombine = int16(imgStackCombine);
 %     end
-end
+%end
 % function imgStackCombine =  tiff_extract(imgStack)
 %     nFrames = size(imgStack,3);
 %     imageSize = size(imgStack,1);
