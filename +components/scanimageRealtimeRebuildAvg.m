@@ -17,7 +17,7 @@ classdef ScanimageRealtimeRebuildAvg < handle
         rebuildFrameChannels = cell(1,4); % 重建的图
         imageSize; % 采集图像的大小
         countBufferFrames = 0; % 计算当前已经处理多少帧
-        firstDrawFlags = [true,true]; %是否是第一次显示图
+        firstDrawFlags = [true,true,true,true]; %是否是第一次显示图
         imageShowHandles = cell(1,4); % 用于figure更新图片不闪烁标题
 
         bufferChannels = cell(1,4); % channel的buffer，用于取平均图
@@ -102,11 +102,11 @@ classdef ScanimageRealtimeRebuildAvg < handle
 
             for idx = 1:length(obj.hSI.hChannels.channelDisplay)
                 iChannel = idx;
-                %iChannel = obj.hSI.hChannels.channelDisplay(idx); %
+                channelName = obj.hSI.hChannels.channelDisplay(idx); 
                 %兼容只开ch1、ch3，不开ch2
-                if isvalid(obj.figChannels{iChannel})
+                if isvalid(obj.figChannels{channelName})
                     
-                    obj.processImageChannel(channel = iChannel);
+                    obj.processImageChannel(channelIndex = iChannel,channelName=channelName);
                 end
             end
 
@@ -115,32 +115,32 @@ classdef ScanimageRealtimeRebuildAvg < handle
         function processImageChannel(obj, options)
             arguments
                 obj
-                options.channel
+                options.channelIndex
+                options.channelName
             end
-
             % 获取当前帧
 
-            channelFrame = single(obj.hSI.hDisplay.lastFrame{options.channel});
+            channelFrame = single(obj.hSI.hDisplay.lastFrame{options.channelIndex});
 
             % 对十帧图像进行重建
             nFrame = mod(obj.countBufferFrames,10);
             if nFrame % 1-9帧，进行buffer
-                obj.bufferChannels{options.channel}(nFrame,:,:) = channelFrame;
+                obj.bufferChannels{options.channelName}(nFrame,:,:) = channelFrame;
 
 
             else % 如果是第十帧,则buffer完毕取平均
-                obj.bufferChannels{options.channel}(10,:,:) = channelFrame;
-                data = obj.bufferChannels{options.channel};
+                obj.bufferChannels{options.channelName}(10,:,:) = channelFrame;
+                data = obj.bufferChannels{options.channelName};
                 
                 % adjust contrast accroding to scanimage
-                data = obj.data_rescale(data,options.channel);
-                obj.bufferChannels{options.channel} = data;
-                rebuildFrameData = squeeze(mean(obj.bufferChannels{options.channel},1));
+                data = obj.data_rescale(data,options.channelIndex);
+                obj.bufferChannels{options.channelName} = data;
+                rebuildFrameData = squeeze(mean(obj.bufferChannels{options.channelName},1));
 
                 % display image
-                obj.displayImageChannel(rebuildFrameData,channel = options.channel);
+                obj.displayImageChannel(rebuildFrameData,channel = options.channelName);
 
-                obj.bufferChannels{options.channel} = zeros(10,obj.imageSize,obj.imageSize);
+                obj.bufferChannels{options.channelName} = zeros(10,obj.imageSize,obj.imageSize);
                 
             end
             
@@ -152,7 +152,7 @@ classdef ScanimageRealtimeRebuildAvg < handle
                 data
                 options.channel
             end
-            chanDataRescaled = im2uint8(mat2gray(double(data)));
+            chanDataRescaled = im2uint8(mat2gray(double(data))); % 这一句估计有问题
 
 
 
