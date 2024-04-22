@@ -51,7 +51,7 @@ def seg(std_image, ops):
     return mask, flows
 
 
-def seg_default_ops():
+def default_ops():
     """ default options to run pipeline """
     chan1 = 1
     chan2 = 0

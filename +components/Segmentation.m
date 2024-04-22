@@ -14,18 +14,18 @@ classdef Segmentation < handle
         function self = Segmentation(img,model_type,flow_threshold)
             %UNTITLED Construct an instance of this class
             %   Detailed explanation goes here
-            self.ops = py.segmodule.seg_default_ops();
+            self.ops = py.mymod.default_ops();
             self.ops{'model_type'} = model_type;
             self.ops{'flow_threshold'} = flow_threshold;
             self.img_nparray = components.segmentation.mat2nparray(img);
         end
         
         function [mask_matlab]= run(self)
-            diameter = py.segmodule.cal_diam(self.img_nparray,self.ops);
+            diameter = py.mymod.cal_diam(self.img_nparray,self.ops);
             self.ops{'diameter'} =diameter;
 
             % run segmentation
-            results = py.segmodule.seg(self.img_nparray,self.ops);
+            results = py.mymod.seg(self.img_nparray,self.ops);
             
             
             % segment result
@@ -39,7 +39,7 @@ classdef Segmentation < handle
         function mask_matlab = change_threshold(self,threshold)
 
             self.ops{'flow_threshold'} = threshold;
-            self.seg_mask = py.segmodule.dynamic_compute( ...
+            self.seg_mask = py.mymod.dynamic_compute( ...
                 self.seg_mask, ...
                 self.seg_flow, ...
                 self.ops);
