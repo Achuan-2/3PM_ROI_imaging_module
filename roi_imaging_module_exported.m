@@ -2,76 +2,77 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
-        RoiImagingModuleUIFigure      matlab.ui.Figure
-        FileMenu                      matlab.ui.container.Menu
-        LoadStructureImageMenu        matlab.ui.container.Menu
-        LoadExternalmaskMenu          matlab.ui.container.Menu
-        SaveConfigMenu                matlab.ui.container.Menu
-        LoadConfigMenu                matlab.ui.container.Menu
-        SettingsMenu                  matlab.ui.container.Menu
-        AWGSettingsMenu               matlab.ui.container.Menu
-        ScannerSettingsMenu           matlab.ui.container.Menu
-        AddonsMenu                    matlab.ui.container.Menu
-        PowerCaculateMenu             matlab.ui.container.Menu
-        AWGControlMenu                matlab.ui.container.Menu
-        ROIImagingSimulationMenu      matlab.ui.container.Menu
-        CustomDrawMenu_2              matlab.ui.container.Menu
-        HelpMenu                      matlab.ui.container.Menu
-        Toolbar                       matlab.ui.container.Toolbar
-        SimulationToggleTool          matlab.ui.container.toolbar.ToggleTool
-        GridLayout                    matlab.ui.container.GridLayout
-        LeftPanel                     matlab.ui.container.Panel
-        StructureImagingPanel         matlab.ui.container.Panel
-        RegularImagingButton          matlab.ui.control.Button
-        Laser1on9offButton            matlab.ui.control.Button
-        StructureImagingLamp          matlab.ui.control.Lamp
-        SettingsPanel                 matlab.ui.container.Panel
-        ScanimageButton               matlab.ui.control.StateButton
-        ConfigurationFileEditField    matlab.ui.control.EditField
-        ConfigurationEditFieldLabel   matlab.ui.control.Label
-        AdvancedSettingsOpenButton    matlab.ui.control.Button
-        ConfigFileSelectButton        matlab.ui.control.Button
-        isConnectedLabel              matlab.ui.control.Label
-        AWGStatusLabel                matlab.ui.control.Label
-        AwgConnectButton              matlab.ui.control.Button
-        ROIImagingPanel               matlab.ui.container.Panel
-        RealtimeregistrationCheckBox  matlab.ui.control.CheckBox
-        ROIImagingLamp                matlab.ui.control.Lamp
-        AbortButton                   matlab.ui.control.Button
-        LaserROIImagingButton         matlab.ui.control.Button
-        ManualcorrectionPanel         matlab.ui.container.Panel
-        SaveMaskButton                matlab.ui.control.Button
-        LoadMaskButton                matlab.ui.control.Button
-        ROIdilateSpinner              matlab.ui.control.Spinner
-        ROIdilateSpinnerLabel         matlab.ui.control.Label
-        MaskOnCheckBox                matlab.ui.control.CheckBox
-        MaskDropDown                  matlab.ui.control.DropDown
-        MaskDropDownLabel             matlab.ui.control.Label
-        NeuronSegmentationPanel       matlab.ui.container.Panel
-        LoadSegImageButton            matlab.ui.control.Button
-        RunModelButton                matlab.ui.control.Button
-        ThresholdSpinner              matlab.ui.control.Spinner
-        ThresholdSpinnerLabel         matlab.ui.control.Label
-        ModelsDropDown                matlab.ui.control.DropDown
-        ModelsDropDownLabel           matlab.ui.control.Label
-        RightPanel                    matlab.ui.container.Panel
-        UIAxesHomeButton              matlab.ui.control.Button
-        ROIRatioEditField             matlab.ui.control.NumericEditField
-        ROIRatioEditField_2Label      matlab.ui.control.Label
-        ROIsEditField                 matlab.ui.control.NumericEditField
-        ROIsEditFieldLabel            matlab.ui.control.Label
-        PowerCaculatePanel            matlab.ui.container.Panel
-        UpdateButton                  matlab.ui.control.Button
-        PowerCostEditField            matlab.ui.control.NumericEditField
-        PowerCoseLabel                matlab.ui.control.Label
-        ROIPowerEditField             matlab.ui.control.NumericEditField
-        ROIPowermWEditField_2Label    matlab.ui.control.Label
-        StructurePowerEditField       matlab.ui.control.NumericEditField
-        MHzPowermWEditFieldLabel      matlab.ui.control.Label
-        ImagingPowerEditField         matlab.ui.control.NumericEditField
-        LaserPowermWLabel             matlab.ui.control.Label
-        ChannelDropDown               matlab.ui.control.DropDown
-        UIAxes                        matlab.ui.control.UIAxes
+        RoiImagingModuleUIFigure     matlab.ui.Figure
+        FileMenu                     matlab.ui.container.Menu
+        LoadStructureImageMenu       matlab.ui.container.Menu
+        LoadExternalmaskMenu         matlab.ui.container.Menu
+        SaveConfigMenu               matlab.ui.container.Menu
+        LoadConfigMenu               matlab.ui.container.Menu
+        SettingsMenu                 matlab.ui.container.Menu
+        AWGSettingsMenu              matlab.ui.container.Menu
+        ScannerSettingsMenu          matlab.ui.container.Menu
+        AddonsMenu                   matlab.ui.container.Menu
+        PowerCaculateMenu            matlab.ui.container.Menu
+        AWGControlMenu               matlab.ui.container.Menu
+        ROIImagingSimulationMenu     matlab.ui.container.Menu
+        CustomDrawMenu_2             matlab.ui.container.Menu
+        HelpMenu                     matlab.ui.container.Menu
+        Toolbar                      matlab.ui.container.Toolbar
+        SimulationToggleTool         matlab.ui.container.toolbar.ToggleTool
+        GridLayout                   matlab.ui.container.GridLayout
+        LeftPanel                    matlab.ui.container.Panel
+        StructureImagingPanel        matlab.ui.container.Panel
+        RegularImagingButton         matlab.ui.control.Button
+        Laser1on9offButton           matlab.ui.control.Button
+        StructureImagingLamp         matlab.ui.control.Lamp
+        SettingsPanel                matlab.ui.container.Panel
+        ScanimageButton              matlab.ui.control.StateButton
+        ConfigurationFileEditField   matlab.ui.control.EditField
+        ConfigurationEditFieldLabel  matlab.ui.control.Label
+        AdvancedSettingsOpenButton   matlab.ui.control.Button
+        ConfigFileSelectButton       matlab.ui.control.Button
+        isConnectedLabel             matlab.ui.control.Label
+        AWGStatusLabel               matlab.ui.control.Label
+        AwgConnectButton             matlab.ui.control.Button
+        ROIImagingPanel              matlab.ui.container.Panel
+        RealtimeregistrationButton   matlab.ui.control.Button
+        ChannelDropDown_2            matlab.ui.control.DropDown
+        ROIImagingLamp               matlab.ui.control.Lamp
+        AbortButton                  matlab.ui.control.Button
+        LaserROIImagingButton        matlab.ui.control.Button
+        ManualcorrectionPanel        matlab.ui.container.Panel
+        SaveMaskButton               matlab.ui.control.Button
+        LoadMaskButton               matlab.ui.control.Button
+        ROIdilateSpinner             matlab.ui.control.Spinner
+        ROIdilateSpinnerLabel        matlab.ui.control.Label
+        MaskOnCheckBox               matlab.ui.control.CheckBox
+        MaskDropDown                 matlab.ui.control.DropDown
+        MaskDropDownLabel            matlab.ui.control.Label
+        NeuronSegmentationPanel      matlab.ui.container.Panel
+        LoadSegImageButton           matlab.ui.control.Button
+        RunModelButton               matlab.ui.control.Button
+        ThresholdSpinner             matlab.ui.control.Spinner
+        ThresholdSpinnerLabel        matlab.ui.control.Label
+        ModelsDropDown               matlab.ui.control.DropDown
+        ModelsDropDownLabel          matlab.ui.control.Label
+        RightPanel                   matlab.ui.container.Panel
+        UIAxesHomeButton             matlab.ui.control.Button
+        ROIRatioEditField            matlab.ui.control.NumericEditField
+        ROIRatioEditField_2Label     matlab.ui.control.Label
+        ROIsEditField                matlab.ui.control.NumericEditField
+        ROIsEditFieldLabel           matlab.ui.control.Label
+        PowerCaculatePanel           matlab.ui.container.Panel
+        UpdateButton                 matlab.ui.control.Button
+        PowerCostEditField           matlab.ui.control.NumericEditField
+        PowerCoseLabel               matlab.ui.control.Label
+        ROIPowerEditField            matlab.ui.control.NumericEditField
+        ROIPowermWEditField_2Label   matlab.ui.control.Label
+        StructurePowerEditField      matlab.ui.control.NumericEditField
+        MHzPowermWEditFieldLabel     matlab.ui.control.Label
+        ImagingPowerEditField        matlab.ui.control.NumericEditField
+        LaserPowermWLabel            matlab.ui.control.Label
+        ChannelDropDown              matlab.ui.control.DropDown
+        UIAxes                       matlab.ui.control.UIAxes
     end
 
     % Properties that correspond to apps with auto-reflow
@@ -101,6 +102,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         StructureRebuilder = components.ScanimageRealtimeRebuildAvg.empty;
         DrawROI = components.DrawROI.empty; % Description;
         Segmentation = components.Segmentation.empty;
+
     end
 
 
@@ -139,7 +141,11 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         seg_adjust_enable logical = false; % % 是否可以调节阈值重新生成分割图，当run model的时候改为true，重新修改model的时候，设置为false
         drawroi_enable logical = false;
     end
-
+    
+    % 配准
+    properties (Access=public)
+        refImg; 
+    end
 
 
     methods (Access = private)
@@ -277,7 +283,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function process_structure_image(app,filename,path)
             % 分割tif为两个通道
             fullpath = fullfile(path, filename);
-            [imgStackCh1,imgStackCh2] = utils.tiff_read(fullpath,2);
+            imgStackCh1 = utils.tiff_read(fullpath);
             % 读取分辨率信息
             t = Tiff(fullpath, 'r');
             tagstruct.XResolution = t.getTag("XResolution");
@@ -285,13 +291,11 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             t.close();
 
             % 需要去ripple noise
-            rippleNoise = 700;
-            imgStackCh1(imgStackCh1<rippleNoise) = 0;
-            imgStackCh2(imgStackCh2<rippleNoise) = 0;
+            % rippleNoise = 700;
+            % imgStackCh1(imgStackCh1<rippleNoise) = 0;
 
             % 每十张组合成一张图
-            imgStackCh1 =  utils.tiff_extract(imgStackCh1);
-            imgStackCh2 =  utils.tiff_extract(imgStackCh2);
+            %imgStackCh1 =  utils.tiff_extract(imgStackCh1);
 
 
             % 创建Processed文件夹
@@ -303,22 +307,22 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % 保存为raw tif
             frames = size(imgStackCh1,3);
             [~, fname, fext] = fileparts(filename);
-            utils.tiff_save(imgStackCh1,fullfile(folderProcessed, [fname,'_ch1',fext]),tagstruct);
-            utils.tiff_save(imgStackCh2,fullfile(folderProcessed, [fname,'_ch2',fext]),tagstruct);
+            utils.tiff_save(imgStackCh1,fullfile(folderProcessed, [fname,fext]),tagstruct);
 
 
             % 保存为average tif
             imgAvgCh1 = utils.tiff_projection_avg(imgStackCh1);
-            utils.tiff_save(imgAvgCh1,fullfile(folderProcessed, sprintf('%s_ch1_%d_Frames_AVG%s', fname,frames, fext)),tagstruct);
-            imgAvgCh2 = utils.tiff_projection_avg(imgStackCh2);
-            utils.tiff_save(imgAvgCh2,fullfile(folderProcessed, sprintf('%s_ch2_%d_Frames_AVG%s', fname,frames, fext)),tagstruct);
+            utils.tiff_save(imgAvgCh1,fullfile(folderProcessed, sprintf('%s_%d_Frames_AVG%s', fname,frames, fext)),tagstruct);
 
             % 自动调整对比度 EnhanceContrast
             app.img_avg_Ch1 = imadjust(imgAvgCh1);
-            app.img_avg_Ch2 = imadjust(imgAvgCh2);
-            utils.tiff_save(app.img_avg_Ch1,fullfile(folderProcessed, sprintf('%s_ch1_%d_Frames_AVG_EnhanceContrast%s', fname,frames, fext)),tagstruct);
-            utils.tiff_save(app.img_avg_Ch2,fullfile(folderProcessed, sprintf('%s_ch2_%d_Frames_AVG_EnhanceContrast%s', fname,frames, fext)),tagstruct);
-
+            utils.tiff_save(app.img_avg_Ch1,fullfile(folderProcessed, sprintf('%s_%d_Frames_AVG_EnhanceContrast%s', fname,frames, fext)),tagstruct);
+            
+            % 生成配准参考图
+            ops = register.default_ops();
+            app.refImg = register.compute_reference(imgStackCh1,ops);
+            utils.tiff_save(app.refImg, ...
+                fullfile(folderProcessed, sprintf('%s_ref%s', fname, fext)));
 
             % 加载Ch1的图像
             app.ChannelDropDown.Enable = "on";
@@ -334,6 +338,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             % init DrawROI components
             app.init_DrawROI();
+
             % for save mask
             app.img_seg_name = fname;
             app.img_seg_ext =  fext;
@@ -952,13 +957,15 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                     app.img_seg_data= imread(fullfile(app.last_seg_tiff_path,filename));
                     app.ChannelDropDown.Enable = 'off';
                     hold(app.UIAxes,'off');
+                    app.refImg = app.img_seg_data;
                     app.img_seg_data = imadjust(app.img_seg_data);
                     imshow(app.img_seg_data,[],'parent',app.UIAxes,'border','tight','initialmagnification','fit');
+                     
 
                     img_size = size(app.img_seg_data);
                     axis(app.UIAxes,[0,img_size(2),0,img_size(1)]);
                     hold(app.UIAxes,'on');
-
+                    
                     % init DrawROI components
                     app.init_DrawROI();
                 end
@@ -1470,6 +1477,48 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         end
 
+        % Value changed function: ChannelDropDown_2
+        function ChannelDropDown_2ValueChanged(app, event)
+            value = app.ChannelDropDown_2.Value;
+            disp(value);
+        end
+
+        % Button pushed function: RealtimeregistrationButton
+        function RealtimeregistrationButtonPushed(app, event)
+            % 备注：必须要focus才能正常发送！
+            % 获取当前成像的roiData
+            stripeData = app.hSI.hDisplay.lastStripeData;
+            roiData = stripeData.roiData{1};
+
+            channels = roiData.channels;
+            channel = channels(app.ChannelDropDown_2.Value);
+            z = roiData.zs(1); % use the first available z
+            roiData.onlyKeepZs(z);
+            roiData.onlyKeepChannels(channel);
+
+            img = app.refImg;
+            % roiData的imageDate替换为指定的图像，图像需要先进行根据lut，避免看不到图像
+            lut = single(app.hSI.hChannels.channelLUT{channel});
+            black = lut(1);
+            white = lut(2);
+            img = rescale(single(img), black, white);
+            roiData.imageData{1}{1} = img';
+            
+            % 发送给scanimage
+            app.hSI.hMotionManager.clearEstimators();
+            app.hSI.hMotionManager.addEstimator(roiData);
+            app.hSICtl = app.hSI.hController{1};
+
+            % 显示MOtion correction界面
+            hGUI = app.hSICtl.hGuiClasses.MotionDisplay;
+            app.hSICtl.showGUI('MotionDisplay');
+            app.hSICtl.raiseGUI('MotionDisplay');
+            hGUI.currentZ = z;
+            hGUI.selectedEstimator = app.hSI.hMotionManager.hMotionEstimators(1);
+
+            app.hSI.hMotionManager.enable = true;
+        end
+
         % Changes arrangement of the app based on UIFigure width
         function updateAppLayout(app, event)
             currentFigureWidth = app.RoiImagingModuleUIFigure.Position(3);
@@ -1716,7 +1765,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create AbortButton
             app.AbortButton = uibutton(app.ROIImagingPanel, 'push');
             app.AbortButton.ButtonPushedFcn = createCallbackFcn(app, @AbortButtonPushed, true);
-            app.AbortButton.Position = [148 41 99 23];
+            app.AbortButton.Position = [149 41 98 23];
             app.AbortButton.Text = 'Abort';
 
             % Create ROIImagingLamp
@@ -1724,10 +1773,19 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIImagingLamp.Position = [212 88 12 12];
             app.ROIImagingLamp.Color = [0.902 0.902 0.902];
 
-            % Create RealtimeregistrationCheckBox
-            app.RealtimeregistrationCheckBox = uicheckbox(app.ROIImagingPanel);
-            app.RealtimeregistrationCheckBox.Text = '  Real-time registration';
-            app.RealtimeregistrationCheckBox.Position = [18 10 143 22];
+            % Create ChannelDropDown_2
+            app.ChannelDropDown_2 = uidropdown(app.ROIImagingPanel);
+            app.ChannelDropDown_2.Items = {'CH1', 'CH2'};
+            app.ChannelDropDown_2.ItemsData = [1 2];
+            app.ChannelDropDown_2.ValueChangedFcn = createCallbackFcn(app, @ChannelDropDown_2ValueChanged, true);
+            app.ChannelDropDown_2.Position = [149 10 56 22];
+            app.ChannelDropDown_2.Value = 1;
+
+            % Create RealtimeregistrationButton
+            app.RealtimeregistrationButton = uibutton(app.ROIImagingPanel, 'push');
+            app.RealtimeregistrationButton.ButtonPushedFcn = createCallbackFcn(app, @RealtimeregistrationButtonPushed, true);
+            app.RealtimeregistrationButton.Position = [14 9 129 23];
+            app.RealtimeregistrationButton.Text = 'Real-time registration';
 
             % Create SettingsPanel
             app.SettingsPanel = uipanel(app.LeftPanel);
