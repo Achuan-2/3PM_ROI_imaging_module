@@ -1,4 +1,20 @@
 
+## 2024.07.30
+
+* 简化变量
+
+  * draw_roi_enable 合并为**app.DrawROI.enable**
+  * app.draw.previous_point 改为 **app.UIAxes.UserData.pan_previous_point**
+  * seg\_enable、seg\_adjust\_enable 改为**app.Seg.enable、app.Seg.auto_rerun**
+* 加载结构图代码完善
+
+  * 加载分割通道前的tif还是分割后的tif
+
+    * 为了支持加载正常成像的代码，也支持加载十分之一开的图像，还是加载分割后的tif比较好
+  * 需要支持加载正常成像的代码，也支持加载十分之一开的图像，
+  * 支持加载多张图片，也支持加载单张tif
+* 由调用自定义的cellpose模块改为matlab官方开发的cellpose
+
 ## 2024.04.22
 -  🐛 Fix 第一次启动scanimage没开，再开scnaimage，连接需要点击两次
 -  🐛 Fix 0.1MHZ修复THG通道（CH3）不显示

@@ -6,6 +6,7 @@ classdef DrawROI < handle
 
     % General mask properties 
     properties (SetAccess = public)
+        enable logical = false;
         mask_layer matlab.graphics.primitive.Image; % handles to display mask
         outline_layer matlab.graphics.primitive.Image % % handles to display outline of selected 
         mask_opacity double = 0.3; %  alpha value of colored mask

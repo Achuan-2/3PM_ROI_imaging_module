@@ -14,7 +14,7 @@ function arb_configure(dev,waveformConfig)
     configureSampleRate(dev,sampleRate);
 
     dev.Output.Advanced.IdleBehavior = "JUMP_TO_VALUE"; % 没发射信号，第一次等待Trigger信号的电平
-    dev.Output.Advanced.IdleValue = 1;
+    dev.Output.Advanced.IdleValue = 0;
     % set clock: internal or external
     % if use external sample clock ,you should notice that
     try
