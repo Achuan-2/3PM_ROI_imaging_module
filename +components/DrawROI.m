@@ -332,9 +332,9 @@ classdef DrawROI < handle
                     self.mask_size = size(self.three_fold_mask)/3;
                     self.move_down = S.move_down;
                     self.move_right = S.move_right;
-
-                    self.three_fold_mask_dilate_before = self.three_fold_mask;
-                    self.three_fold_colored_mask_dilate_before = self.three_fold_colored_mask;
+                    self.three_fold_mask_dilate_before = S.three_fold_mask_dilate_before;
+                    self.three_fold_colored_mask_dilate_before = S.three_fold_colored_mask_dilate_before;
+                    self.app.ROIdilateSpinner.Value = S.dilate;
                     
                     % update mask layer
                     self.move_mask_update();
