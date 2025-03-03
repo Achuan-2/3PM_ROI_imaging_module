@@ -9,7 +9,7 @@ classdef DrawROI < handle
         enable logical = false;
         mask_layer matlab.graphics.primitive.Image; % handles to display mask
         outline_layer matlab.graphics.primitive.Image % % handles to display outline of selected
-        mask_opacity double = 0.3; %  alpha value of colored mask
+        mask_opacity double = 0.5; %  alpha value of colored mask
         mask (:, :) double; % indexed roi mask
         mask_size (:, :) double % the size of mask
         colored_mask (:, :, 3) uint8 % colored roi mask
@@ -121,7 +121,8 @@ classdef DrawROI < handle
                 self.mask(new_roi_position) = roi_index; % add new roi
 
                 % Add new colored roi to colored_mask
-                self.colored_mask = components.drawRoi.rgb_add_area(self.colored_mask, new_roi_position, self.colormaps);
+                color = self.colormaps(mod(roi_index, 100), :);
+                self.colored_mask = components.drawRoi.rgb_add_area(self.colored_mask, new_roi_position, color);
 
                 % Update three_fold_mask
                 self.update_three_fold_mask();
@@ -288,6 +289,9 @@ classdef DrawROI < handle
             self.three_fold_mask = components.drawRoi.mask_reorder(self.three_fold_mask);
 
             % update mask
+            self.last_selected_roi_index = 0;
+            self.outline_layer.CData = zeros([self.mask_size, 3]);
+            self.outline_layer.AlphaData = zeros(self.mask_size);
             self.move_mask_update();
 
         end
@@ -410,7 +414,8 @@ classdef DrawROI < handle
                     n_roi = n_roi + 1;
                     self.mask(new_roi_position) = n_roi;
                     % Add new roi area to previous mask
-                    self.colored_mask = components.drawRoi.rgb_add_area(self.colored_mask, new_roi_position, self.colormaps);
+                    color = self.colormaps(mod(n_roi, 100), :);
+                    self.colored_mask = components.drawRoi.rgb_add_area(self.colored_mask, new_roi_position, color);
 
                 end
 
@@ -463,31 +468,40 @@ classdef DrawROI < handle
                 col_range = col + 1:2 * col;
                 % clear roi fisrt
                 three_fold_roi_position = self.three_fold_mask == self.last_selected_roi_index;
-
+                three_fold_roi_position_3D = repmat(three_fold_roi_position, 1, 3);
                 self.three_fold_mask(three_fold_roi_position) = 0;
                 [row, col] = find(three_fold_roi_position, 1);
                 selected_color = self.three_fold_colored_mask(row, col, :);
-                % Clear the colored mask for the old ROI position
-                for k = 1:3 % Loop over RGB channels
-                    self.three_fold_colored_mask(:, :, k) = self.three_fold_colored_mask(:, :, k) .* ~three_fold_roi_position;
-                end
-
+                self.three_fold_colored_mask(three_fold_roi_position_3D) = 0;
                 % then move roi
                 new_roi_position = imtranslate(three_fold_roi_position, [-right, -down], 'FillValues', 0);
                 new_roi_position = (self.three_fold_mask == 0) .* (new_roi_position == 1); % extract position to new
                 new_roi_position = logical(new_roi_position); % to logical array
                 self.three_fold_mask(new_roi_position) = self.last_selected_roi_index;
-
-                % Assign color to new ROI position using a loop
-                for k = 1:3 % Loop over RGB channels
-                    temp = self.three_fold_colored_mask(:, :, k); % Work on one channel at a time
-                    temp(new_roi_position) = selected_color(1, 1, k); % Assign scalar value
-                    self.three_fold_colored_mask(:, :, k) = temp;
-                end
                 
+                new_roi_position_3D = repmat(new_roi_position, 1, 3);
+                self.three_fold_colored_mask(new_roi_position_3D) = repmat(selected_color, sum(new_roi_position, 'all'), 1);
+                % update mask
                 self.mask = self.three_fold_mask(row_range + self.move_down, col_range + self.move_right);
                 self.colored_mask = self.three_fold_colored_mask(row_range + self.move_down, col_range + self.move_right, :);
                 self.update_mask_layer()
+                self.outline_layer.CData = imtranslate(self.outline_layer.CData, [-right, -down], 'FillValues', 0);
+                self.outline_layer.AlphaData = imtranslate(self.outline_layer.AlphaData, [-right, -down], 'FillValues', 0);
+                %clear three_fold_roi_position_3D new_roi_position new_roi_position_3D;
+
+                % move roi update three_fold_mask_dilate_before
+                roi_dilate_before_position = self.three_fold_mask_dilate_before == self.last_selected_roi_index;
+                roi_dilate_before_position_3D = repmat(roi_dilate_before_position, 1, 3);
+                self.three_fold_mask_dilate_before(roi_dilate_before_position) = 0;
+                self.three_fold_colored_mask_dilate_before(roi_dilate_before_position_3D) = 0;
+                % move roi
+                new_roi_dilate_before_position = imtranslate(roi_dilate_before_position, [-right, -down], 'FillValues', 0);
+                new_roi_dilate_before_position = (self.three_fold_mask_dilate_before == 0) .* (new_roi_dilate_before_position == 1); % extract position to new
+                new_roi_dilate_before_position = logical(new_roi_dilate_before_position); % to logical array
+                self.three_fold_mask_dilate_before(new_roi_dilate_before_position) = self.last_selected_roi_index;
+                new_roi_dilate_before_position_3D = repmat(new_roi_dilate_before_position, 1, 3);
+                self.three_fold_colored_mask_dilate_before(new_roi_dilate_before_position_3D) = repmat(selected_color, sum(new_roi_dilate_before_position, 'all'), 1);
+
             else
                 self.move_mask_update()
             end
@@ -569,32 +583,14 @@ classdef DrawROI < handle
         end
 
         % create custom colormap for draw colored roi
-        function result = create_colormap(~)
-            height = 43;
-            colormap_matrix = zeros(height, 3);
-            % Create an empty matrix to store the concatenated results
-            result = zeros(height * 6, 3);
-            colormap_matrix(:, 1) = 1;
-            colormap_matrix(:, 2) = 0;
-            colormap_matrix(:, 3) = linspace(0, 1, height);
-
-            permutations = perms(1:3);
-            % Traverse each permutation
-            for i = 1:size(permutations, 1)
-
-                indices = permutations(i, :);
-                permuted_matrix = colormap_matrix(:, indices);
-                rowRange = ((i - 1) * height + 1):(i * height);
-                result(rowRange, :) = permuted_matrix;
-            end
-
-            % Unique result
-            result = unique(result, 'rows', 'stable');
-            % Random Sort
-            randomIdx = randperm(size(result, 1));
-            result = result(randomIdx, :);
-            % To uint8 color
-            result = result * 255;
+        function colors = create_colormap(self) % Change to accept instance input
+            numColors = 100; % Define number of colors if not defined elsewhere
+            goldenRatio = 0.618033988749895; % 黄金分割比例，用于打乱色调
+            h = mod((0:numColors - 1) * goldenRatio, 1); % 色调（Hue）均匀分布并打乱
+            s = ones(1, numColors) * 0.8; % 饱和度（Saturation）
+            v = ones(1, numColors) * 0.95; % 明度（Value）高，保证明亮
+            hsvColors = [h; s; v]'; % [numColors x 3]
+            colors = hsv2rgb(hsvColors) * 255; % 输出 [numColors x 3] 的RGB颜色矩阵
         end
 
     end
