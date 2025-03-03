@@ -51,7 +51,11 @@ classdef DrawROI < handle
         three_fold_mask_dilate_before;
         three_fold_colored_mask_dilate_before;
     end
-
+    % Freehand ROI editing
+    properties
+        isEditingROI logical = false; % Track if ROI is being edited as Freehand
+        freehandROI; % Handle to the Freehand ROI object
+    end
     methods (Hidden)
 
         function self = DrawROI(app)
@@ -203,6 +207,10 @@ classdef DrawROI < handle
             end
 
             if roi_index % ROI index has to be >0
+                if self.isEditingROI
+                    selecting_roi = true;
+                    return
+                end
                 % Get the position of selected roi
                 roi_position = self.mask == roi_index;
 
@@ -237,8 +245,13 @@ classdef DrawROI < handle
                 self.last_selected_roi_index = roi_index;
             else
                 % Click on the blank space, mask
-                selecting_roi = false;
-                self.last_selected_roi_index = 0;
+
+                if self.isEditingROI
+                    selecting_roi = true;
+                else
+                    selecting_roi = false;
+                    self.last_selected_roi_index = 0;
+                end
             end
 
         end
@@ -478,7 +491,7 @@ classdef DrawROI < handle
                 new_roi_position = (self.three_fold_mask == 0) .* (new_roi_position == 1); % extract position to new
                 new_roi_position = logical(new_roi_position); % to logical array
                 self.three_fold_mask(new_roi_position) = self.last_selected_roi_index;
-                
+
                 new_roi_position_3D = repmat(new_roi_position, 1, 3);
                 self.three_fold_colored_mask(new_roi_position_3D) = repmat(selected_color, sum(new_roi_position, 'all'), 1);
                 % update mask
@@ -591,6 +604,120 @@ classdef DrawROI < handle
             v = ones(1, numColors) * 0.95; % 明度（Value）高，保证明亮
             hsvColors = [h; s; v]'; % [numColors x 3]
             colors = hsv2rgb(hsvColors) * 255; % 输出 [numColors x 3] 的RGB颜色矩阵
+        end
+
+    end
+
+    methods
+
+        function modifyROI(self)
+
+            if ~self.isEditingROI
+                % Check if an ROI is selected
+                if self.last_selected_roi_index == 0 || isempty(self.last_selected_roi_index)
+                    disp('Please select an ROI first.');
+                    return;
+                end
+                if self.app.ROIdilateSpinner.Value>0
+                    self.app.ROIdilateSpinner.Value = 0;
+                    self.three_fold_mask = self.three_fold_mask_dilate_before;
+                    self.three_fold_colored_mask = self.three_fold_colored_mask_dilate_before;
+                    self.move_mask_update();
+                end
+                % Get the selected ROI's position
+                roi_position = self.mask == self.last_selected_roi_index;
+                [row, col] = find(roi_position);
+
+
+                if isempty(row)
+                    disp('Unable to find ROI boundary.');
+                    return;
+                end
+
+
+                boundaries = bwboundaries(roi_position);
+                boundaries  = fliplr(boundaries{1});
+
+                % Get the ROI color
+                color = double(squeeze(self.colored_mask(row(1), col(1), :))')/255; % Normalize to [0, 1] for Freehand
+
+                % Hide the selected ROI in the mask layer
+                self.mask_layer.AlphaData(roi_position) = 0;
+
+                % Convert to Freehand ROI
+                hold(self.app.UIAxes, 'on');
+                self.outline_layer.AlphaData = zeros(self.mask_size);
+                self.outline_layer.CData = zeros(self.mask_size);
+                self.freehandROI = images.roi.Freehand(self.app.UIAxes, ...
+                    'Position', boundaries, ... % [x, y] format
+                    'Color', color, ...
+                    'LineWidth', 2, ...
+                    'InteractionsAllowed', 'all'); % Allow full editing
+
+
+                % Set editing flag
+                self.isEditingROI = true;
+
+                % Add listener for Freehand ROI deletion
+                addlistener(self.freehandROI, 'ObjectBeingDestroyed', @(src, evt) self.handleFreehandDeleted());
+
+                %disp('ROI converted to editable Freehand. Adjust the shape, then call modifyROI again to save.');
+
+            else
+                % Finalize editing and update the mask
+                if isempty(self.freehandROI) || ~isvalid(self.freehandROI)
+                    disp('No valid Freehand ROI exists.');
+                    self.isEditingROI = false;
+                    self.freehandROI = [];
+                    self.update_mask_layer();
+                    return;
+                end
+
+                % Get the new position from Freehand ROI
+                new_position = self.freehandROI.Position; % [x, y] format
+                new_mask = poly2mask(new_position(:, 1), new_position(:, 2), self.mask_size(1), self.mask_size(2));
+
+                % Update the mask and colored mask
+                old_position = self.mask == self.last_selected_roi_index;
+                [row, col] = find(old_position);
+                color  = self.colored_mask(row(1), col(1), :);
+                old_position_3D = repmat(old_position, 1, 1, 3);
+                self.mask(old_position) = 0; % Clear old ROI
+                self.colored_mask(old_position_3D) = 0;
+
+                % Add the new ROI
+                self.mask(new_mask) = self.last_selected_roi_index;
+
+                self.colored_mask = components.drawRoi.rgb_add_area(self.colored_mask, new_mask, color);
+
+                % Clean up Freehand ROI
+                delete(self.freehandROI);
+                self.freehandROI = [];
+                self.isEditingROI = false;
+
+                % Update three_fold_mask and mask layer
+                self.update_three_fold_mask();
+                self.three_fold_mask_dilate_before = self.three_fold_mask;
+                self.three_fold_colored_mask_dilate_before = self.three_fold_colored_mask;
+                self.update_mask_layer();
+                self.outline_layer.AlphaData = zeros(self.mask_size);
+                self.outline_layer.CData = zeros(self.mask_size);
+
+                %disp('ROI editing completed and mask updated.');
+            end
+
+        end
+
+        % Handle Freehand ROI deletion
+        function handleFreehandDeleted(self)
+
+            if self.isEditingROI
+                %disp('Freehand ROI was deleted. Exiting edit mode without saving changes.');
+                self.isEditingROI = false;
+                self.freehandROI = [];
+                self.update_mask_layer(); % Restore original mask display
+            end
+
         end
 
     end
