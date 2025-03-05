@@ -28,8 +28,8 @@ classdef DrawROI < handle
         brush_size = 3;
         plot_handles;
         current_stroke;
-        thresh_out = 12;
-        thresh_in = 5;
+        thresh_out = 5;
+        thresh_in = 2;
     end
 
     % Click and delete
