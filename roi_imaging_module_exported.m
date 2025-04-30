@@ -57,6 +57,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         ModelsDropDown               matlab.ui.control.DropDown
         ModelsDropDownLabel          matlab.ui.control.Label
         RightPanel                   matlab.ui.container.Panel
+        editButton                   matlab.ui.control.StateButton
         FrameSliderLabel             matlab.ui.control.Label
         FrameSlider                  matlab.ui.control.Slider
         ContrastLabel                matlab.ui.control.Label
@@ -282,8 +283,13 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             imgStack = utils.tiff_read(fullpath);
             % read reoulution info
             t = Tiff(fullpath, 'r');
-            tagstruct.XResolution = t.getTag("XResolution");
-            tagstruct.YResolution = tagstruct.XResolution;
+            tagstruct = struct();
+            try
+                tagstruct.XResolution = t.getTag("XResolution");
+                tagstruct.YResolution = tagstruct.XResolution;
+            catch
+
+            end
             t.close();
 
             
@@ -1059,7 +1065,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                         end
 
                         % When not select a roi, right click can pan the UIAxes
-                        if ~selecting_roi
+                        if ~selecting_roi && ~app.DrawROI.isEditingROI
                             pan_click();
                         end
 
@@ -1073,7 +1079,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                             app.ROIImagingLamp.Color = [0.90,0.90,0.90];
                             % right click
                         else
-                            if app.UIAxes.UserData.status ~= "handroi_drawing" && app.DrawROI.enable
+                            if app.UIAxes.UserData.status ~= "handroi_drawing" && app.DrawROI.enable && ~app.DrawROI.isEditingROI
                                 app.DrawROI.handroi_start(x,y) % 手动圈选ROI 绘制起点
                                 % 关闭ROI灯，提示ROI成像与当前ROI mask不一致
                                 app.ROIImagingLamp.Color = [0.90,0.90,0.90];
@@ -1226,49 +1232,61 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             switch key
                 case 'uparrow'
                     if app.DrawROI.enable
-                        if ~app.RoiImagingModuleUIFigure.UserData.ShiftPressed
-                            app.DrawROI.move_down = app.DrawROI.move_down + 1;
-                        else
-                            app.DrawROI.move_down = app.DrawROI.move_down + 5;
+                        move_step = 1;
+                        if app.RoiImagingModuleUIFigure.UserData.ShiftPressed
+                            move_step = 5;
                         end
-                        app.DrawROI.move_mask_update();
+
+                        if app.DrawROI.last_selected_roi_index == 0
+                            app.DrawROI.move_down = app.DrawROI.move_down + move_step;
+                        end
+                        app.DrawROI.move_mask(0, move_step);  % Always use move_step
                         app.ROIImagingLamp.Color = [0.90,0.90,0.90];
                     end
+
                 case 'downarrow'
                     if app.DrawROI.enable
-                        if ~app.RoiImagingModuleUIFigure.UserData.ShiftPressed
-                            app.DrawROI.move_down = app.DrawROI.move_down - 1;
-                        else
-                            app.DrawROI.move_down = app.DrawROI.move_down - 5;
+                        move_step = 1;
+                        if app.RoiImagingModuleUIFigure.UserData.ShiftPressed
+                            move_step = 5;
                         end
 
-                        app.DrawROI.move_mask_update();
+                        if app.DrawROI.last_selected_roi_index == 0
+                            app.DrawROI.move_down = app.DrawROI.move_down - move_step;
+                        end
+                        app.DrawROI.move_mask(0, -move_step); % Always use move_step
                         app.ROIImagingLamp.Color = [0.90,0.90,0.90];
                     end
+
                 case 'leftarrow'
                     if app.DrawROI.enable
-                        if ~app.RoiImagingModuleUIFigure.UserData.ShiftPressed
-                            app.DrawROI.move_right = app.DrawROI.move_right + 1;
-                        else
-                            app.DrawROI.move_right = app.DrawROI.move_right + 5;
+                        move_step = 1;
+                        if app.RoiImagingModuleUIFigure.UserData.ShiftPressed
+                            move_step = 5;
                         end
 
-                        app.DrawROI.move_mask_update();
+                        if app.DrawROI.last_selected_roi_index == 0
+                            app.DrawROI.move_right = app.DrawROI.move_right + move_step;
+                        end
+                         app.DrawROI.move_mask(move_step, 0); % Always use move_step
                         app.ROIImagingLamp.Color = [0.90,0.90,0.90];
                     end
 
                 case 'rightarrow'
                     if app.DrawROI.enable
-                        if ~app.RoiImagingModuleUIFigure.UserData.ShiftPressed
-                            app.DrawROI.move_right = app.DrawROI.move_right - 1;
-                        else
-                            app.DrawROI.move_right = app.DrawROI.move_right - 5;
+                        move_step = 1;
+                        if app.RoiImagingModuleUIFigure.UserData.ShiftPressed
+                            move_step = 5;
                         end
 
-                        app.DrawROI.move_mask_update();
+                        if app.DrawROI.last_selected_roi_index == 0
+                            app.DrawROI.move_right = app.DrawROI.move_right - move_step;
+                        end
+                        app.DrawROI.move_mask(-move_step, 0); % Always use move_step
                         app.ROIImagingLamp.Color = [0.90,0.90,0.90];
                     end
             end
+
 
         end
 
@@ -1291,7 +1309,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             model_type = app.ModelsDropDown.Value;
             flow_threshold = app.ThresholdSpinner.Value;
             cp = cellpose(Model=model_type,ModelFolder=app.Seg.cellpose_model_folder);
-            app.DrawROI.mask = segmentCells2D(cp,app.img_seg_data,CellThreshold=0,FlowErrorThreshold=flow_threshold); %ImageCellDiameter=56
+            app.DrawROI.mask = segmentCells2D(cp,app.img_seg_data,CellThreshold=0,FlowErrorThreshold=flow_threshold,ImageCellDiameter=15); %ImageCellDiameter=56
 
             % close the dialog box
             close(progressDlg);
@@ -1440,20 +1458,22 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             end
 
             % 自动保存ROI mask
-            [~, file_name, ~]  = fileparts(app.img_seg_filename);
-            data.three_fold_mask = app.DrawROI.three_fold_mask;
-            data.three_fold_colored_mask = app.DrawROI.three_fold_colored_mask;
-            data.move_down = app.DrawROI.move_down;
-            data.move_right = app.DrawROI.move_right;
-
-            save(fullfile(app.last_seg_tiff_path,[file_name,'_mask.mat']), ...
-                "-struct", ...
-                "data");
-
-
-            % save png
-            imwrite(app.DrawROI.binary_mask, ...
-                fullfile(app.last_seg_tiff_path,[file_name,'_mask.png']));
+            if ~isempty(app.img_seg_filename)
+                [~, file_name, ~]  = fileparts(app.img_seg_filename);
+                data.three_fold_mask = app.DrawROI.three_fold_mask;
+                data.three_fold_colored_mask = app.DrawROI.three_fold_colored_mask;
+                data.move_down = app.DrawROI.move_down;
+                data.move_right = app.DrawROI.move_right;
+    
+                save(fullfile(app.last_seg_tiff_path,[file_name,'_mask.mat']), ...
+                    "-struct", ...
+                    "data");
+    
+    
+                % save png
+                imwrite(app.DrawROI.binary_mask, ...
+                    fullfile(app.last_seg_tiff_path,[file_name,'_mask.png']));
+            end
             % delete 0.1MHz listener and Rebuild
             if isvalid (app.StructureRebuilder)
                 delete(app.StructureRebuilder);
@@ -1644,6 +1664,29 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function ManualcorrectionPanelSizeChanged(app, event)
             position = app.ManualcorrectionPanel.Position;
             
+        end
+
+        % Callback function
+        function editButtonPushed(app, event)
+
+        end
+
+        % Value changed function: editButton
+        function editButtonValueChanged(app, event)
+
+            if ~app.DrawROI.enable
+                app.editButton.Value = false;
+                return
+            end
+
+            value = app.editButton.Value;
+            if ~value
+                app.DrawROI.modifyROI();
+                app.editButton.Text = "edit";
+            else
+                app.DrawROI.modifyROI();
+                app.editButton.Text = "done";
+            end
         end
 
         % Changes arrangement of the app based on UIFigure width
@@ -2143,6 +2186,13 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.FrameSliderLabel.Visible = 'off';
             app.FrameSliderLabel.Position = [58 61 490 22];
             app.FrameSliderLabel.Text = '1/1000';
+
+            % Create editButton
+            app.editButton = uibutton(app.RightPanel, 'state');
+            app.editButton.ValueChangedFcn = createCallbackFcn(app, @editButtonValueChanged, true);
+            app.editButton.Tooltip = {'edit roi'};
+            app.editButton.Text = 'edit';
+            app.editButton.Position = [436 613 38 23];
 
             % Show the figure after all components are created
             app.RoiImagingModuleUIFigure.Visible = 'on';

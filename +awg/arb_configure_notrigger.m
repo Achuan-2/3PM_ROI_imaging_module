@@ -10,6 +10,7 @@ function arb_configure_notrigger(dev,waveformConfig)
 
 
     configureSampleRate(dev,sampleRate);
+    configureOutputImpedance(dev, '0', "VAL_50"); % 阻抗为50欧姆
 
 
 

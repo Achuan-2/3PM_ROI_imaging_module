@@ -7,15 +7,15 @@
   },
   "waveformConfig": {
     "resourceID": "Dev1",
-    "gain": 2,
+    "gain": 3.3,
     "offset": 0,
-    "sampleRate": 1.0081e+06,
+    "sampleRate": 1.0007E+6,
     "delayTime": 0,
     "mode": "Stepped",
     "clockSource": "ClkIn",
     "triggerOn": true,
     "triggerPort": "PFI0",
-    "exportSignalOn": false,
+    "exportSignalOn": true,
     "exportSignalType": "DataMarker",
     "exportSignalPort": "PFI1"
   },

@@ -1,7 +1,7 @@
 {
   "defaultConfig": {
-    "pulseOn": 0,
-    "pulseOff": 1,
+    "pulseOn": 1,
+    "pulseOff": 0,
     "configPath": "./config/",
     "roimaskPath": "./roi_mask/"
   },
@@ -9,7 +9,7 @@
     "resourceID": "Dev1",
     "gain": 2,
     "offset": 0,
-    "sampleRate": 1.0081e+06,
+    "sampleRate": 1.0007E+6,
     "delayTime": 0,
     "mode": "Stepped",
     "clockSource": "ClkIn",
