@@ -15,7 +15,7 @@ function arb_configure(dev,waveformConfig)
     configureOutputImpedance(dev, '0', "VAL_50"); % 阻抗为50欧姆
 
     dev.Output.Advanced.IdleBehavior = "JUMP_TO_VALUE"; % 没发射信号，第一次等待Trigger信号的电平
-    dev.Output.Advanced.IdleValue = 0;
+    dev.Output.Advanced.IdleValue = 1;
     % set clock: internal or external
     % if use external sample clock ,you should notice that
     try
