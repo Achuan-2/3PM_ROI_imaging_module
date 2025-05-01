@@ -275,6 +275,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.scannerConfig.scanWait = 56;
             app.scannerConfig.scanBackLeftPixelTwice = 40; % unit: pixel，scanleft和 scan right 也受到 pulsePerPixel 的影响
             app.scannerConfig.scanBackRightPixelTwice = 40; % unit: pixel
+            app.scannerConfig.clockMode = 'line_clock'; % line_clock or frame_clock
         end
 
         function process_structure_image(app,filename,path)
@@ -517,6 +518,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             temp_config.mode = 'Continuous';
             awg.create_arb_waveform_notrigger(app.awgDevice,waveformHandle,temp_config);
         end
+        
         function roi_imaging_callback(app,~,~)
             reset(app.awgDevice);
 
