@@ -208,7 +208,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             scanBackLeftPixelTwice = app.scannerConfig.scanBackLeftPixelTwice * pulsePerPixel; % unit: pixel，scanleft和 scan right 也受到 pulsePerPixel 的影响
             scanBackRightPixelTwice = app.scannerConfig.scanBackRightPixelTwice * pulsePerPixel; % unit: pixel
             imageSize = app.scannerConfig.imageSize;
-            scanWait = app.scannerConfig.scanWait;
+            scanWait = app.scannerConfig.scanWait; % unit: pulse
 
 
             % Generate ROI mask
@@ -275,7 +275,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.scannerConfig.scanWait = 56;
             app.scannerConfig.scanBackLeftPixelTwice = 40; % unit: pixel，scanleft和 scan right 也受到 pulsePerPixel 的影响
             app.scannerConfig.scanBackRightPixelTwice = 40; % unit: pixel
-            app.scannerConfig.clockMode = 'line_clock'; % line_clock or frame_clock
+            app.scannerConfig.clockMode = 'Line Clock'; % Line Clock or Frame Clock
         end
 
         function process_structure_image(app,filename,path)
@@ -518,7 +518,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             temp_config.mode = 'Continuous';
             awg.create_arb_waveform_notrigger(app.awgDevice,waveformHandle,temp_config);
         end
-        
+
         function roi_imaging_callback(app,~,~)
             reset(app.awgDevice);
 
@@ -1454,7 +1454,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         % Button pushed function: LaserROIImagingButton
         function LaserROIImagingButtonPushed(app, event)
             % avoid awg device is not connected
-            if isempty(app.awgDevice)
+            if isempty(app.awgDevice) || ~isvalid(app.awgDevice) % Check validity too
                 uialert(app.RoiImagingModuleUIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
                 return
             end
@@ -1462,19 +1462,41 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % 自动保存ROI mask
             if ~isempty(app.img_seg_filename)
                 [~, file_name, ~]  = fileparts(app.img_seg_filename);
-                data.three_fold_mask = app.DrawROI.three_fold_mask;
-                data.three_fold_colored_mask = app.DrawROI.three_fold_colored_mask;
-                data.move_down = app.DrawROI.move_down;
-                data.move_right = app.DrawROI.move_right;
-    
-                save(fullfile(app.last_seg_tiff_path,[file_name,'_mask.mat']), ...
-                    "-struct", ...
-                    "data");
-    
-    
-                % save png
-                imwrite(app.DrawROI.binary_mask, ...
-                    fullfile(app.last_seg_tiff_path,[file_name,'_mask.png']));
+                % Check if DrawROI object and properties exist before saving
+                if isvalid(app.DrawROI) && isprop(app.DrawROI, 'three_fold_mask') && ...
+                   isprop(app.DrawROI, 'three_fold_colored_mask') && ...
+                   isprop(app.DrawROI, 'move_down') && isprop(app.DrawROI, 'move_right') && ...
+                   isprop(app.DrawROI, 'binary_mask')
+
+                    data.three_fold_mask = app.DrawROI.three_fold_mask;
+                    data.three_fold_colored_mask = app.DrawROI.three_fold_colored_mask;
+                    data.three_fold_colored_mask_dilate_before = app.DrawROI.three_fold_colored_mask_dilate_before; % Save dilate before state
+                    data.three_fold_mask_dilate_before = app.DrawROI.three_fold_mask_dilate_before; % Save dilate before state
+                    data.move_down = app.DrawROI.move_down;
+                    data.move_right = app.DrawROI.move_right;
+                    data.dilate = app.ROIdilateSpinner.Value; % Save dilate value
+
+                    savePath = fullfile(app.last_seg_tiff_path,[file_name,'_mask.mat']);
+                    try
+                        save(savePath, "-struct", "data");
+                        disp(['Mask saved to: ', savePath]);
+                    catch ME
+                        warning('Failed to save mask MAT file: %s', ME.message);
+                    end
+
+                    % save png
+                    pngPath = fullfile(app.last_seg_tiff_path,[file_name,'_mask.png']);
+                    try
+                        imwrite(app.DrawROI.binary_mask, pngPath);
+                         disp(['Mask PNG saved to: ', pngPath]);
+                    catch ME
+                         warning('Failed to save mask PNG file: %s', ME.message);
+                    end
+                else
+                     warning('DrawROI object or its properties are not valid. Skipping mask save.');
+                end
+            else
+                 warning('Image segment filename is empty. Skipping mask save.');
             end
             % delete 0.1MHz listener and Rebuild
             if isvalid (app.StructureRebuilder)
@@ -1490,20 +1512,33 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             reset(app.awgDevice);
 
 
-            % active low logic: 1（white) to 0, 0（black）to 1
-            if ~app.defaultConfig.pulseOn
-                app.roiMask = utils.active_low_logic(app.DrawROI.binary_mask);
+            % Check clock mode and configure AWG accordingly
+            if strcmpi(app.scannerConfig.clockMode, 'Line Clock')
+                % --- Line Clock Logic ---
+                app.awg_output_roi_lines_pulse();
+
+            elseif strcmpi(app.scannerConfig.clockMode, 'Frame Clock')
+                % --- Frame Clock Logic (Original) ---
+                % Determine ROI mask based on pulse logic
+                if ~app.defaultConfig.pulseOn
+                    app.roiMask = utils.active_low_logic(app.DrawROI.binary_mask);
+                else
+                    app.roiMask = app.DrawROI.binary_mask;
+                end
+                
+                % generate ROI pulse for the entire frame
+                framePulse = app.create_frame_roi_pulse(app.roiMask);
+
+                % create waveform handle
+                waveformHandle = awg.create_waveform_handle(app.awgDevice,framePulse);
+
+                % generate Arb waveform (triggered by frame clock)
+                awg.create_arb_waveform(app.awgDevice,waveformHandle,app.waveformConfig);
+                disp("ROI Imaging Module: Configured for Frame Clock ROI Imaging");
             else
-                app.roiMask = app.DrawROI.binary_mask;
+                uialert(app.RoiImagingModuleUIFigure,['Unknown clock mode: ', app.scannerConfig.clockMode],'Error','Icon','error');
+                return;
             end
-            % generate ROI pulse for each frame
-            framePulse = app.create_frame_roi_pulse(app.roiMask);
-
-            % create waveform
-            waveformHandle = awg.create_waveform_handle(app.awgDevice,framePulse);
-
-            % generate Arb waveform
-            awg.create_arb_waveform(app.awgDevice,waveformHandle,app.waveformConfig);
             %% light lamp
             app.RegularImagingButton.FontWeight = 'normal';
             app.RegularImagingButton.FontColor = [0 0 0];
