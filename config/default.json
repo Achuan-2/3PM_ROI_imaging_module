@@ -24,6 +24,7 @@
     "pulsePerPixel": 1,
     "scanWait": 57,
     "scanBackLeftPixelTwice": 28,
-    "scanBackRightPixelTwice": 28
+    "scanBackRightPixelTwice": 28, 
+    "clockMode": "Line Clock"
   }
 }
