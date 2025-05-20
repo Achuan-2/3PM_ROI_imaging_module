@@ -2,7 +2,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
-        RoiImagingModuleUIFigure     matlab.ui.Figure
+        UIFigure                     matlab.ui.Figure
         FileMenu                     matlab.ui.container.Menu
         LoadStructureImageMenu       matlab.ui.container.Menu
         LoadExternalmaskMenu         matlab.ui.container.Menu
@@ -150,6 +150,299 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
 
     methods (Access = private)
+        function windowButtonDown(app, ~, ~)
+            if ~isempty(app.DrawROI)
+                pt = get(app.UIFigure, 'CurrentPoint');
+                pos1 = getpixelposition(app.UIAxes);
+                if pt(1) >= pos1(1) && pt(1) <= pos1(1)+pos1(3) && pt(2) >= pos1(2) && pt(2) <= pos1(2)+pos1(4)
+                    app.UIFigure.UserData.activeAxes = app.UIAxes;
+                    app.DrawROI.active_axes_index = 1;  % 设置DrawROI的活动轴索引
+                else
+                    return;
+                end
+                % 如果当前活动轴不允许绘制，并且是右键点击（开始绘制ROI的操作），则直接返回
+                if ~app.DrawROI.drawing_enabled(app.DrawROI.active_axes_index) && strcmp(app.UIFigure.SelectionType, 'alt')
+                    % 如果不是Ctrl+左键（用于删除ROI），则阻止操作
+                    if ~app.UIFigure.UserData.CtrlPressed
+                        return;
+                    end
+                end
+                currentPosition = app.UIFigure.UserData.activeAxes.CurrentPoint;
+                x = currentPosition(1,1);
+                y = currentPosition(1,2);
+
+                if x >= app.UIFigure.UserData.activeAxes.XLim(1) && x <= app.UIFigure.UserData.activeAxes.XLim(2) && ...
+                        y >= app.UIFigure.UserData.activeAxes.YLim(1) && y <= app.UIFigure.UserData.activeAxes.YLim(2)
+
+                    % 强制平移模式下，当左键点击时，进入平移状态（按空格+左键）
+                    if app.UIFigure.UserData.forcePanMode && strcmp(app.UIFigure.SelectionType, 'normal')
+                        app.UIFigure.UserData.activeAxes.UserData.status = "axes_paning";
+                        app.UIFigure.UserData.Pan.previous_point = app.UIFigure.UserData.activeAxes.CurrentPoint;
+                        return;
+                    end
+
+                    switch app.UIFigure.SelectionType
+                        case 'normal' % 左键点击
+                            % 可取消当前绘制
+                            if strcmp(app.UIFigure.UserData.activeAxes.UserData.status, "handroi_drawing")
+                                app.DrawROI.handroi_cancel();
+                            end
+                            app.UIFigure.UserData.CtrlPressed = false;
+                            app.DrawROI.select_roi(x, y);
+                            % 如果正在添加规则ROI，不进入平移模式
+                            if ~app.DrawROI.is_drag_active() && ~app.DrawROI.is_roi_editing() && ~app.DrawROI.is_adding_regular_roi()
+                                app.UIFigure.UserData.activeAxes.UserData.status = "axes_paning";
+                                app.UIFigure.UserData.Pan.previous_point = app.UIFigure.UserData.activeAxes.CurrentPoint;
+                            end
+                        case 'alt' % 代表 Ctrl+ 左键，或者单击右键；
+                            if app.UIFigure.UserData.CtrlPressed % Ctrl + Click 删除ROI
+                                app.DrawROI.delete_roi(x, y);
+                            else % 右键点击，开始绘制ROI
+                                % 只有当前轴允许绘制时才开始绘制
+                                if strcmp(app.UIFigure.UserData.activeAxes.UserData.status, "idle") && app.DrawROI.drawing_enabled(app.DrawROI.active_axes_index)
+                                    app.DrawROI.handroi_start(x, y);
+                                end
+                            end
+                        case 'open' % 双击鼠标左键
+                            % 检查是否点击在某个ROI上，如果是，则开始编辑该ROI
+                            if app.DrawROI.is_adding_regular_roi()
+                                app.DrawROI.finish_adding_regular_roi(true);
+                            else
+                                app.DrawROI.start_edit_roi(x, y);
+                            end
+
+                        case 'extend' % 代表 Shift+ 左键、鼠标中键或左右键一起按
+                            return
+                    end
+                end
+            end
+        end
+
+        function windowMotion(app, ~, ~)
+            if isempty(app.UIFigure.UserData.activeAxes)
+                return;
+            end
+            if isempty(app.DrawROI)
+                return;
+            end
+            % 检查鼠标是否在任一UIAxes内
+            pt = get(app.UIFigure, 'CurrentPoint');
+            pos1 = getpixelposition(app.UIAxes);
+
+
+            % 判断鼠标是否在任一UIAxes内
+
+            if pt(1) >= pos1(1) && pt(1) <= pos1(1)+pos1(3) && pt(2) >= pos1(2) && pt(2) <= pos1(2)+pos1(4)
+                app.UIFigure.UserData.mouseInAxes = true;
+                % 当鼠标移入UIAxes1时，自动设为活动轴
+                if app.UIFigure.UserData.activeAxes ~= app.UIAxes
+                    app.UIFigure.UserData.activeAxes = app.UIAxes;
+                    app.DrawROI.active_axes_index = 1; % 更新DrawROI的活动轴索引
+                end
+            else
+                app.UIFigure.UserData.mouseInAxes = false;
+            end
+
+            currentPosition = app.UIFigure.UserData.activeAxes.CurrentPoint;
+            x = currentPosition(1,1);
+            y = currentPosition(1,2);
+
+            if  x >= app.UIFigure.UserData.activeAxes.XLim(1) && x <= app.UIFigure.UserData.activeAxes.XLim(2) && ...
+                    y >= app.UIFigure.UserData.activeAxes.YLim(1) && y <= app.UIFigure.UserData.activeAxes.YLim(2)
+                switch app.UIFigure.UserData.activeAxes.UserData.status
+                    case "axes_paning"
+                        % 如果正在添加ROI，则不执行平移
+                        % if ~app.DrawROI.is_adding_regular_roi()
+                        app.pan_move();
+                        % end
+                    case "handroi_drawing"
+                        if ~isempty(app.DrawROI)
+                            app.DrawROI.handroi_draw(x, y);
+                        end
+                    otherwise
+                        % 使用DrawROI的拖拽方法
+                        if ~isempty(app.DrawROI)
+                            app.DrawROI.drag_move(x, y);
+                        end
+                end
+            end
+        end
+
+        function pan_move(app)
+            current_position = app.UIFigure.UserData.activeAxes.CurrentPoint;
+            xlim_range = get(app.UIFigure.UserData.activeAxes, 'xlim');
+            ylim_range = get(app.UIFigure.UserData.activeAxes, 'ylim');
+            delta_points = current_position - app.UIFigure.UserData.Pan.previous_point;
+            set(app.UIFigure.UserData.activeAxes, 'Xlim', xlim_range - delta_points(1));
+            set(app.UIFigure.UserData.activeAxes, 'Ylim', ylim_range - delta_points(3));
+            app.UIFigure.UserData.Pan.previous_point = app.UIFigure.UserData.activeAxes.CurrentPoint;
+        end
+
+        function windowScrollWheel(app, ~, event)
+            if isempty(app.UIFigure.UserData.activeAxes)
+                return;
+            end
+            currentPosition = app.UIFigure.UserData.activeAxes.CurrentPoint;
+            x = currentPosition(1,1);
+            y = currentPosition(1,2);
+            if x >= app.UIFigure.UserData.activeAxes.XLim(1) && x <= app.UIFigure.UserData.activeAxes.XLim(2) && ...
+                    y >= app.UIFigure.UserData.activeAxes.YLim(1) && y <= app.UIFigure.UserData.activeAxes.YLim(2)
+                if event.VerticalScrollCount > 0
+                    scale = 1.1;
+                else
+                    scale = 1/1.1;
+                end
+                xlim_range = get(app.UIFigure.UserData.activeAxes, 'xlim');
+                ylim_range = get(app.UIFigure.UserData.activeAxes, 'ylim');
+                app.UIFigure.UserData.activeAxes.XLim = (xlim_range - x) * scale + x;
+                app.UIFigure.UserData.activeAxes.YLim = (ylim_range - y) * scale + y;
+            end
+        end
+
+        function windowButtonUp(app, ~, ~)
+            % 只有当DrawROI对象存在且处于拖拽模式时，才停止拖拽
+            if ~isempty(app.DrawROI) && app.DrawROI.is_drag_active()
+                app.DrawROI.stop_drag();
+            end
+
+            if strcmp(app.UIFigure.UserData.activeAxes.UserData.status, "axes_paning")
+                % 无论是否在强制平移模式，松开鼠标左键后都应停止平移
+                app.UIFigure.UserData.activeAxes.UserData.status = "idle";
+                % 但在强制平移模式下保持手形光标
+                if app.UIFigure.UserData.forcePanMode
+                    set(app.UIFigure, 'Pointer', 'hand');
+                else
+                    set(app.UIFigure, 'Pointer', 'arrow');
+                end
+            end
+        end
+
+        function keyPress(app, ~, event)
+            switch event.Key
+                case 'control'
+                    app.UIFigure.UserData.CtrlPressed = true;
+                case 'shift'
+                    app.UIFigure.UserData.ShiftPressed = true;
+                case 'alt'
+                    app.UIFigure.UserData.AltPressed = true;
+                case 'space' % 空格键按下，激活强制平移模式
+                    app.UIFigure.UserData.SpacePressed = true;
+                    app.UIFigure.UserData.forcePanMode = true;
+                    set(app.UIFigure, 'Pointer', 'hand'); % 改变鼠标指针样式以提示用户
+
+                case 'delete'
+                    if app.DrawROI.selected_roi_idx > 0
+                        app.DrawROI.delete_selected_roi();
+                    end
+                case 'uparrow'
+                    % 只有当鼠标在UIAxes区域内时才响应方向键
+                    if app.UIFigure.UserData.mouseInAxes
+                        if ~app.UIFigure.UserData.ShiftPressed
+                            app.DrawROI.move_roi(0, -1);
+                        else
+                            app.DrawROI.move_roi(0, -5);
+                        end
+                    end
+                case 'downarrow'
+                    % 只有当鼠标在UIAxes区域内时才响应方向键
+                    if app.UIFigure.UserData.mouseInAxes
+                        if ~app.UIFigure.UserData.ShiftPressed
+                            app.DrawROI.move_roi(0, 1);
+                        else
+                            app.DrawROI.move_roi(0, 5);
+                        end
+                    end
+                case 'leftarrow'
+                    % 只有当鼠标在UIAxes区域内时才响应方向键
+                    if app.UIFigure.UserData.mouseInAxes
+                        if ~app.UIFigure.UserData.ShiftPressed
+                            app.DrawROI.move_roi(-1, 0);
+                        else
+                            app.DrawROI.move_roi(-5, 0);
+                        end
+                    end
+                case 'rightarrow'
+                    % 只有当鼠标在UIAxes区域内时才响应方向键
+                    if app.UIFigure.UserData.mouseInAxes
+                        if ~app.UIFigure.UserData.ShiftPressed
+                            app.DrawROI.move_roi(1, 0);
+                        else
+                            app.DrawROI.move_roi(5, 0);
+                        end
+                    end
+                case 'return'
+                    % 检查是否在编辑ROI模式
+                    if app.DrawROI.is_roi_editing()
+                        app.DrawROI.finish_edit_roi(true);
+                        % 检查是否在添加规则ROI模式
+                    elseif app.DrawROI.is_adding_regular_roi()
+                        app.DrawROI.finish_adding_regular_roi(true);
+                        if app.ShowROINumbersCheckBox.Value
+                            app.DrawROI.show_roi_numbers();
+                        end
+                        % 使用活动轴的状态判断，而不是固定使用第一个轴
+                    elseif strcmp(app.UIFigure.UserData.activeAxes.UserData.status, "handroi_drawing")
+                        app.DrawROI.finish_drawing();
+                        if app.ShowROINumbersCheckBox.Value
+                            app.DrawROI.show_roi_numbers();
+                        end
+                    end
+                case 'escape'
+                    % 检查是否在编辑ROI模式
+                    if app.DrawROI.is_roi_editing()
+                        app.DrawROI.cancel_edit_roi();
+                        % 检查是否在添加规则ROI模式
+                    elseif app.DrawROI.is_adding_regular_roi()
+                        app.DrawROI.cancel_adding_regular_roi();
+                        % 使用活动轴的状态判断，而不是固定使用第一个轴
+                    elseif strcmp(app.UIFigure.UserData.activeAxes.UserData.status, "handroi_drawing")
+                        app.DrawROI.handroi_cancel();
+                    end
+            end
+        end
+
+        function keyRelease(app, ~, event)
+            switch event.Key
+                case 'control'
+                    app.UIFigure.UserData.CtrlPressed = false;
+                case 'shift'
+                    app.UIFigure.UserData.ShiftPressed = false;
+                case 'alt'  % Alt键释放，退出强制平移模式
+                    app.UIFigure.UserData.AltPressed = false;
+                    app.UIFigure.UserData.forcePanMode = false;
+                    set(app.UIFigure, 'Pointer', 'arrow'); % 恢复默认鼠标指针
+                    % 如果没有按住鼠标左键，则恢复idle状态
+                    if strcmp(app.UIFigure.UserData.activeAxes.UserData.status, "axes_paning")
+                        % 检查鼠标左键是否按下
+                        if ~strcmp(get(app.UIFigure, 'SelectionType'), 'normal')
+                            app.UIFigure.UserData.activeAxes.UserData.status = "idle";
+                        end
+                    end
+                case 'space'  % 空格键释放，退出强制平移模式
+                    app.UIFigure.UserData.SpacePressed = false;
+                    app.UIFigure.UserData.forcePanMode = false;
+                    set(app.UIFigure, 'Pointer', 'arrow'); % 恢复默认鼠标指针
+                    % 如果没有按住鼠标左键，则恢复idle状态
+                    if strcmp(app.UIFigure.UserData.activeAxes.UserData.status, "axes_paning")
+                        % 检查鼠标左键是否按下
+                        if ~strcmp(get(app.UIFigure, 'SelectionType'), 'normal')
+                            app.UIFigure.UserData.activeAxes.UserData.status = "idle";
+                        end
+                    end
+
+                case 'escape'
+                    app.UIFigure.UserData.CtrlPressed = false;
+                    app.UIFigure.UserData.ShiftPressed = false;
+                    app.UIFigure.UserData.AltPressed = false;
+                    app.UIFigure.UserData.SpacePressed = false; % 也重置空格键状态
+                    app.UIFigure.UserData.forcePanMode = false;
+                    set(app.UIFigure, 'Pointer', 'arrow');
+                    if strcmp(app.UIFigure.UserData.activeAxes.UserData.status, "axes_paning")
+                        app.UIFigure.UserData.activeAxes.UserData.status = "idle";
+                    end
+            end
+        end
+
 
         function create_structure_pulse(app)
             % create pulse for structure imaging
@@ -462,7 +755,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % reset device for new pusle
             % avoid awg device is not connected
             if isempty(app.awgDevice)
-                uialert(app.RoiImagingModuleUIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
                 return
             end
 
@@ -488,7 +781,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function laser_keep_on(app)
             % avoid awg device is not connected
             if ~isvalid(app.awgDevice)
-                uialert(app.RoiImagingModuleUIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
                 return
             end
 
@@ -556,22 +849,16 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         function init_DrawROI(app)
             % create empty mask
+            app.DrawROI = components.DrawROI(app, [app.UIAxes]);
             app.DrawROI.mask_size = size(app.img_seg_data);
-            app.DrawROI.mask = zeros(app.DrawROI.mask_size);
-            app.DrawROI.colored_mask = uint8(zeros([app.DrawROI.mask_size,3]));
-            app.DrawROI.reset_three_fold_mask();
 
-            % create empty mask layer
-            app.DrawROI.mask_layer = imshow(app.DrawROI.colored_mask,[0,255],'parent',app.UIAxes,'border','tight','initialmagnification','fit');
-            app.DrawROI.mask_layer.AlphaData = zeros(app.DrawROI.mask_size);
-            app.DrawROI.outline_layer = imshow(uint8(zeros([app.DrawROI.mask_size,3])),[0,255],'parent',app.UIAxes,'border','tight','initialmagnification','fit');
-            app.DrawROI.outline_layer.AlphaData = zeros(app.DrawROI.mask_size);
+
             % enable components
             app.MaskOnCheckBox.Value = true;
-            app.DrawROI.enable  = true;
             app.Seg.enable = true;
             app.Seg.auto_rerun = false;
             % save image data
+            app.UIAxes.UserData.status = 'idle';
             app.UIAxes.UserData.origin_xlim = app.UIAxes.XLim;
             app.UIAxes.UserData.origin_ylim = app.UIAxes.YLim;
         end
@@ -674,16 +961,31 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             % init awg settings
             app.init_awg_settings();
-            app.RoiImagingModuleUIFigure.UserData.CtrlPressed = false;
-            app.RoiImagingModuleUIFigure.UserData.ShiftPressed = false;
+            app.UIFigure.UserData.CtrlPressed = false;
+            app.UIFigure.UserData.ShiftPressed = false;
 
             % init hand draw roi settings
-            app.DrawROI = components.DrawROI(app);
-            app.UIAxes.UserData.pan_previous_point = [];
-            app.UIAxes.UserData.status = "idle"; % status: idle,handroi_drawing,paning
-            app.UIAxes.UserData.origin_xlim = app.UIAxes.XLim;
-            app.UIAxes.UserData.origin_ylim = app.UIAxes.YLim;
+            app.DrawROI = components.DrawROI(app, [app.UIAxes]);
+            app.UIFigure.UserData.CtrlPressed = false;
+            app.UIFigure.UserData.ShiftPressed = false;
+            app.UIFigure.UserData.AltPressed = false;
+            app.UIFigure.UserData.SpacePressed = false;
 
+            % 将原属性初始化到UserData中
+            app.UIFigure.UserData.Pan = struct('previous_point', [0 0 0 0]);
+            app.UIFigure.UserData.activeAxes = app.UIAxes; % 默认活动轴
+            app.UIAxes.UserData.status = 'idle';
+            app.UIAxes.UserData.origin_xlim = [];
+            app.UIAxes.UserData.origin_ylim = [];
+            app.UIFigure.UserData.mouseInAxes = false;
+            app.UIFigure.UserData.forcePanMode = false;
+
+            set(app.UIFigure, 'WindowButtonDownFcn', @app.windowButtonDown);
+            set(app.UIFigure, 'WindowButtonMotionFcn', @app.windowMotion);
+            set(app.UIFigure, 'WindowButtonUpFcn', @app.windowButtonUp);
+            set(app.UIFigure, 'WindowKeyPressFcn', @app.keyPress);
+            set(app.UIFigure, 'WindowKeyReleaseFcn', @app.keyRelease);
+            set(app.UIFigure, 'WindowScrollWheelFcn', @app.windowScrollWheel);
             % seg
             app.Seg = components.Segmentation();
             app.getCellposeModels(app.Seg.cellpose_model_folder)
@@ -705,7 +1007,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 app.hSI = evalin('base', 'hSI');
                 app.hSICtl = evalin('base', 'hSICtl');
             catch
-                uialert(app.RoiImagingModuleUIFigure,"Please Start Scanimage First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Start Scanimage First",'Warning','Icon','warning');
                 return
             end
             app.ScanimageButton.BackgroundColor = [0.33,0.60,0.85];
@@ -760,8 +1062,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ScannerSettingsApp = subapps.ScannerSettings(app);
         end
 
-        % Close request function: RoiImagingModuleUIFigure
-        function RoiImagingModuleUIFigureCloseRequest(app, event)
+        % Close request function: UIFigure
+        function UIFigureCloseRequest(app, event)
             % when exit MainApp
             % disconnect awg device
             if isvalid (app.StructureRebuilder)
@@ -800,7 +1102,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 simulateState = app.SimulationToggleTool.State;
 
                 % create progress dialog
-                d = uiprogressdlg(app.RoiImagingModuleUIFigure,'Title','Connecting AWG',...
+                d = uiprogressdlg(app.UIFigure,'Title','Connecting AWG',...
                     'Indeterminate','on');
                 drawnow
 
@@ -863,7 +1165,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 app.lastRoiMaskPath = path;
 
                 % create progress dialog
-                d = uiprogressdlg(app.RoiImagingModuleUIFigure,'Title','Loading ROI Mask',...
+                d = uiprogressdlg(app.UIFigure,'Title','Loading ROI Mask',...
                     'Indeterminate','on');
                 drawnow
 
@@ -953,11 +1255,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         end
 
-        % Button down function: RightPanel
-        function RightPanelButtonDown(app, event)
-
-        end
-
         % Callback function
         function ChannelDropDownValueChanged(app, event)
             if isempty(app.img_avg_Ch1) || ~any(app.img_avg_Ch1,'all')
@@ -1001,7 +1298,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 % 更新完功率后自动更新
                 app.caculate_power();
             else
-                uialert(app.RoiImagingModuleUIFigure,"Please Start Scanimage First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Start Scanimage First",'Warning','Icon','warning');
             end
 
 
@@ -1016,7 +1313,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                     app.hSICtl = evalin('base', 'hSICtl');
                 catch
                     app.ScanimageButton.Value = false;
-                    uialert(app.RoiImagingModuleUIFigure,"Please Start Scanimage First", ...
+                    uialert(app.UIFigure,"Please Start Scanimage First", ...
                         'Warning','Icon','warning');
                     return;
                 end
@@ -1065,7 +1362,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             if filename ~= 0
                 % create progress dialog
-                d = uiprogressdlg(app.RoiImagingModuleUIFigure,'Title','Loading Image',...
+                d = uiprogressdlg(app.UIFigure,'Title','Loading Image',...
                     'Indeterminate','on');
                 drawnow
 
@@ -1116,262 +1413,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         end
 
-        % Window button down function: RoiImagingModuleUIFigure
-        function RoiImagingModuleUIFigureWindowButtonDown(app, event)
-            % get mouse position in UIaxes
-            currentPosition =app.UIAxes.CurrentPoint;
-            x = currentPosition(1,1);
-            y = currentPosition(1,2);
-            if x >= app.UIAxes.XLim(1) && x <= app.UIAxes.XLim(2) && y >= app.UIAxes.YLim(1) && y <= app.UIAxes.YLim(2)
-
-                switch app.RoiImagingModuleUIFigure.SelectionType
-                    % left click
-                    case 'normal'
-                        % left click can cancel draw roi
-                        if app.UIAxes.UserData.status == "handroi_drawing"
-                            app.DrawROI.handroi_cancel();
-                        end
-
-                        selecting_roi = false;
-
-                        % Enabling conditions：already drawed roi manualy or run segmentation
-                        if app.DrawROI.enable && any(app.DrawROI.mask,'all')
-                            % Click on ROI to make it white
-                            selecting_roi = app.DrawROI.select_cell(x,y);
-
-                        end
-
-                        % When not select a roi, right click can pan the UIAxes
-                        if ~selecting_roi && ~app.DrawROI.isEditingROI
-                            pan_click();
-                        end
-
-                        % right click /ctrl + left click
-                    case 'alt'
-                        % ctrl + left click
-                        if app.RoiImagingModuleUIFigure.UserData.CtrlPressed
-                            % disp("ctrl + left click");
-                            app.DrawROI.delete_cell(x,y);
-                            % 关闭ROI灯，提示ROI成像与当前ROI mask不一致
-                            app.ROIImagingLamp.Color = [0.90,0.90,0.90];
-                            % right click
-                        else
-                            if app.UIAxes.UserData.status ~= "handroi_drawing" && app.DrawROI.enable && ~app.DrawROI.isEditingROI
-                                app.DrawROI.handroi_start(x,y) % 手动圈选ROI 绘制起点
-                                % 关闭ROI灯，提示ROI成像与当前ROI mask不一致
-                                app.ROIImagingLamp.Color = [0.90,0.90,0.90];
-                            end
-                        end
-
-                    case 'open'
-                        % zoom restore
-                        try
-                            app.UIAxes.XLim = app.UIAxes.UserData.origin_xlim;
-                            app.UIAxes.YLim = app.UIAxes.UserData.origin_ylim;
-                        catch
-                        end
-                        % shift click / left click+ right click
-                    case 'extend'
-                        return
-                end
-            end
-
-
-
-            function pan_click()
-                app.UIAxes.UserData.status = "axes_paning";
-                app.UIAxes.UserData.pan_previous_point = app.UIAxes.CurrentPoint;
-                set(app.RoiImagingModuleUIFigure,'Pointer','fleur');
-
-            end
-
-        end
-
-        % Window button up function: RoiImagingModuleUIFigure
-        function RoiImagingModuleUIFigureWindowButtonUp(app, event)
-            switch app.UIAxes.UserData.status
-                case "axes_paning"
-                    app.UIAxes.UserData.status = "idle";
-                    set(app.RoiImagingModuleUIFigure,'Pointer','arrow');
-                case "handroi_drawing"
-                    return
-                otherwise
-                    return
-            end
-        end
-
-        % Window button motion function: RoiImagingModuleUIFigure
-        function RoiImagingModuleUIFigureWindowButtonMotion(app, event)
-            % 鼠标移动过程中的绘图
-            currentPosition =app.UIAxes.CurrentPoint;
-            x = currentPosition(1,1);
-            y = currentPosition(1,2);
-            if x >= app.UIAxes.XLim(1) && x <= app.UIAxes.XLim(2) && y >= app.UIAxes.YLim(1) && y <= app.UIAxes.YLim(2)
-                switch  app.UIAxes.UserData.status
-                    case "axes_paning"
-                        pan_move()
-                    case "handroi_drawing"
-                        app.DrawROI.handroi_draw(x,y)
-                    otherwise
-                        return
-                end
-            end
-
-
-            function pan_move()
-                % get mouse position in UIaxes
-                current_position =app.UIAxes.CurrentPoint;
-
-                % get current location (in pixels)
-                % get current XY-limits
-                xlim_range = get(app.UIAxes, 'xlim');
-                ylim_range = get(app.UIAxes, 'ylim');
-                % find change in position
-                delta_points = current_position - app.UIAxes.UserData.pan_previous_point;
-
-                % Adjust limits
-                set(app.UIAxes, 'Xlim', xlim_range - delta_points(1));
-                set(app.UIAxes, 'Ylim', ylim_range - delta_points(3));
-
-                % save new position
-                app.UIAxes.UserData.pan_previous_point = get(app.UIAxes, 'CurrentPoint');
-
-            end
-
-        end
-
-        % Window scroll wheel function: RoiImagingModuleUIFigure
-        function RoiImagingModuleUIFigureWindowScrollWheel(app, event)
-            % 鼠标滚轮放大
-            currentPosition =app.UIAxes.CurrentPoint;
-            x = currentPosition(1,1);
-            y = currentPosition(1,2);
-            if x >= app.UIAxes.XLim(1) && x <= app.UIAxes.XLim(2) && y >= app.UIAxes.YLim(1) && y <= app.UIAxes.YLim(2)
-                if event.VerticalScrollCount > 0
-                    scale = 1.1;
-                else
-                    scale = 1/1.1;
-                end
-                xlim_range = get(app.UIAxes, 'xlim');
-                ylim_range = get(app.UIAxes, 'ylim');
-                app.UIAxes.XLim = (xlim_range - x) * scale + x;
-                app.UIAxes.YLim = (ylim_range - y) * scale + y;
-            end
-        end
-
-        % Window key press function: RoiImagingModuleUIFigure
-        function RoiImagingModuleUIFigureWindowKeyPress(app, event)
-            key = event.Key;
-            switch key
-                case 'control'
-                    % disp("Control pressed")
-                    app.RoiImagingModuleUIFigure.UserData.CtrlPressed = true;
-                case 'shift'
-                    app.RoiImagingModuleUIFigure.UserData.ShiftPressed = true;
-                otherwise
-                    return
-            end
-
-        end
-
-        % Window key release function: RoiImagingModuleUIFigure
-        function RoiImagingModuleUIFigureWindowKeyRelease(app, event)
-            key = event.Key;
-            switch key
-                case 'escape'
-                    % cancel draw roi manually
-                    app.DrawROI.current_stroke = [];
-                    for i = 1:length(app.DrawROI.plot_handles)
-                        delete(app.DrawROI.plot_handles(i));
-                    end
-                    app.DrawROI.plot_handles = [];
-                    app.UIAxes.UserData.status = "idle";
-                case 'delete'
-                    if app.DrawROI.enable
-                        if app.DrawROI.last_selected_roi_index
-                            app.DrawROI.delete_selected_cell();
-                            % 关闭ROI灯，提示ROI成像与当前ROI mask不一致
-                            app.ROIImagingLamp.Color = [0.90,0.90,0.90];
-                        end
-                    end
-                case 'control'
-                    app.RoiImagingModuleUIFigure.UserData.CtrlPressed = false;
-                case 'shift'
-                    app.RoiImagingModuleUIFigure.UserData.ShiftPressed = false;
-                otherwise
-                    return
-            end
-        end
-
-        % Key press function: RoiImagingModuleUIFigure
-        function RoiImagingModuleUIFigureKeyPress(app, event)
-            key = event.Key;
-            switch key
-                case 'uparrow'
-                    if app.DrawROI.enable
-                        move_step = 1;
-                        if app.RoiImagingModuleUIFigure.UserData.ShiftPressed
-                            move_step = 5;
-                        end
-
-                        if app.DrawROI.last_selected_roi_index == 0
-                            app.DrawROI.move_down = app.DrawROI.move_down + move_step;
-                        end
-                        app.DrawROI.move_mask(0, move_step);  % Always use move_step
-                        app.ROIImagingLamp.Color = [0.90,0.90,0.90];
-                    end
-
-                case 'downarrow'
-                    if app.DrawROI.enable
-                        move_step = 1;
-                        if app.RoiImagingModuleUIFigure.UserData.ShiftPressed
-                            move_step = 5;
-                        end
-
-                        if app.DrawROI.last_selected_roi_index == 0
-                            app.DrawROI.move_down = app.DrawROI.move_down - move_step;
-                        end
-                        app.DrawROI.move_mask(0, -move_step); % Always use move_step
-                        app.ROIImagingLamp.Color = [0.90,0.90,0.90];
-                    end
-
-                case 'leftarrow'
-                    if app.DrawROI.enable
-                        move_step = 1;
-                        if app.RoiImagingModuleUIFigure.UserData.ShiftPressed
-                            move_step = 5;
-                        end
-
-                        if app.DrawROI.last_selected_roi_index == 0
-                            app.DrawROI.move_right = app.DrawROI.move_right + move_step;
-                        end
-                        app.DrawROI.move_mask(move_step, 0); % Always use move_step
-                        app.ROIImagingLamp.Color = [0.90,0.90,0.90];
-                    end
-
-                case 'rightarrow'
-                    if app.DrawROI.enable
-                        move_step = 1;
-                        if app.RoiImagingModuleUIFigure.UserData.ShiftPressed
-                            move_step = 5;
-                        end
-
-                        if app.DrawROI.last_selected_roi_index == 0
-                            app.DrawROI.move_right = app.DrawROI.move_right - move_step;
-                        end
-                        app.DrawROI.move_mask(-move_step, 0); % Always use move_step
-                        app.ROIImagingLamp.Color = [0.90,0.90,0.90];
-                    end
-            end
-
-
-        end
-
-        % Key release function: RoiImagingModuleUIFigure
-        function RoiImagingModuleUIFigureKeyRelease(app, event)
-
-        end
-
         % Button pushed function: RunModelButton
         function RunModelButtonPushed(app, event)
             if ~app.Seg.enable
@@ -1379,7 +1420,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             end
 
             % process bar
-            progressDlg = uiprogressdlg(app.RoiImagingModuleUIFigure,'Title','Running neuron segmentation',...
+            progressDlg = uiprogressdlg(app.UIFigure,'Title','Running neuron segmentation',...
                 'Indeterminate','on');
             drawnow
 
@@ -1522,7 +1563,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                     fullfile(app.last_seg_tiff_path,[fileName,'_mask.png']));
 
                 % hint: done
-                uialert(app.RoiImagingModuleUIFigure,'Save Mask Done','Done','Icon','success');
+                uialert(app.UIFigure,'Save Mask Done','Done','Icon','success');
             end
         end
 
@@ -1530,7 +1571,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function LaserROIImagingButtonPushed(app, event)
             % avoid awg device is not connected
             if isempty(app.awgDevice) || ~isvalid(app.awgDevice) % Check validity too
-                uialert(app.RoiImagingModuleUIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
                 return
             end
 
@@ -1612,7 +1653,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 awg.create_arb_waveform(app.awgDevice,waveformHandle,app.waveformConfig);
                 disp("ROI Imaging Module: Configured for Frame Clock ROI Imaging");
             else
-                uialert(app.RoiImagingModuleUIFigure,['Unknown clock mode: ', app.scannerConfig.clockMode],'Error','Icon','error');
+                uialert(app.UIFigure,['Unknown clock mode: ', app.scannerConfig.clockMode],'Error','Icon','error');
                 return;
             end
             %% light lamp
@@ -1649,7 +1690,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         % Button pushed function: Laser1on9offButton
         function Laser1on9offButtonPushed(app, event)
             if isempty(app.hSI)
-                uialert(app.RoiImagingModuleUIFigure,"Please Connect Scanimage First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Connect Scanimage First",'Warning','Icon','warning');
                 return
             end
 
@@ -1804,7 +1845,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         % Changes arrangement of the app based on UIFigure width
         function updateAppLayout(app, event)
-            currentFigureWidth = app.RoiImagingModuleUIFigure.Position(3);
+            currentFigureWidth = app.UIFigure.Position(3);
             if(currentFigureWidth <= app.onePanelWidth)
                 % Change to a 2x1 grid
                 app.GridLayout.RowHeight = {670, 670};
@@ -1830,25 +1871,17 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Get the file path for locating images
             pathToMLAPP = fileparts(mfilename('fullpath'));
 
-            % Create RoiImagingModuleUIFigure and hide until all components are created
-            app.RoiImagingModuleUIFigure = uifigure('Visible', 'off');
-            app.RoiImagingModuleUIFigure.AutoResizeChildren = 'off';
-            app.RoiImagingModuleUIFigure.Position = [99.8571428571428 99.8571428571428 1178 670];
-            app.RoiImagingModuleUIFigure.Name = 'ROI Imaging Module';
-            app.RoiImagingModuleUIFigure.Resize = 'off';
-            app.RoiImagingModuleUIFigure.CloseRequestFcn = createCallbackFcn(app, @RoiImagingModuleUIFigureCloseRequest, true);
-            app.RoiImagingModuleUIFigure.SizeChangedFcn = createCallbackFcn(app, @updateAppLayout, true);
-            app.RoiImagingModuleUIFigure.WindowButtonDownFcn = createCallbackFcn(app, @RoiImagingModuleUIFigureWindowButtonDown, true);
-            app.RoiImagingModuleUIFigure.WindowButtonUpFcn = createCallbackFcn(app, @RoiImagingModuleUIFigureWindowButtonUp, true);
-            app.RoiImagingModuleUIFigure.WindowButtonMotionFcn = createCallbackFcn(app, @RoiImagingModuleUIFigureWindowButtonMotion, true);
-            app.RoiImagingModuleUIFigure.WindowScrollWheelFcn = createCallbackFcn(app, @RoiImagingModuleUIFigureWindowScrollWheel, true);
-            app.RoiImagingModuleUIFigure.WindowKeyPressFcn = createCallbackFcn(app, @RoiImagingModuleUIFigureWindowKeyPress, true);
-            app.RoiImagingModuleUIFigure.WindowKeyReleaseFcn = createCallbackFcn(app, @RoiImagingModuleUIFigureWindowKeyRelease, true);
-            app.RoiImagingModuleUIFigure.KeyPressFcn = createCallbackFcn(app, @RoiImagingModuleUIFigureKeyPress, true);
-            app.RoiImagingModuleUIFigure.KeyReleaseFcn = createCallbackFcn(app, @RoiImagingModuleUIFigureKeyRelease, true);
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.AutoResizeChildren = 'off';
+            app.UIFigure.Position = [99.8571428571428 99.8571428571428 1178 670];
+            app.UIFigure.Name = 'ROI Imaging Module';
+            app.UIFigure.Resize = 'off';
+            app.UIFigure.CloseRequestFcn = createCallbackFcn(app, @UIFigureCloseRequest, true);
+            app.UIFigure.SizeChangedFcn = createCallbackFcn(app, @updateAppLayout, true);
 
             % Create FileMenu
-            app.FileMenu = uimenu(app.RoiImagingModuleUIFigure);
+            app.FileMenu = uimenu(app.UIFigure);
             app.FileMenu.MenuSelectedFcn = createCallbackFcn(app, @FileMenuSelected, true);
             app.FileMenu.Text = ' File ';
 
@@ -1870,7 +1903,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.LoadConfigMenu.Text = 'Load Config';
 
             % Create SettingsMenu
-            app.SettingsMenu = uimenu(app.RoiImagingModuleUIFigure);
+            app.SettingsMenu = uimenu(app.UIFigure);
             app.SettingsMenu.Text = ' Settings ';
 
             % Create AWGSettingsMenu
@@ -1884,7 +1917,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ScannerSettingsMenu.Text = 'Scanner Settings';
 
             % Create AddonsMenu
-            app.AddonsMenu = uimenu(app.RoiImagingModuleUIFigure);
+            app.AddonsMenu = uimenu(app.UIFigure);
             app.AddonsMenu.Text = ' Add-ons ';
 
             % Create PowerCaculateMenu
@@ -1907,18 +1940,18 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.CustomDrawMenu_2.Text = 'Custom Draw';
 
             % Create HelpMenu
-            app.HelpMenu = uimenu(app.RoiImagingModuleUIFigure);
+            app.HelpMenu = uimenu(app.UIFigure);
             app.HelpMenu.Text = ' Help ';
 
             % Create Toolbar
-            app.Toolbar = uitoolbar(app.RoiImagingModuleUIFigure);
+            app.Toolbar = uitoolbar(app.UIFigure);
 
             % Create SimulationToggleTool
             app.SimulationToggleTool = uitoggletool(app.Toolbar);
             app.SimulationToggleTool.Icon = fullfile(pathToMLAPP, 'assets', 'icon', 'simulation.svg');
 
             % Create GridLayout
-            app.GridLayout = uigridlayout(app.RoiImagingModuleUIFigure);
+            app.GridLayout = uigridlayout(app.UIFigure);
             app.GridLayout.ColumnWidth = {297, '1x'};
             app.GridLayout.RowHeight = {'1x'};
             app.GridLayout.ColumnSpacing = 0;
@@ -2154,7 +2187,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create RightPanel
             app.RightPanel = uipanel(app.GridLayout);
             app.RightPanel.BorderType = 'none';
-            app.RightPanel.ButtonDownFcn = createCallbackFcn(app, @RightPanelButtonDown, true);
             app.RightPanel.Layout.Row = 1;
             app.RightPanel.Layout.Column = 2;
 
@@ -2308,7 +2340,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.editButton.Position = [436 613 38 23];
 
             % Show the figure after all components are created
-            app.RoiImagingModuleUIFigure.Visible = 'on';
+            app.UIFigure.Visible = 'on';
         end
     end
 
@@ -2327,14 +2359,14 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 createComponents(app)
 
                 % Register the app with App Designer
-                registerApp(app, app.RoiImagingModuleUIFigure)
+                registerApp(app, app.UIFigure)
 
                 % Execute the startup function
                 runStartupFcn(app, @startupFcn)
             else
 
                 % Focus the running singleton app
-                figure(runningApp.RoiImagingModuleUIFigure)
+                figure(runningApp.UIFigure)
 
                 app = runningApp;
             end
@@ -2348,7 +2380,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function delete(app)
 
             % Delete UIFigure when app is deleted
-            delete(app.RoiImagingModuleUIFigure)
+            delete(app.UIFigure)
         end
     end
 end
