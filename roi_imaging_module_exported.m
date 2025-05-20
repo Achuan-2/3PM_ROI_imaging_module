@@ -95,9 +95,9 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         AwgControlApp;
         SimulationApp;
         PowerCaculateAPP;
-        
+
         roiMask % Dilate之后
-            
+
         % AWG
         awgDevice= ividev.NIFGEN.empty; % AWG Device Object, default:empty
 
@@ -142,10 +142,10 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         waveformConfig = struct();
         scannerConfig = struct();
     end
-    
+
     % 配准
     properties (Access=public)
-        refImg; 
+        refImg;
     end
 
 
@@ -236,6 +236,81 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             end
         end
 
+        function linePulse = create_line_roi_pulse(app, roiMaskLine, lineIndex)
+            % Create pulse for a single line based on ROI mask
+
+            % Read parameters
+            pulsePerPixel = app.scannerConfig.pulsePerPixel;
+            scanWait = app.scannerConfig.scanWait;
+            scanBackLeftPixelTwice = app.scannerConfig.scanBackLeftPixelTwice * pulsePerPixel;
+            scanBackRightPixelTwice = app.scannerConfig.scanBackRightPixelTwice * pulsePerPixel;
+            imageWidth = app.scannerConfig.imageSize; % Assuming imageSize is square
+
+            % Generate ROI mask pulse for the line
+            roiMaskLinePulse = repelem(roiMaskLine, 1, pulsePerPixel); % Repeat for pulsePerPixel
+
+            % Handle scan direction and add scan back time
+            if mod(lineIndex, 2) == 1 % Odd lines (1, 3, 5...) - Scan Left to Right
+                lineSignal = [repmat(app.defaultConfig.pulseOff, 1, scanWait), repmat(app.defaultConfig.pulseOff, 1, round(scanBackLeftPixelTwice/2)), roiMaskLinePulse, repmat(app.defaultConfig.pulseOff, 1, round(scanBackRightPixelTwice/2))];
+            else % Even lines (2, 4, 6...) - Scan Right to Left
+                roiMaskLinePulse = fliplr(roiMaskLinePulse); % Flip for right-to-left scan
+                lineSignal = [repmat(app.defaultConfig.pulseOff, 1, scanWait), repmat(app.defaultConfig.pulseOff, 1, round(scanBackRightPixelTwice/2)), roiMaskLinePulse, repmat(app.defaultConfig.pulseOff, 1, round(scanBackLeftPixelTwice/2))];
+            end
+
+            % Ensure waveform length is a multiple of 4
+            if mod(length(lineSignal), 4) ~= 0
+                extraNum = 4 - mod(length(lineSignal), 4);
+                lineSignal = [lineSignal, repmat(app.defaultConfig.pulseOff, 1, extraNum)];
+            end
+            linePulse = lineSignal;
+        end
+
+        function awg_output_roi_lines_pulse(app)
+            % Configure AWG to output ROI pulses line by line using sequence mode
+
+            imageHeight = app.scannerConfig.imageSize; % Assuming imageSize is square
+
+            % Determine ROI mask based on pulse logic
+            if ~app.defaultConfig.pulseOn
+                app.roiMask = utils.active_low_logic(app.DrawROI.binary_mask);
+            else
+                app.roiMask = app.DrawROI.binary_mask;
+            end
+
+            % Create waveform handles for each line
+            n = imageHeight; % Number of lines
+            waveformHandlesArray = cell(1, n);
+            sampleCountsArray = zeros(1, n); % Store actual length of each line pulse
+
+            for i = 1:n
+                linePulse = create_line_roi_pulse(app, app.roiMask(i,:), i);
+
+                sampleCountsArray(i) = numel(linePulse); % Store length
+                % disp(size(linePulse))
+                % Create waveform handle for the line pulse
+                waveformHandle = awg.create_waveform_handle(app.awgDevice, linePulse);
+                waveformHandlesArray{i} = waveformHandle;
+            end
+
+            waveformHandlesArray = cell2mat(waveformHandlesArray);
+
+            % Configure sequence parameters
+            sequenceLength = n;
+            loopCountsArray = ones(1, n); % Output each line waveform once per trigger
+            markerLocationArray = repmat(-1, 1, n); % No specific marker locations needed here
+
+            % Configure AWG for sequence output mode
+            configureOutputMode(app.awgDevice, "OUTPUT_SEQ");
+
+            % Create and configure the sequence
+            [~, sequenceHandle] = createAdvancedArbSequence(app.awgDevice, sequenceLength, waveformHandlesArray, loopCountsArray, sampleCountsArray, markerLocationArray);
+
+            % Generate Arb sequence output (triggered by line clock)
+            awg.create_arb_sequence(app.awgDevice, sequenceHandle, app.waveformConfig);
+            disp("ROI Imaging Module: Configured for Line Clock ROI Imaging");
+        end
+
+
         function load_config(app,path)
             % read file
             fid = fopen(path, 'r');
@@ -293,13 +368,13 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             end
             t.close();
 
-            
+
             if app.StructureTypeDropDown.Value == "1/10 Imaging"
                 imgStack =  utils.tiff_extract(imgStack);
             end
 
             % get path
-            folderProcessed = fullfile(path); 
+            folderProcessed = fullfile(path);
             if ~exist(folderProcessed, 'dir')
                 mkdir(folderProcessed)
             end
@@ -308,13 +383,13 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             frames = size(imgStack,3);
             [~, fname, fext] = fileparts(filename);
 
-            
+
             if app.StructureTypeDropDown.Value == "1/10 Imaging"
                 utils.tiff_save(imgStack,fullfile(folderProcessed, [fname,'_rebuild',fext]),tagstruct);
             end
 
-            
-            
+
+
             % AVG 和 imgStack 的数据类型不一样，AVG是8bit，所以app.seg\_img\_layer.CData换成imgStack就非常亮，可能需要把imgStack换成uint8类型？
             % imgStack_normalized = mat2gray(imgStack);
             % imgStack_normalized = imgStack_normalized * 255;
@@ -327,7 +402,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % 自动调整对比度 EnhanceContrastsh
             %app.img_avg_Ch1 = imadjust(imgAvgCh);
             %utils.tiff_save(app.img_avg_Ch1,fullfile(folderProcessed, sprintf('%s_%d_Frames_AVG_EnhanceContrast%s', fname,frames, fext)),tagstruct);
-            
+
             % 生成配准参考图
             % ops = register.default_ops();
             % app.refImg = register.compute_reference(imgStack,ops);
@@ -534,7 +609,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % generate Arb waveform
             awg.create_arb_waveform(app.awgDevice,waveformHandle,app.waveformConfig);
         end
-        
+
         function getCellposeModels(app, folderPath)
             % Get filenames in the specified folder
             files = dir(folderPath);
@@ -608,14 +683,14 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.UIAxes.UserData.status = "idle"; % status: idle,handroi_drawing,paning
             app.UIAxes.UserData.origin_xlim = app.UIAxes.XLim;
             app.UIAxes.UserData.origin_ylim = app.UIAxes.YLim;
-            
+
             % seg
             app.Seg = components.Segmentation();
             app.getCellposeModels(app.Seg.cellpose_model_folder)
 
             % ui
             app.ScanimageButton.BackgroundColor = [1.00,0.00,0.00];
-            
+
             % init config settings
             default_json = fullfile(app.folder,app.defaultConfig.configPath,'default.json');
             if exist(default_json,'file') ~= 0
@@ -798,7 +873,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
                 % enable draw roi
                 app.DrawROI.enable  = true;
-                app.Seg.enable = true; 
+                app.Seg.enable = true;
                 app.Seg.auto_rerun = false;
 
                 % reset roi dilate value
@@ -1014,12 +1089,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                     hold(app.UIAxes,'off');
 
                     app.seg_img_layer = imshow(app.img_seg_data,[],'parent',app.UIAxes,'border','tight','initialmagnification','fit');
-                     
+
 
                     img_size = size(app.img_seg_data);
                     axis(app.UIAxes,[0,img_size(2),0,img_size(1)]);
                     hold(app.UIAxes,'on');
-                    
+
                     % init DrawROI components
                     app.init_DrawROI();
                 end
@@ -1136,7 +1211,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                     case "axes_paning"
                         pan_move()
                     case "handroi_drawing"
-                       app.DrawROI.handroi_draw(x,y)
+                        app.DrawROI.handroi_draw(x,y)
                     otherwise
                         return
                 end
@@ -1270,7 +1345,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                         if app.DrawROI.last_selected_roi_index == 0
                             app.DrawROI.move_right = app.DrawROI.move_right + move_step;
                         end
-                         app.DrawROI.move_mask(move_step, 0); % Always use move_step
+                        app.DrawROI.move_mask(move_step, 0); % Always use move_step
                         app.ROIImagingLamp.Color = [0.90,0.90,0.90];
                     end
 
@@ -1392,7 +1467,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         % Button pushed function: SaveMaskButton
         function SaveMaskButtonPushed(app, event)
-            
+
             [~, file_name, ~]  = fileparts(app.img_seg_filename);
 
             non_modal_filename_input(app,file_name);
@@ -1464,9 +1539,9 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 [~, file_name, ~]  = fileparts(app.img_seg_filename);
                 % Check if DrawROI object and properties exist before saving
                 if isvalid(app.DrawROI) && isprop(app.DrawROI, 'three_fold_mask') && ...
-                   isprop(app.DrawROI, 'three_fold_colored_mask') && ...
-                   isprop(app.DrawROI, 'move_down') && isprop(app.DrawROI, 'move_right') && ...
-                   isprop(app.DrawROI, 'binary_mask')
+                        isprop(app.DrawROI, 'three_fold_colored_mask') && ...
+                        isprop(app.DrawROI, 'move_down') && isprop(app.DrawROI, 'move_right') && ...
+                        isprop(app.DrawROI, 'binary_mask')
 
                     data.three_fold_mask = app.DrawROI.three_fold_mask;
                     data.three_fold_colored_mask = app.DrawROI.three_fold_colored_mask;
@@ -1488,15 +1563,15 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                     pngPath = fullfile(app.last_seg_tiff_path,[file_name,'_mask.png']);
                     try
                         imwrite(app.DrawROI.binary_mask, pngPath);
-                         disp(['Mask PNG saved to: ', pngPath]);
+                        disp(['Mask PNG saved to: ', pngPath]);
                     catch ME
-                         warning('Failed to save mask PNG file: %s', ME.message);
+                        warning('Failed to save mask PNG file: %s', ME.message);
                     end
                 else
-                     warning('DrawROI object or its properties are not valid. Skipping mask save.');
+                    warning('DrawROI object or its properties are not valid. Skipping mask save.');
                 end
             else
-                 warning('Image segment filename is empty. Skipping mask save.');
+                warning('Image segment filename is empty. Skipping mask save.');
             end
             % delete 0.1MHz listener and Rebuild
             if isvalid (app.StructureRebuilder)
@@ -1506,16 +1581,17 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             if isvalid(app.structureListener)
                 delete(app.structureListener);
             end
-            
+
             %% set AWG output
             % reset AWG device for new waveform
+            app.laser_keep_off();
             reset(app.awgDevice);
-
+            
 
             % Check clock mode and configure AWG accordingly
             if strcmpi(app.scannerConfig.clockMode, 'Line Clock')
                 % --- Line Clock Logic ---
-                app.awg_output_roi_lines_pulse();
+                awg_output_roi_lines_pulse(app);
 
             elseif strcmpi(app.scannerConfig.clockMode, 'Frame Clock')
                 % --- Frame Clock Logic (Original) ---
@@ -1525,7 +1601,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 else
                     app.roiMask = app.DrawROI.binary_mask;
                 end
-                
+
                 % generate ROI pulse for the entire frame
                 framePulse = app.create_frame_roi_pulse(app.roiMask);
 
@@ -1584,7 +1660,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             delete(app.StructureRebuilder);
             app.StructureRebuilder= components.ScanimageRealtimeRebuildAvg(app.hSI);
             app.StructureRebuilder.listen_to_scanimage();
-            
+
             % 0.1MHZ 监听程序
             if isa(app.hSI,'scanimage.SI')
                 if isvalid(app.structureListener)
@@ -1625,7 +1701,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             white = lut(2);
             img = rescale(single(img), black, white);
             roiData.imageData{1}{1} = img';
-            
+
             % 发送给scanimage
             app.hSI.hMotionManager.clearEstimators();
             app.hSI.hMotionManager.addEstimator(roiData);
@@ -1675,7 +1751,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                         app.FrameSliderLabel.Text = sprintf("%d/%d",1,n_frames);
                     end
 
-                    
+
             end
         end
 
@@ -1700,7 +1776,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         % Size changed function: ManualcorrectionPanel
         function ManualcorrectionPanelSizeChanged(app, event)
             position = app.ManualcorrectionPanel.Position;
-            
+
         end
 
         % Callback function
