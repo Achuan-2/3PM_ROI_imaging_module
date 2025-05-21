@@ -41,6 +41,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         AbortButton                  matlab.ui.control.Button
         LaserROIImagingButton        matlab.ui.control.Button
         ManualcorrectionPanel        matlab.ui.container.Panel
+        ClearMaskButton              matlab.ui.control.Button
         SaveMaskButton               matlab.ui.control.Button
         LoadMaskButton               matlab.ui.control.Button
         ROIdilateSpinner             matlab.ui.control.Spinner
@@ -57,7 +58,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         ModelsDropDown               matlab.ui.control.DropDown
         ModelsDropDownLabel          matlab.ui.control.Label
         RightPanel                   matlab.ui.container.Panel
-        editButton                   matlab.ui.control.StateButton
+        ROIIDLabel                   matlab.ui.control.Label
+        ShowROINumbersCheckBox       matlab.ui.control.CheckBox
         FrameSliderLabel             matlab.ui.control.Label
         FrameSlider                  matlab.ui.control.Slider
         ContrastLabel                matlab.ui.control.Label
@@ -120,19 +122,20 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         lastStructureImagepath = '';  % save last selected path of structure
         lastRoiMaskPath= ''; % save last selected path of roi mask
         lastConfigPath = ''; % save last selected path of config file
-        last_seg_tiff_path = ''; % save last selected path of avg tif file
+        last_seg_tiff_folder = ''; % save last selected path of avg tif file
         seg_img_layer;
         seg_img_stack;
         img_avg_Ch1;% Description
         img_avg_Ch2;
         img_seg_data; % 用于分割的图像数据
         img_seg_filename;
+        img_seg_fname % Description
     end
 
     % listener
     properties (Access = private)
         structureListener = event.listener.empty;% listener for structure imaging
-        img_seg_name % Description
+        
         img_seg_ext
     end
 
@@ -152,21 +155,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
     methods (Access = private)
         function windowButtonDown(app, ~, ~)
             if ~isempty(app.DrawROI)
-                pt = get(app.UIFigure, 'CurrentPoint');
-                pos1 = getpixelposition(app.UIAxes);
-                if pt(1) >= pos1(1) && pt(1) <= pos1(1)+pos1(3) && pt(2) >= pos1(2) && pt(2) <= pos1(2)+pos1(4)
-                    app.UIFigure.UserData.activeAxes = app.UIAxes;
-                    app.DrawROI.active_axes_index = 1;  % 设置DrawROI的活动轴索引
-                else
-                    return;
-                end
-                % 如果当前活动轴不允许绘制，并且是右键点击（开始绘制ROI的操作），则直接返回
-                if ~app.DrawROI.drawing_enabled(app.DrawROI.active_axes_index) && strcmp(app.UIFigure.SelectionType, 'alt')
-                    % 如果不是Ctrl+左键（用于删除ROI），则阻止操作
-                    if ~app.UIFigure.UserData.CtrlPressed
-                        return;
-                    end
-                end
+
                 currentPosition = app.UIFigure.UserData.activeAxes.CurrentPoint;
                 x = currentPosition(1,1);
                 y = currentPosition(1,2);
@@ -718,12 +707,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.init_DrawROI();
 
             % for save mask
-            app.img_seg_name = fname;
+            app.img_seg_fname = fname;
             app.img_seg_ext =  fext;
-            app.img_seg_filename = [app.img_seg_name,app.img_seg_ext];
-            app.last_seg_tiff_path = fullfile(path,'Structure');
-            if ~exist(app.last_seg_tiff_path, 'dir')
-                mkdir(app.last_seg_tiff_path)
+            app.img_seg_filename = [app.img_seg_fname,app.img_seg_ext];
+            app.last_seg_tiff_folder = fullfile(path,'Structure');
+            if ~exist(app.last_seg_tiff_folder, 'dir')
+                mkdir(app.last_seg_tiff_folder)
             end
         end
 
@@ -755,7 +744,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % reset device for new pusle
             % avoid awg device is not connected
             if isempty(app.awgDevice)
-                uialert(app.UIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Connect AWG Device First",'Warning','Icon','warning','Modal',false);
                 return
             end
 
@@ -781,7 +770,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function laser_keep_on(app)
             % avoid awg device is not connected
             if ~isvalid(app.awgDevice)
-                uialert(app.UIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Connect AWG Device First",'Warning','Icon','warning','Modal',false);
                 return
             end
 
@@ -942,6 +931,41 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ModelsDropDown.Value = modelNames{1};
         end
 
+        
+       function save_mask(app)
+            try
+                % save matfile
+                data.roi_contours = app.DrawROI.roi_contours;
+                data.original_roi_contours = app.DrawROI.original_roi_contours;
+                data.dilate_level = app.DrawROI.dilate_level;
+                data.roi_labeled_mask = uint16(app.DrawROI.generate_labeled_mask());
+    
+                save(fullfile(app.last_seg_tiff_folder,[app.img_seg_fname,'_roiMask.mat']), ...
+                    "-struct", ...
+                    "data");
+
+                % save roi mask to imageJ
+                utils.save_roiContour_to_imagej(app.DrawROI.roi_contours,fullfile(app.last_seg_tiff_folder,strcat(app.img_seg_fname,'_roiMask.zip')));
+
+                app.UIAxes.XLim = app.UIAxes.UserData.origin_xlim;
+                app.UIAxes.YLim = app.UIAxes.UserData.origin_ylim;
+   
+                exportgraphics(app.UIAxes, ...
+                    fullfile(app.last_seg_tiff_folder, ...
+                    [app.img_seg_fname,'_roiMask.pdf']), ...
+                    'Resolution',600);
+    
+    
+                exportgraphics(app.UIAxes, ...
+                    fullfile(app.last_seg_tiff_folder, ...
+                    [app.img_seg_fname,'_roiMask.png']), ...
+                    'Resolution',600);
+            catch ME
+                % 捕获并显示错误信息
+                errordlg(ME.message, 'Error');
+                fprintf(2,'%s\n', ME.getReport('extended'));
+            end
+        end
     end
 
 
@@ -957,7 +981,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             fullpath = mfilename('fullpath');
             [path,~]=fileparts(fullpath);
             app.folder = path;
-
+            addpath(genpath(fullfile(app.folder,'libs')))
 
             % init awg settings
             app.init_awg_settings();
@@ -1007,7 +1031,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 app.hSI = evalin('base', 'hSI');
                 app.hSICtl = evalin('base', 'hSICtl');
             catch
-                uialert(app.UIFigure,"Please Start Scanimage First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Start Scanimage First",'Warning','Icon','warning','Modal',false);
                 return
             end
             app.ScanimageButton.BackgroundColor = [0.33,0.60,0.85];
@@ -1265,10 +1289,10 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             switch value
                 case 'CH1'
                     img = app.img_avg_Ch1;
-                    app.img_seg_filename = [app.img_seg_name,'_ch1',app.img_seg_ext];
+                    app.img_seg_filename = [app.img_seg_fname,'_ch1',app.img_seg_ext];
                 case 'CH2'
                     img = app.img_avg_Ch2;
-                    app.img_seg_filename = [app.img_seg_name,'_ch2',app.img_seg_ext];
+                    app.img_seg_filename = [app.img_seg_fname,'_ch2',app.img_seg_ext];
             end
 
             hold(app.UIAxes,'off');
@@ -1298,7 +1322,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 % 更新完功率后自动更新
                 app.caculate_power();
             else
-                uialert(app.UIFigure,"Please Start Scanimage First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Start Scanimage First",'Warning','Icon','warning','Modal',false);
             end
 
 
@@ -1314,7 +1338,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 catch
                     app.ScanimageButton.Value = false;
                     uialert(app.UIFigure,"Please Start Scanimage First", ...
-                        'Warning','Icon','warning');
+                        'Warning','Icon','warning','Modal',false);
                     return;
                 end
 
@@ -1358,8 +1382,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.LoadSegImageButton.Enable = 'off';
             app.LoadSegImageButton.FontColor = [1.00,1.00,1.00];
             app.LoadSegImageButton.BackgroundColor = [0.96,0.65,0.11];
-            [filename,path] = utils.select_file({'*.tif';'*.png'},app.last_seg_tiff_path);
-
+            [filename,path] = utils.select_file({'*.tif';'*.png'},app.last_seg_tiff_folder);
+            
             if filename ~= 0
                 % create progress dialog
                 d = uiprogressdlg(app.UIFigure,'Title','Loading Image',...
@@ -1367,8 +1391,10 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 drawnow
 
                 % save path for next click
-                app.last_seg_tiff_path = path;
-                app.img_seg_filename = filename;
+                app.last_seg_tiff_folder = path;
+                app.img_seg_filename = filename; % 获取文件名+后缀
+                [~, app.img_seg_fname, ~]  = fileparts(app.img_seg_filename); % 获取文件名，无后缀
+
                 info = imfinfo(fullfile(path,filename));
 
                 % load image
@@ -1378,7 +1404,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                     process_structure_image(app,filename,path);
                 else
                     % single frame
-                    app.img_seg_data= imread(fullfile(app.last_seg_tiff_path,filename));
+                    app.img_seg_data= imread(fullfile(app.last_seg_tiff_folder,filename));
                     app.refImg = app.img_seg_data;
                     %app.img_seg_data = imadjust(app.img_seg_data);
 
@@ -1509,19 +1535,25 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         % Button pushed function: SaveMaskButton
         function SaveMaskButtonPushed(app, event)
 
-            [~, file_name, ~]  = fileparts(app.img_seg_filename);
-
-            non_modal_filename_input(app,file_name);
+            [~, app.img_seg_fname, ~]  = fileparts(app.img_seg_filename);
+            non_modal_filename_input(app,app.img_seg_fname);
 
             function non_modal_filename_input(app,file_name)
                 % 创建一个非模态窗口
+                figPos = app.UIFigure.Position;
+                figWidth = 300;
+                figHeight = 200;
+                figLeft = figPos(1) + (figPos(3) - figWidth)/2;
+                figTop = figPos(2) + (figPos(4) - figHeight)/2;
+
+
                 hFig = figure('Name', 'Enter File Name', ...
                     'NumberTitle', 'off', ...
                     'MenuBar', 'none', ...
                     'ToolBar', 'none', ...
                     'Resize', 'on', ...
-                    'WindowStyle', 'modal'); % 'normal' makes it non-modal
-
+                    'Position', [figLeft, figTop, figWidth, figHeight], ...
+                    'WindowStyle', 'normal');
                 % 创建一个文本框用于用户输入文件名
                 hEdit = uicontrol('Style', 'edit', ...
                     'String',file_name,...
@@ -1541,29 +1573,21 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             function saveFileNameCallback(~, ~, hFig,hEdit,app)
                 % 获取用户输入的文件名
                 fileName = get(hEdit, 'String');
-                disp(['The entered file name is: ', fileName]);
+                app.img_seg_fname = fileName;
                 % 在这里执行保存文件的操作
                 close(hFig);
-                % save mat
-                data.three_fold_mask = app.DrawROI.three_fold_mask;
-                data.three_fold_colored_mask = app.DrawROI.three_fold_colored_mask;
-                data.three_fold_colored_mask_dilate_before = app.DrawROI.three_fold_colored_mask_dilate_before;
-                data.three_fold_mask_dilate_before = app.DrawROI.three_fold_mask_dilate_before;
-                data.move_down = app.DrawROI.move_down;
-                data.move_right = app.DrawROI.move_right;
-                data.dilate = app.ROIdilateSpinner.Value;
-
-                save(fullfile(app.last_seg_tiff_path,[fileName,'_mask.mat']), ...
-                    "-struct", ...
-                    "data");
-
-
-                % save png
-                imwrite(app.DrawROI.binary_mask, ...
-                    fullfile(app.last_seg_tiff_path,[fileName,'_mask.png']));
-
+                d = uiprogressdlg(app.UIFigure,'Title','Saving',...
+                'Indeterminate','on');
+                % save ROI
+                try
+                    save_mask(app);
+                catch
+                     close(d);
+                     return
+                end
+                close(d);
                 % hint: done
-                uialert(app.UIFigure,'Save Mask Done','Done','Icon','success');
+                uialert(app.UIFigure,'Save Mask Done','Done','Icon','success','Modal',false);
             end
         end
 
@@ -1571,43 +1595,15 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function LaserROIImagingButtonPushed(app, event)
             % avoid awg device is not connected
             if isempty(app.awgDevice) || ~isvalid(app.awgDevice) % Check validity too
-                uialert(app.UIFigure,"Please Connect AWG Device First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Connect AWG Device First",'Warning','Icon','warning','Modal',false);
                 return
             end
 
             % 自动保存ROI mask
             if ~isempty(app.img_seg_filename)
-                [~, file_name, ~]  = fileparts(app.img_seg_filename);
                 % Check if DrawROI object and properties exist before saving
-                if isvalid(app.DrawROI) && isprop(app.DrawROI, 'three_fold_mask') && ...
-                        isprop(app.DrawROI, 'three_fold_colored_mask') && ...
-                        isprop(app.DrawROI, 'move_down') && isprop(app.DrawROI, 'move_right') && ...
-                        isprop(app.DrawROI, 'binary_mask')
-
-                    data.three_fold_mask = app.DrawROI.three_fold_mask;
-                    data.three_fold_colored_mask = app.DrawROI.three_fold_colored_mask;
-                    data.three_fold_colored_mask_dilate_before = app.DrawROI.three_fold_colored_mask_dilate_before; % Save dilate before state
-                    data.three_fold_mask_dilate_before = app.DrawROI.three_fold_mask_dilate_before; % Save dilate before state
-                    data.move_down = app.DrawROI.move_down;
-                    data.move_right = app.DrawROI.move_right;
-                    data.dilate = app.ROIdilateSpinner.Value; % Save dilate value
-
-                    savePath = fullfile(app.last_seg_tiff_path,[file_name,'_mask.mat']);
-                    try
-                        save(savePath, "-struct", "data");
-                        disp(['Mask saved to: ', savePath]);
-                    catch ME
-                        warning('Failed to save mask MAT file: %s', ME.message);
-                    end
-
-                    % save png
-                    pngPath = fullfile(app.last_seg_tiff_path,[file_name,'_mask.png']);
-                    try
-                        imwrite(app.DrawROI.binary_mask, pngPath);
-                        disp(['Mask PNG saved to: ', pngPath]);
-                    catch ME
-                        warning('Failed to save mask PNG file: %s', ME.message);
-                    end
+                if isvalid(app.DrawROI) 
+                    save_mask(app);
                 else
                     warning('DrawROI object or its properties are not valid. Skipping mask save.');
                 end
@@ -1653,7 +1649,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 awg.create_arb_waveform(app.awgDevice,waveformHandle,app.waveformConfig);
                 disp("ROI Imaging Module: Configured for Frame Clock ROI Imaging");
             else
-                uialert(app.UIFigure,['Unknown clock mode: ', app.scannerConfig.clockMode],'Error','Icon','error');
+                uialert(app.UIFigure,['Unknown clock mode: ', app.scannerConfig.clockMode],'Error','Icon','error','Modal',false);
                 return;
             end
             %% light lamp
@@ -1690,7 +1686,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         % Button pushed function: Laser1on9offButton
         function Laser1on9offButtonPushed(app, event)
             if isempty(app.hSI)
-                uialert(app.UIFigure,"Please Connect Scanimage First",'Warning','Icon','warning');
+                uialert(app.UIFigure,"Please Connect Scanimage First",'Warning','Icon','warning','Modal',false);
                 return
             end
 
@@ -1825,7 +1821,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         end
 
-        % Value changed function: editButton
+        % Callback function
         function editButtonValueChanged(app, event)
 
             if ~app.DrawROI.enable
@@ -1840,6 +1836,17 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             else
                 app.DrawROI.modifyROI();
                 app.editButton.Text = "done";
+            end
+        end
+
+        % Button pushed function: ClearMaskButton
+        function ClearMaskButtonPushed(app, event)
+            if ~isempty(app.DrawROI)
+                choice = questdlg('Are you sure you want to clear all ROIs?', ...
+                    'Clear ROIs', 'Yes', 'No', 'No');
+                if strcmp(choice, 'Yes')
+                    app.DrawROI.clear_all_rois();
+                end
             end
         end
 
@@ -2072,8 +2079,18 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.SaveMaskButton.ButtonPushedFcn = createCallbackFcn(app, @SaveMaskButtonPushed, true);
             app.SaveMaskButton.Icon = fullfile(pathToMLAPP, 'assets', 'icon', 'save.svg');
             app.SaveMaskButton.Tooltip = {'choose where to save mask as .mat and .jpg'};
-            app.SaveMaskButton.Position = [147 11 100 23];
+            app.SaveMaskButton.Position = [123 10 100 23];
             app.SaveMaskButton.Text = 'Save Mask';
+
+            % Create ClearMaskButton
+            app.ClearMaskButton = uibutton(app.ManualcorrectionPanel, 'push');
+            app.ClearMaskButton.ButtonPushedFcn = createCallbackFcn(app, @ClearMaskButtonPushed, true);
+            app.ClearMaskButton.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
+            app.ClearMaskButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.ClearMaskButton.Tooltip = {'Load external mask  '};
+            app.ClearMaskButton.Position = [194 45 90 23];
+            app.ClearMaskButton.Text = 'Clear Mask';
+            app.ClearMaskButton.Icon = fullfile(pathToMLAPP, '+assets', 'clear.svg');
 
             % Create ROIImagingPanel
             app.ROIImagingPanel = uipanel(app.LeftPanel);
@@ -2332,12 +2349,17 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.FrameSliderLabel.Position = [58 61 490 22];
             app.FrameSliderLabel.Text = '1/1000';
 
-            % Create editButton
-            app.editButton = uibutton(app.RightPanel, 'state');
-            app.editButton.ValueChangedFcn = createCallbackFcn(app, @editButtonValueChanged, true);
-            app.editButton.Tooltip = {'edit roi'};
-            app.editButton.Text = 'edit';
-            app.editButton.Position = [436 613 38 23];
+            % Create ShowROINumbersCheckBox
+            app.ShowROINumbersCheckBox = uicheckbox(app.RightPanel);
+            app.ShowROINumbersCheckBox.Tooltip = {'Show ROI number'};
+            app.ShowROINumbersCheckBox.Text = '';
+            app.ShowROINumbersCheckBox.Position = [207 36 25 22];
+            app.ShowROINumbersCheckBox.Value = true;
+
+            % Create ROIIDLabel
+            app.ROIIDLabel = uilabel(app.RightPanel);
+            app.ROIIDLabel.Position = [162 37 45 22];
+            app.ROIIDLabel.Text = 'ROI ID ';
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
