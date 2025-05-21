@@ -1,4 +1,4 @@
-function tiff_save(input_img, filepath, tags)
+function tiff_save(input_img, filepath, options)
 %tiff_save_lib: Save a 3D image stack as a TIFF volume.
 %
 %   USAGE
@@ -22,27 +22,27 @@ function tiff_save(input_img, filepath, tags)
     arguments
         input_img % the input image,can be 2D or 3D.
         filepath string % Path to the TIFF file to be created.
-        tags struct = struct() % Optional structure containing TIFF file properties.
+        options struct = struct() % Optional structure containing TIFF file properties.
     end
     if ~ismember(ndims(input_img),[2,3])
         error('The number of dimensions of the input image must be 2 or 3.');
     end
 
   
-    default_tags = generate_tagstruct(input_img);
-    if isempty(fieldnames(tags))
+    default_options = generate_tagstruct(input_img);
+    if isempty(fieldnames(options))
         % Set default TIFF file properties if info is not provided.
-        tags = default_tags;
+        options = default_options;
     else
         % 如果本身有传入options，传入的tag和默认tag进行合并
-        fields1 = fieldnames(tags);
-        fields2 = fieldnames(default_tags);
+        fields1 = fieldnames(options);
+        fields2 = fieldnames(default_options);
         % 遍历fields2 
         for i = 1:length(fields2)
             % 判断字段是否在fields1中存在
             if ~ismember(fields2{i}, fields1)
                 % 如果不存在则将该字段添加到struct1中
-                tags.(fields2{i}) = default_tags.(fields2{i});
+                options.(fields2{i}) = default_options.(fields2{i});
             end
         end
     end
@@ -51,20 +51,20 @@ function tiff_save(input_img, filepath, tags)
 
 
     s=whos('input_img');
-    if s.bytes > 3.7628352 * 10^9 % 2^32-1约等于4GB,但是考虑加上tag后，文件会偏大
+    if s.bytes > 3.7628352 * 10^9 % 2^32-1约等于4GB,但是考虑加上tag后，文件会偏大，所以设置为2^31-1
         t = Tiff(filepath,'w8');
     else
         t = Tiff(filepath,'w');
     end
 
     depth = size(input_img, 3);
-    fields = fieldnames(tags);
+    fields = fieldnames(options);
     for d = 1:depth
         % 设置TIff标签
         %t.setTag(options); % 直接一口气写入的速度会慢一点，放弃这种方式
         for i = 1:length(fields)
             field = fields{i}; % 当前字段名称
-            value = tags.(field); % 当前字段的值
+            value = options.(field); % 当前字段的值
 
             % 使用tf.setTag设置TIFF标签
             t.setTag(field, value);

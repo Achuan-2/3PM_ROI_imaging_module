@@ -3,21 +3,27 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
     % Properties that correspond to app components
     properties (Access = public)
         UIFigure                       matlab.ui.Figure
+        AdjustROIPanel                 matlab.ui.container.Panel
+        ClearPatchButton               matlab.ui.control.Button
+        ClearAllButton                 matlab.ui.control.Button
+        DragROIsButton                 matlab.ui.control.Button
+        ReorderROIsButton              matlab.ui.control.Button
+        AddRegularROIPanel             matlab.ui.container.Panel
+        CircleButton                   matlab.ui.control.Button
+        RectButton                     matlab.ui.control.Button
         ROIIDStyleSettingsPanel        matlab.ui.container.Panel
-        ColorPickerButton_2            matlab.ui.control.Button
+        ROIIDColorPickerButton         matlab.ui.control.Button
         showROIIDCheckBox              matlab.ui.control.CheckBox
         ROIIDColorEditField            matlab.ui.control.EditField
         ROIIDColorEditFieldLabel       matlab.ui.control.Label
-        ROIIDFontSizeEditField         matlab.ui.control.NumericEditField
-        ROIIDFontSizeEditFieldLabel    matlab.ui.control.Label
-        ROIMaskColorSettingsPanel      matlab.ui.container.Panel
-        ColorPickerButton              matlab.ui.control.Button
+        ROIIDFontSizeSpinner           matlab.ui.control.Spinner
+        ROIIDFontSizeSpinnerLabel      matlab.ui.control.Label
+        ROIMaskStyleSettingsPanel      matlab.ui.container.Panel
+        ROIMaskColorPickerButton       matlab.ui.control.Button
         showROIMaskbackgroundCheckBox  matlab.ui.control.CheckBox
         ROIMaskColorEditField          matlab.ui.control.EditField
         MaskColorDropDown              matlab.ui.control.DropDown
         MaskColorDropDownLabel         matlab.ui.control.Label
-        DragROIsButton                 matlab.ui.control.StateButton
-        ReorderROIsButton              matlab.ui.control.Button
         Label                          matlab.ui.control.Label
     end
 
@@ -43,11 +49,14 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
             if ~isempty(app.mainApp.DrawROI)
                 % 初始化ROI ID显示设置
                 app.showROIIDCheckBox.Value = app.mainApp.DrawROI.showRoiNumber;
-                app.ROIIDFontSizeEditField.Value = app.mainApp.DrawROI.roi_number_fontSize;
+                app.ROIIDFontSizeSpinner.Value = app.mainApp.DrawROI.roi_number_fontSize;
                 if isnumeric(app.mainApp.DrawROI.roi_number_fontColor)
+                     % 如果是RGB数值，转换为hex格式
+                    app.ROIIDColorEditField.BackgroundColor = app.mainApp.DrawROI.roi_number_fontColor;
                     app.ROIIDColorEditField.Value = utils.matrix2hex(app.mainApp.DrawROI.roi_number_fontColor);
                 else
-                    app.ROIIDColorEditField.Value = app.mainApp.DrawROI.roi_number_fontColor;
+                    app.ROIIDColorEditField.BackgroundColor = app.mainApp.DrawROI.roi_number_fontColor;
+                    app.ROIIDColorEditField.Value =  utils.hex2matrix(app.mainApp.DrawROI.roi_number_fontColor);
                 end
                     
                 
@@ -58,14 +67,18 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
                 if ischar(app.mainApp.DrawROI.mask_color) && strcmp(app.mainApp.DrawROI.mask_color, 'Random')
                     app.MaskColorDropDown.Value = 'Random';
                     app.ROIMaskColorEditField.Visible = 'off';
+                    app.ROIMaskColorPickerButton.Visible = 'off';
                 else
                     app.MaskColorDropDown.Value = 'Fixed';
                     app.ROIMaskColorEditField.Visible = 'on';
+                    app.ROIMaskColorPickerButton.Visible = 'on';
                     if isnumeric(app.mainApp.DrawROI.mask_color)
                         % 如果是RGB数值，转换为hex格式
+                        app.ROIMaskColorEditField.BackgroundColor = app.mainApp.DrawROI.mask_color;
                         app.ROIMaskColorEditField.Value = utils.matrix2hex(app.mainApp.DrawROI.mask_color);
                     else
                         app.ROIMaskColorEditField.Value = app.mainApp.DrawROI.mask_color;
+                        app.ROIMaskColorEditField.BackgroundColor = utils.hex2matrix(app.mainApp.DrawROI.mask_color);
                     end
                 end
             end
@@ -80,9 +93,12 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
                     if ~isempty(app.mainApp.DrawROI)
                         app.mainApp.DrawROI.mask_color = app.ROIMaskColorEditField.Value;
                     end
+                    app.ROIMaskColorEditField.BackgroundColor = utils.hex2matrix(app.ROIMaskColorEditField.Value);
+                    app.ROIMaskColorPickerButton.Visible = 'on';
                 case 'Random'
                     app.ROIMaskColorEditField.Visible = 'off';
                     app.mainApp.DrawROI.mask_color = 'Random';
+                    app.ROIMaskColorPickerButton.Visible = 'off';
             end
         end
 
@@ -91,17 +107,19 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
 
                 % 更改mask颜色将直接更新mask颜色
             if ~isempty(app.mainApp.DrawROI)
-                app.mainApp.DrawROI.mask_color = utils.hex2matrix(app.ROIMaskColorEditField.Value);
+                matrixColor = utils.hex2matrix(app.ROIMaskColorEditField.Value);
+                app.mainApp.DrawROI.mask_color = matrixColor;
+                app.ROIMaskColorEditField.BackgroundColor = matrixColor;
                 app.mainApp.MaskOnCheckBox.Value = true;
                 app.mainApp.DrawROI.update_roi_color()
             end
         end
 
-        % Value changed function: ROIIDFontSizeEditField
-        function ROIIDFontSizeEditFieldValueChanged(app, event)
+        % Value changed function: ROIIDFontSizeSpinner
+        function ROIIDFontSizeSpinnerValueChanged(app, event)
 
             if ~isempty(app.mainApp.DrawROI)
-                value = app.ROIIDFontSizeEditField.Value;
+                value = app.ROIIDFontSizeSpinner.Value;
                 app.mainApp.DrawROI.roi_number_fontSize = value;
                 app.mainApp.MaskOnCheckBox.Value = true;
             end
@@ -112,6 +130,8 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
             
              if ~isempty(app.mainApp.DrawROI)
                 value = app.ROIIDColorEditField.Value;
+                matrixColor = utils.hex2matrix(app.ROIIDColorEditField.Value);
+                app.ROIIDColorEditField.BackgroundColor = matrixColor;
                 app.mainApp.DrawROI.roi_number_fontColor  = value;
                 app.mainApp.MaskOnCheckBox.Value = true;
 
@@ -133,21 +153,6 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
             end
         end
 
-        % Value changed function: DragROIsButton
-        function DragROIsButtonValueChanged(app, event)
-            if ~isempty(app.mainApp.DrawROI)
-                if app.DragROIsButton.Value
-                    app.DragROIsButton.BackgroundColor = [0.8, 0.8, 1];
-                    app.mainApp.DrawROI.set_drag_mode(true);
-                else
-                    app.DragROIsButton.BackgroundColor = [0.94, 0.94, 0.94];
-                    app.mainApp.DrawROI.set_drag_mode(false);
-                end
-            else
-                app.DragROIsButton.Value = false;
-            end
-        end
-
         % Button pushed function: ReorderROIsButton
         function ReorderROIsButtonPushed(app, event)
             if isempty(app.mainApp.DrawROI.roi_contours) || length(app.mainApp.DrawROI.roi_contours) < 2
@@ -162,23 +167,136 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
             end
         end
 
-        % Button pushed function: ColorPickerButton
-        function ColorPickerButtonPushed(app, event)
+        % Button pushed function: ROIMaskColorPickerButton
+        function ROIMaskColorPickerButtonPushed(app, event)
             currentColor = utils.hex2matrix(app.ROIMaskColorEditField.Value);
             selectedColor = uisetcolor(currentColor, 'Select ROI Mask Color');
             if ~isequal(selectedColor, 0) && ~isequal(selectedColor, currentColor) % Check if a color was selected and it's different
                 app.ROIMaskColorEditField.Value = utils.matrix2hex(selectedColor);
-                app.ROIMaskColorEditFieldValueChanged(); % update color
+                ROIMaskColorEditFieldValueChanged(app); % update color
             end
         end
 
-        % Button pushed function: ColorPickerButton_2
-        function ColorPickerButton_2Pushed(app, event)
+        % Button pushed function: ROIIDColorPickerButton
+        function ROIIDColorPickerButtonPushed(app, event)
             currentColor = utils.hex2matrix(app.ROIIDColorEditField.Value);
             selectedColor = uisetcolor(currentColor, 'Select ROI ID Color');
             if ~isequal(selectedColor, 0) && ~isequal(selectedColor, currentColor) % Check if a color was selected and it's different
                 app.ROIIDColorEditField.Value = utils.matrix2hex(selectedColor);
                 app.ROIIDColorEditFieldValueChanged(); % update color
+            end
+        end
+
+        % Button pushed function: RectButton
+        function RectButtonPushed(app, event)
+            app.mainApp.DrawROI.add_regular_roi('rectangle');
+        end
+
+        % Button pushed function: CircleButton
+        function CircleButtonPushed(app, event)
+            app.mainApp.DrawROI.add_regular_roi('circle');
+        end
+
+        % Button pushed function: DragROIsButton
+        function DragROIsButtonPushed(app, event)
+            if ~isempty(app.mainApp.DrawROI)
+                if app.DragROIsButton.Value
+                    app.DragROIsButton.BackgroundColor = [0.8, 0.8, 1];
+                    app.mainApp.DrawROI.set_drag_mode(true);
+                else
+                    app.DragROIsButton.BackgroundColor = [0.94, 0.94, 0.94];
+                    app.mainApp.DrawROI.set_drag_mode(false);
+                end
+            else
+                app.DragROIsButton.Value = false;
+            end
+        end
+
+        % Callback function: not associated with a component
+        function ClearAllButtonValueChanged(app, event)
+            if ~isempty(app.mainApp.DrawROI)
+                % 创建非模态的 uifigure
+                fig = uifigure('Name', 'Clear ROIs', 'WindowStyle', 'normal', ...
+                    'Position', [500 500 300 150]); % 非模态窗口
+                figPos = app.mainApp.UIFigure.Position;
+                figWidth = fig.Position(3);
+                figHeight = fig.Position(4);
+                figLeft = figPos(1) + (figPos(3) - figWidth)/2;
+                figTop = figPos(2) + (figPos(4) - figHeight)/2;
+                fig.Position(1) = figLeft;
+                fig.Position(2) = figTop;
+
+                % 添加提示文本
+                uilabel(fig, 'Position', [20 80 260 30], ...
+                    'Text', 'Are you sure you want to clear all ROIs?', ...
+                    'HorizontalAlignment', 'center');
+
+                % 添加 Yes 按钮
+                uibutton(fig, 'push', ...
+                    'Position', [60 30 80 30], ...
+                    'Text', 'Yes', ...
+                    'ButtonPushedFcn', @(btn, event) yesCallback(btn, event, app, fig));
+
+                % 添加 No 按钮
+                uibutton(fig, 'push', ...
+                    'Position', [160 30 80 30], ...
+                    'Text', 'No', ...
+                    'ButtonPushedFcn', @(btn, event) noCallback(btn, event, fig));
+            end
+
+            % Yes 按钮回调函数
+            function yesCallback(~, ~, app, fig)
+                app.mainApp.DrawROI.clear_all_rois(); % 执行清除操作
+                delete(fig); % 关闭对话框
+            end
+
+            % No 按钮回调函数
+            function noCallback(~, ~, fig)
+                delete(fig); % 仅关闭对话框
+            end
+        end
+
+        % Button pushed function: ClearAllButton
+        function ClearAllButtonPushed(app, event)
+            if ~isempty(app.mainApp.DrawROI)
+                % 创建非模态的 uifigure
+                fig = uifigure('Name', 'Clear ROIs', 'WindowStyle', 'normal', ...
+                    'Position', [500 500 300 150]); % 非模态窗口
+                figPos = app.mainApp.UIFigure.Position;
+                figWidth = fig.Position(3);
+                figHeight = fig.Position(4);
+                figLeft = figPos(1) + (figPos(3) - figWidth)/2;
+                figTop = figPos(2) + (figPos(4) - figHeight)/2;
+                fig.Position(1) = figLeft;
+                fig.Position(2) = figTop;
+
+                % 添加提示文本
+                uilabel(fig, 'Position', [20 80 260 30], ...
+                    'Text', 'Are you sure you want to clear all ROIs?', ...
+                    'HorizontalAlignment', 'center');
+
+                % 添加 Yes 按钮
+                uibutton(fig, 'push', ...
+                    'Position', [60 30 80 30], ...
+                    'Text', 'Yes', ...
+                    'ButtonPushedFcn', @(btn, event) yesCallback(btn, event, app, fig));
+
+                % 添加 No 按钮
+                uibutton(fig, 'push', ...
+                    'Position', [160 30 80 30], ...
+                    'Text', 'No', ...
+                    'ButtonPushedFcn', @(btn, event) noCallback(btn, event, fig));
+            end
+
+            % Yes 按钮回调函数
+            function yesCallback(~, ~, app, fig)
+                app.mainApp.DrawROI.clear_all_rois(); % 执行清除操作
+                delete(fig); % 关闭对话框
+            end
+
+            % No 按钮回调函数
+            function noCallback(~, ~, fig)
+                delete(fig); % 仅关闭对话框
             end
         end
     end
@@ -194,81 +312,66 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
 
             % Create UIFigure and hide until all components are created
             app.UIFigure = uifigure('Visible', 'off');
-            app.UIFigure.Position = [100 100 256 315];
+            app.UIFigure.Position = [100 100 252 441];
             app.UIFigure.Name = 'ROIMaskSettings';
 
             % Create Label
             app.Label = uilabel(app.UIFigure);
-            app.Label.Position = [34 142 25 22];
+            app.Label.Position = [34 264 25 22];
             app.Label.Text = '';
 
-            % Create ReorderROIsButton
-            app.ReorderROIsButton = uibutton(app.UIFigure, 'push');
-            app.ReorderROIsButton.ButtonPushedFcn = createCallbackFcn(app, @ReorderROIsButtonPushed, true);
-            app.ReorderROIsButton.Icon = fullfile(pathToMLAPP, '+assets', 'reorder.svg');
-            app.ReorderROIsButton.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
-            app.ReorderROIsButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ReorderROIsButton.Position = [12 21 103 23];
-            app.ReorderROIsButton.Text = 'Reorder ROIs';
-
-            % Create DragROIsButton
-            app.DragROIsButton = uibutton(app.UIFigure, 'state');
-            app.DragROIsButton.ValueChangedFcn = createCallbackFcn(app, @DragROIsButtonValueChanged, true);
-            app.DragROIsButton.Icon = fullfile(pathToMLAPP, '+assets', 'drag.svg');
-            app.DragROIsButton.Text = 'Drag ROIs';
-            app.DragROIsButton.Position = [150 21 91 23];
-
-            % Create ROIMaskColorSettingsPanel
-            app.ROIMaskColorSettingsPanel = uipanel(app.UIFigure);
-            app.ROIMaskColorSettingsPanel.Title = 'ROI Mask Color Settings';
-            app.ROIMaskColorSettingsPanel.Position = [6 210 239 106];
+            % Create ROIMaskStyleSettingsPanel
+            app.ROIMaskStyleSettingsPanel = uipanel(app.UIFigure);
+            app.ROIMaskStyleSettingsPanel.Title = 'ROI Mask Style Settings';
+            app.ROIMaskStyleSettingsPanel.Position = [5 332 239 106];
 
             % Create MaskColorDropDownLabel
-            app.MaskColorDropDownLabel = uilabel(app.ROIMaskColorSettingsPanel);
+            app.MaskColorDropDownLabel = uilabel(app.ROIMaskStyleSettingsPanel);
             app.MaskColorDropDownLabel.Position = [13 57 66 22];
             app.MaskColorDropDownLabel.Text = 'Mask Color';
 
             % Create MaskColorDropDown
-            app.MaskColorDropDown = uidropdown(app.ROIMaskColorSettingsPanel);
+            app.MaskColorDropDown = uidropdown(app.ROIMaskStyleSettingsPanel);
             app.MaskColorDropDown.Items = {'Fixed', 'Random'};
             app.MaskColorDropDown.ValueChangedFcn = createCallbackFcn(app, @MaskColorDropDownValueChanged, true);
             app.MaskColorDropDown.Position = [13 36 90 22];
             app.MaskColorDropDown.Value = 'Fixed';
 
             % Create ROIMaskColorEditField
-            app.ROIMaskColorEditField = uieditfield(app.ROIMaskColorSettingsPanel, 'text');
+            app.ROIMaskColorEditField = uieditfield(app.ROIMaskStyleSettingsPanel, 'text');
             app.ROIMaskColorEditField.ValueChangedFcn = createCallbackFcn(app, @ROIMaskColorEditFieldValueChanged, true);
             app.ROIMaskColorEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ROIMaskColorEditField.Position = [109 36 63 22];
             app.ROIMaskColorEditField.Value = '#FF0000';
 
             % Create showROIMaskbackgroundCheckBox
-            app.showROIMaskbackgroundCheckBox = uicheckbox(app.ROIMaskColorSettingsPanel);
+            app.showROIMaskbackgroundCheckBox = uicheckbox(app.ROIMaskStyleSettingsPanel);
             app.showROIMaskbackgroundCheckBox.ValueChangedFcn = createCallbackFcn(app, @showROIMaskbackgroundCheckBoxValueChanged, true);
             app.showROIMaskbackgroundCheckBox.Text = 'show ROI Mask background';
             app.showROIMaskbackgroundCheckBox.Position = [13 15 173 22];
 
-            % Create ColorPickerButton
-            app.ColorPickerButton = uibutton(app.ROIMaskColorSettingsPanel, 'push');
-            app.ColorPickerButton.ButtonPushedFcn = createCallbackFcn(app, @ColorPickerButtonPushed, true);
-            app.ColorPickerButton.Position = [185 35 35 23];
-            app.ColorPickerButton.Text = 'Color Picker';
+            % Create ROIMaskColorPickerButton
+            app.ROIMaskColorPickerButton = uibutton(app.ROIMaskStyleSettingsPanel, 'push');
+            app.ROIMaskColorPickerButton.ButtonPushedFcn = createCallbackFcn(app, @ROIMaskColorPickerButtonPushed, true);
+            app.ROIMaskColorPickerButton.Icon = fullfile(pathToMLAPP, '+assets', 'color-picker.svg');
+            app.ROIMaskColorPickerButton.Position = [183 35 25 23];
+            app.ROIMaskColorPickerButton.Text = '';
 
             % Create ROIIDStyleSettingsPanel
             app.ROIIDStyleSettingsPanel = uipanel(app.UIFigure);
             app.ROIIDStyleSettingsPanel.Title = 'ROI ID Style Settings';
-            app.ROIIDStyleSettingsPanel.Position = [6 71 239 135];
+            app.ROIIDStyleSettingsPanel.Position = [5 190 239 135];
 
-            % Create ROIIDFontSizeEditFieldLabel
-            app.ROIIDFontSizeEditFieldLabel = uilabel(app.ROIIDStyleSettingsPanel);
-            app.ROIIDFontSizeEditFieldLabel.Position = [13 82 92 22];
-            app.ROIIDFontSizeEditFieldLabel.Text = 'ROI ID FontSize';
+            % Create ROIIDFontSizeSpinnerLabel
+            app.ROIIDFontSizeSpinnerLabel = uilabel(app.ROIIDStyleSettingsPanel);
+            app.ROIIDFontSizeSpinnerLabel.Position = [13 82 92 22];
+            app.ROIIDFontSizeSpinnerLabel.Text = 'ROI ID FontSize';
 
-            % Create ROIIDFontSizeEditField
-            app.ROIIDFontSizeEditField = uieditfield(app.ROIIDStyleSettingsPanel, 'numeric');
-            app.ROIIDFontSizeEditField.ValueChangedFcn = createCallbackFcn(app, @ROIIDFontSizeEditFieldValueChanged, true);
-            app.ROIIDFontSizeEditField.Position = [117 82 28 22];
-            app.ROIIDFontSizeEditField.Value = 12;
+            % Create ROIIDFontSizeSpinner
+            app.ROIIDFontSizeSpinner = uispinner(app.ROIIDStyleSettingsPanel);
+            app.ROIIDFontSizeSpinner.ValueChangedFcn = createCallbackFcn(app, @ROIIDFontSizeSpinnerValueChanged, true);
+            app.ROIIDFontSizeSpinner.Position = [117 82 53 22];
+            app.ROIIDFontSizeSpinner.Value = 12;
 
             % Create ROIIDColorEditFieldLabel
             app.ROIIDColorEditFieldLabel = uilabel(app.ROIIDStyleSettingsPanel);
@@ -287,11 +390,71 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
             app.showROIIDCheckBox.Text = 'show ROI ID';
             app.showROIIDCheckBox.Position = [13 20 90 22];
 
-            % Create ColorPickerButton_2
-            app.ColorPickerButton_2 = uibutton(app.ROIIDStyleSettingsPanel, 'push');
-            app.ColorPickerButton_2.ButtonPushedFcn = createCallbackFcn(app, @ColorPickerButton_2Pushed, true);
-            app.ColorPickerButton_2.Position = [171 48 35 23];
-            app.ColorPickerButton_2.Text = 'Color Picker';
+            % Create ROIIDColorPickerButton
+            app.ROIIDColorPickerButton = uibutton(app.ROIIDStyleSettingsPanel, 'push');
+            app.ROIIDColorPickerButton.ButtonPushedFcn = createCallbackFcn(app, @ROIIDColorPickerButtonPushed, true);
+            app.ROIIDColorPickerButton.Icon = fullfile(pathToMLAPP, '+assets', 'color-picker.svg');
+            app.ROIIDColorPickerButton.Position = [169 48 25 23];
+            app.ROIIDColorPickerButton.Text = '';
+
+            % Create AddRegularROIPanel
+            app.AddRegularROIPanel = uipanel(app.UIFigure);
+            app.AddRegularROIPanel.Title = 'Add Regular ROI';
+            app.AddRegularROIPanel.Position = [5 123 240 60];
+
+            % Create RectButton
+            app.RectButton = uibutton(app.AddRegularROIPanel, 'push');
+            app.RectButton.ButtonPushedFcn = createCallbackFcn(app, @RectButtonPushed, true);
+            app.RectButton.Icon = fullfile(pathToMLAPP, '+assets', '形状-矩形.svg');
+            app.RectButton.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
+            app.RectButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.RectButton.Position = [10 8 103 23];
+            app.RectButton.Text = 'Rect';
+
+            % Create CircleButton
+            app.CircleButton = uibutton(app.AddRegularROIPanel, 'push');
+            app.CircleButton.ButtonPushedFcn = createCallbackFcn(app, @CircleButtonPushed, true);
+            app.CircleButton.Icon = fullfile(pathToMLAPP, '+assets', '形状-椭圆形.svg');
+            app.CircleButton.Position = [131 8 100 23];
+            app.CircleButton.Text = 'Circle';
+
+            % Create AdjustROIPanel
+            app.AdjustROIPanel = uipanel(app.UIFigure);
+            app.AdjustROIPanel.Title = 'Adjust ROI';
+            app.AdjustROIPanel.Position = [5 29 240 88];
+
+            % Create ReorderROIsButton
+            app.ReorderROIsButton = uibutton(app.AdjustROIPanel, 'push');
+            app.ReorderROIsButton.ButtonPushedFcn = createCallbackFcn(app, @ReorderROIsButtonPushed, true);
+            app.ReorderROIsButton.Icon = fullfile(pathToMLAPP, '+assets', 'reorder.svg');
+            app.ReorderROIsButton.HorizontalAlignment = 'left';
+            app.ReorderROIsButton.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
+            app.ReorderROIsButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.ReorderROIsButton.Position = [11 37 103 23];
+            app.ReorderROIsButton.Text = 'Reorder ROIs';
+
+            % Create DragROIsButton
+            app.DragROIsButton = uibutton(app.AdjustROIPanel, 'push');
+            app.DragROIsButton.ButtonPushedFcn = createCallbackFcn(app, @DragROIsButtonPushed, true);
+            app.DragROIsButton.Icon = fullfile(pathToMLAPP, '+assets', 'drag.svg');
+            app.DragROIsButton.HorizontalAlignment = 'left';
+            app.DragROIsButton.Position = [131 37 100 23];
+            app.DragROIsButton.Text = 'Drag ROIs';
+
+            % Create ClearAllButton
+            app.ClearAllButton = uibutton(app.AdjustROIPanel, 'push');
+            app.ClearAllButton.ButtonPushedFcn = createCallbackFcn(app, @ClearAllButtonPushed, true);
+            app.ClearAllButton.Icon = fullfile(pathToMLAPP, '+assets', 'clear.svg');
+            app.ClearAllButton.HorizontalAlignment = 'left';
+            app.ClearAllButton.Position = [131 8 100 23];
+            app.ClearAllButton.Text = 'Clear All';
+
+            % Create ClearPatchButton
+            app.ClearPatchButton = uibutton(app.AdjustROIPanel, 'push');
+            app.ClearPatchButton.Icon = fullfile(pathToMLAPP, '+assets', 'clear.svg');
+            app.ClearPatchButton.HorizontalAlignment = 'left';
+            app.ClearPatchButton.Position = [12 8 100 23];
+            app.ClearPatchButton.Text = 'Clear Patch';
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';

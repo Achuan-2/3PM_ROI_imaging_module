@@ -10,7 +10,10 @@ function create_arb_sequence(dev,sequenceHandle,waveformConfig)
     
     % create arbitrary Sequence
     configureArbSequence(dev, '0', sequenceHandle, gain, offset);
-
+    dev.Output.Advanced.IdleBehavior = "JUMP_TO_VALUE"; % 没发射信号，第一次等待Trigger信号的电平
+    dev.Output.Advanced.IdleValue = 1;
+    dev.Output.Advanced.WaitBehavior = "JUMP_TO_VALUE"; % 接受过第一次Trigger信号，等待下一次Trigger信号的电平
+    dev.Output.Advanced.WaitValue = 1;
     % enable output
     awg.output_enable(dev);
 end

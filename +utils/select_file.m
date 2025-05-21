@@ -1,5 +1,7 @@
 function [filename,path]= select_file(fileExtension,defaultPath)
-
+% fileExtension:{'*.mat', 'MAT-files (*.mat)'; ...
+%               '*.zip', 'ZIP-files (Imagej) (*.zip)'; ...
+%               '*.*', 'All Files (*.*)'}
         f_dummy = figure('Position', [-100 -100 0 0]); %create a dummy figure so that uigetfile doesn't minimize our GUI
     
         if nargin < 2

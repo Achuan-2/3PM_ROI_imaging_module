@@ -43,7 +43,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         LaserROIImagingButton        matlab.ui.control.Button
         ManualcorrectionPanel        matlab.ui.container.Panel
         ROIMaskSettingsButton        matlab.ui.control.Button
-        ROIMaskClearButton           matlab.ui.control.Button
         SaveMaskButton               matlab.ui.control.Button
         LoadMaskButton               matlab.ui.control.Button
         ROIdilateSpinner             matlab.ui.control.Spinner
@@ -1822,7 +1821,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             end
         end
 
-        % Button pushed function: ROIMaskClearButton
+        % Callback function: not associated with a component
         function ROIMaskClearButtonPushed(app, event)
             if ~isempty(app.DrawROI)
                 choice = questdlg('Are you sure you want to clear all ROIs?', ...
@@ -2081,16 +2080,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.SaveMaskButton.Tooltip = {'choose where to save mask as .mat and .jpg'};
             app.SaveMaskButton.Position = [123 10 100 23];
             app.SaveMaskButton.Text = 'Save Mask';
-
-            % Create ROIMaskClearButton
-            app.ROIMaskClearButton = uibutton(app.ManualcorrectionPanel, 'push');
-            app.ROIMaskClearButton.ButtonPushedFcn = createCallbackFcn(app, @ROIMaskClearButtonPushed, true);
-            app.ROIMaskClearButton.Icon = fullfile(pathToMLAPP, '+assets', 'clear.svg');
-            app.ROIMaskClearButton.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
-            app.ROIMaskClearButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ROIMaskClearButton.Tooltip = {'Clear all ROI'};
-            app.ROIMaskClearButton.Position = [234 11 19 21];
-            app.ROIMaskClearButton.Text = '';
 
             % Create ROIMaskSettingsButton
             app.ROIMaskSettingsButton = uibutton(app.ManualcorrectionPanel, 'push');

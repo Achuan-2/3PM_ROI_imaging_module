@@ -572,22 +572,15 @@ classdef DrawROI < handle
         end
 
         function is_in = is_roi_in_rect(self, roi_idx, x1, y1, x2, y2)
-            % 检查ROI是否位于矩形区域内
-            % 方法1: 检查所有轮廓点是否在矩形内
+            % 检查ROI是否有任何点位于矩形区域内
             contour = self.roi_contours{roi_idx};
-            all_points_in = all(contour(:,1) >= x1 & contour(:,1) <= x2 & ...
+
+            % 检查是否有任何轮廓点在矩形内
+            any_point_in = any(contour(:,1) >= x1 & contour(:,1) <= x2 & ...
                 contour(:,2) >= y1 & contour(:,2) <= y2);
 
-            % 或更简单的方法：使用ROI中心点
-            if ~all_points_in
-                % 如果轮廓不完全在矩形内，检查中心点是否在矩形内
-                center = mean(contour, 1);
-                center_in = (center(1) >= x1 && center(1) <= x2 && ...
-                    center(2) >= y1 && center(2) <= y2);
-                is_in = center_in;
-            else
-                is_in = true;
-            end
+            % 如果有任何点在矩形内，返回true
+            is_in = any_point_in;
         end
     end
 

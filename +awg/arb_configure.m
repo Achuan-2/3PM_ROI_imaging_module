@@ -14,8 +14,10 @@ function arb_configure(dev,waveformConfig)
     configureSampleRate(dev,sampleRate);
     configureOutputImpedance(dev, '0', "VAL_50"); % 阻抗为50欧姆
 
-    dev.Output.Advanced.IdleBehavior = "JUMP_TO_VALUE"; % 没发射信号，第一次等待Trigger信号的电平
+    dev.Output.Advanced.IdleBehavior = "HOLD_LAST_VALUE"; % HOLD_LAST_VALUE，没发射信号，第一次等待Trigger信号的电平
     dev.Output.Advanced.IdleValue = 1;
+    dev.Output.Advanced.WaitBehavior = "HOLD_LAST_VALUE"; % HOLD_LAST_VALUE or JUMP_TO_VALUE。接受过第一次Trigger信号，等待下一次Trigger信号的电平
+    dev.Output.Advanced.WaitValue = 1;
     % set clock: internal or external
     % if use external sample clock ,you should notice that
     try
@@ -36,7 +38,7 @@ function arb_configure(dev,waveformConfig)
     % set AWG trigger
     if triggerOn
         try
-            configureDigitalEdgeStartTrigger(dev,triggerPort,"RISING_EDGE");
+            configureDigitalEdgeStartTrigger(dev,triggerPort,"RISING_EDGE"); % RISING_EDGE，FALLING_EDGE  
         catch ErrorInfo
             msgbox(ErrorInfo.message,'Warning','error');
             return
