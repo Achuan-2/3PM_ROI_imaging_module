@@ -1,601 +1,81 @@
 classdef DrawROI < handle
-    % DrawROI: Draw roi mask in axes and support add/delete rois manually
     properties
-        app roi_imaging_module; % roi_imaging_module app
+        app; % roi_imaging_module app (can contain multiple UIAxes)
+        axes_list = []; % List of UIAxes to render ROIs on
+        active_axes_index = 1; % Index of currently active axes
     end
-
-    % General mask properties
-    properties (SetAccess = public)
-        enable logical = false;
-        mask_layer matlab.graphics.primitive.Image; % handles to display mask
-        outline_layer matlab.graphics.primitive.Image % % handles to display outline of selected
-        mask_opacity double = 0.5; %  alpha value of colored mask
-        mask (:, :) double; % indexed roi mask
-        mask_size (:, :) double % the size of mask
-        colored_mask (:, :, 3) uint8 % colored roi mask
-        colormaps (:, 3) double; % Generate random color for ROIs
-
+    
+    properties (SetObservable, SetAccess = public)
+        roi_contours cell; % cell array storing ROI outlines
+        roi_patches cell; % cell array storing patch handles for each UIAxes
+        mask_size (1,2) double; % size of the canvas
+        mask_color = [255,0,0]/255; % default ROI color
+        binary_mask = [];            % 二进制掩膜
+        selected_roi_color = [0,255,0]/255; % Corrected selected ROI color
+        mask_opacity double = 0.3; % alpha value for visualization
+        showRoiNumber logical = true; % Control whether to show ROI numbers
+        roi_number_fontSize double = 7; % ROI number font size
+        roi_number_fontColor = [255,0, 255]/255; % ROI number font color, default red
+        roi_visibility logical; % 控制每个 UIAxes 上的 ROI 可见性
+        drawing_enabled logical; % 控制每个 UIAxes 的绘制权限
+        show_background logical = false; % 是否显示ROI背景色
     end
-
-    % Dependent mask properties
-    properties (Dependent, SetAccess = private)
-        binary_mask (:, :) logical; % Automatic generation
-        mask_alphadata (:, :) double; % Automatic generation
-    end
-
-    % Draw roi manually
+    
     properties
         brush_size = 3;
-        plot_handles;
         current_stroke;
-        thresh_out = 12;
-        thresh_in = 5;
+        start_plot_handles;
+        main_plot_handle; % Main plot handle for drawing
+        thresh_out = 5;
+        thresh_in = 4;
+        selected_roi_idx = 0;
+        roi_numbers cell = {}; % Store ROI number text handles for each UIAxes
+        original_roi_contours cell = {}; % Store original ROI contours for dilate
+        dilate_level = 0; % Current dilate level
+        temp_dilate_level = 0; % Temporary dilate value
+        is_drawing = false; % Whether ROI is being drawn
+        
+        % 拖拽ROI相关属性
+        drag_enabled = false;  % 是否启用拖拽ROI模式，默认禁用
+        drag_start_x = 0;      % 拖拽起始X坐标
+        drag_start_y = 0;      % 拖拽起始Y坐标
+        is_dragging = false;   % 是否正在拖拽ROI
+        
+        % 随机颜色相关属性
+        color_map = [];        % 存储预生成的100种颜色
+        color_index = 1;       % 当前使用的颜色索引
+        use_random_color = false; % 是否使用随机颜色
+        roi_colors = {};       % 存储每个ROI的颜色
+        
+        % ROI编辑相关属性
+        editing_roi = false;          % 是否正在编辑ROI
+        editing_roi_idx = 0;          % 当前正在编辑的ROI索引
+        freehand_roi = [];            % 用于编辑的Freehand ROI对象
+        % 规则ROI相关属性
+        adding_regular_roi = false;          % 是否正在添加规则ROI
+        regular_roi_type = '';       % 规则ROI类型 ('circle', 'rectangle')
+        regular_roi_obj = [];        % 规则ROI对象句柄
     end
-
-    % Click and delete
-    properties
-        last_selected_roi_index;
-    end
-
-    % Move mask
-    properties
-        three_fold_mask;
-        three_fold_colored_mask;
-        move_right = 0;
-        move_down = 0;
-    end
-
-    % Dilate mask
-    properties
-        is_dilating;
-        three_fold_mask_dilate_before;
-        three_fold_colored_mask_dilate_before;
-    end
-    % Freehand ROI editing
-    properties
-        isEditingROI logical = false; % Track if ROI is being edited as Freehand
-        freehandROI; % Handle to the Freehand ROI object
-    end
-    methods (Hidden)
-
-        function self = DrawROI(app)
-            self.colormaps = self.create_colormap();
+    
+    methods
+        function self = DrawROI(app, axes_list)
             self.app = app;
+            self.axes_list = axes_list; % Store list of UIAxes
+            self.roi_contours = {};
+            self.roi_patches = cell(1, length(axes_list)); % One cell per UIAxes
+            self.original_roi_contours = {};
+            self.roi_numbers = cell(1, length(axes_list)); % One cell per UIAxes
+            self.roi_visibility = true(1, length(axes_list)); % 默认所有 axes 上 ROI 都可见
+            self.drawing_enabled = true(1, length(axes_list)); % 默认所有 axes 都可以绘制
+            self.color_map = self.create_colormap();  % 创建颜色映射
+            self.roi_colors = {};  % 初始化ROI颜色存储
+            for i = 1:length(axes_list)
+                self.roi_patches{i} = {};
+                self.roi_numbers{i} = {};
+            end
         end
-
-    end
-
-    % Add/Delete roi manually
-    methods
-
-        function handroi_start(self, x, y)
-            % for dilate mask: if have dilated mask，revert it
-            if self.is_dilating
-                self.app.ROIdilateSpinner.Value = 0;
-                self.three_fold_mask = self.three_fold_mask_dilate_before;
-                self.three_fold_colored_mask = self.three_fold_colored_mask_dilate_before;
-                self.move_mask_update();
-            end
-
-            % store start point
-            self.current_stroke = [self.current_stroke; [x, y]];
-
-            % draw a red circle at the starting point.
-            plot_current_handle = plot(self.app.UIAxes, x, y, 'ro', 'MarkerSize', 8);
-            self.plot_handles = [self.plot_handles, plot_current_handle];
-
-            % set status
-            self.app.UIAxes.UserData.status = "handroi_drawing";
-        end
-
-        function handroi_draw(self, x, y)
-
-            if self.app.UIAxes.UserData.status ~= "handroi_drawing"
-                return
-            end
-
-            if ~self.handroi_end()
-                % Draw current point
-                last_position = self.current_stroke(end, :);
-                plot_current_handle = plot(self.app.UIAxes, [last_position(1), x], [last_position(2), y], 'Color', 'r', 'LineWidth', self.brush_size); % 绘制红色线段
-
-                % Save current point to current stroke and current handle
-                self.plot_handles = [self.plot_handles, plot_current_handle];
-                self.current_stroke = [self.current_stroke; [x, y]];
-            else
-                % Finish stroke, clear variable
-                self.app.UIAxes.UserData.status = "idle";
-
-                for i = 1:length(self.plot_handles)
-                    delete(self.plot_handles(i));
-                end
-
-                self.plot_handles = [];
-
-                % Current stroke  to a roi area
-                new_mask = components.drawRoi.stroke_to_mask(self.current_stroke, self.mask_size);
-                self.current_stroke = [];
-
-                % Exclude existed roi area
-                new_roi_position = (self.mask == 0) .* (new_mask == 1); % extract position to new
-                new_roi_position = logical(new_roi_position); % to logical array
-
-                % Add new roi to mask
-                roi_index = max(self.three_fold_mask, [], 'all') + 1;
-                self.mask(new_roi_position) = roi_index; % add new roi
-
-                % Add new colored roi to colored_mask
-                color = self.colormaps(mod(roi_index, 100), :);
-                self.colored_mask = components.drawRoi.rgb_add_area(self.colored_mask, new_roi_position, color);
-
-                % Update three_fold_mask
-                self.update_three_fold_mask();
-                self.three_fold_mask_dilate_before = self.three_fold_mask;
-                self.three_fold_colored_mask_dilate_before = self.three_fold_colored_mask;
-                % Update mask layer
-                self.update_mask_layer();
-
-            end
-
-        end
-
-        function result = handroi_end(self)
-            % There must be at least four points
-            if length(self.current_stroke) > 3
-                % any dist> self.thresh_out && any dist < self.thresh_in → true
-                dist = sqrt(sum((self.current_stroke(1, :) - self.current_stroke(2:end, :)) .^ 2, 2));
-                dist = dist(:);
-                has_left = find(dist > self.thresh_out);
-
-                if ~isempty(has_left)
-                    first_left = min(has_left);
-                    has_returned = sum(dist(max(4, first_left + 1):end) < self.thresh_in);
-
-                    if has_returned > 0
-                        result = true;
-                    else
-                        result = false;
-                    end
-
-                else
-                    result = false;
-                end
-
-            else
-                result = false;
-            end
-
-        end
-
-        function handroi_cancel(self)
-            % clear relevant variable
-            self.current_stroke = [];
-
-            for i = 1:length(self.plot_handles)
-                delete(self.plot_handles(i));
-            end
-
-            self.plot_handles = [];
-            self.app.UIAxes.UserData.status = "idle";
-
-        end
-
-    end
-
-    % Click and delete
-    methods
-        % Click on ROI to make it white
-        function selecting_roi = select_cell(self, x, y)
-            % Get the roi index of current position
-            try
-                roi_index = self.mask(round(y), round(x));
-            catch
-                % When zoom out figure,x,y may exceed image size
-                selecting_roi = false;
-                return
-            end
-
-            % delete the outline of last selected roi
-            if self.last_selected_roi_index
-
-                if roi_index ~= self.last_selected_roi_index
-                    % reset layer
-                    self.outline_layer.CData = zeros([self.mask_size, 3]);
-                    self.outline_layer.AlphaData = zeros(self.mask_size);
-                end
-
-            end
-
-            if roi_index % ROI index has to be >0
-                if self.isEditingROI
-                    selecting_roi = true;
-                    return
-                end
-                % Get the position of selected roi
-                roi_position = self.mask == roi_index;
-
-                % Get the outline mask of roi
-                outline = components.drawRoi.mask_to_outline(roi_position);
-
-                % Dilate the outline
-                SE = strel('square', 2);
-                outline = imdilate(outline, SE);
-
-                % Selected roi assign white color
-                outline_3D = repmat(outline, 1, 1, 3);
-                outline_mask = zeros([size(outline), 3]);
-
-                if self.app.MaskOnCheckBox.Value
-
-                    switch self.app.MaskDropDown.Value
-                        case 'Colored'
-                            outline_mask(outline_3D) = repmat([255, 255, 255], sum(outline, 'all'), 1);
-                        case 'Binary'
-                            outline_mask(outline_3D) = repmat([255, 0, 0], sum(outline, 'all'), 1);
-                    end
-
-                end
-
-                % Update layer
-                self.outline_layer.CData = outline_mask;
-                self.outline_layer.AlphaData = outline;
-
-                % Save selected roi index
-                selecting_roi = true;
-                self.last_selected_roi_index = roi_index;
-            else
-                % Click on the blank space, mask
-
-                if self.isEditingROI
-                    selecting_roi = true;
-                else
-                    selecting_roi = false;
-                    self.last_selected_roi_index = 0;
-                end
-            end
-
-        end
-
-        % Ctrl+Click to delete cell
-        function delete_cell(self, x, y)
-            % Get the roi index of current position
-            roi_index = self.mask(round(y), round(x));
-
-            if roi_index % Roi index has to be >0
-                % Get the position of selected roi
-                self.delete_selected_cell(roi_index);
-            end
-
-        end
-
-        function delete_selected_cell(self, input_index)
-
-            arguments
-                self
-                input_index = 0
-            end
-
-            % delete selected cell
-            if input_index
-                roi_index = input_index;
-            else
-                roi_index = self.last_selected_roi_index;
-            end
-
-            roi_position = self.mask == roi_index;
-            roi_position_3D = repmat(roi_position, 1, 1, 3);
-            self.mask(roi_position) = 0;
-            self.colored_mask(roi_position_3D) = 0;
-            self.last_selected_roi_index = 0;
-
-            % update three_fold_mask
-            self.update_three_fold_mask();
-
-            % delete roi in three_fold_mask_dilate_before
-            roi_dilate_before_position = self.three_fold_mask_dilate_before == roi_index;
-            self.three_fold_mask_dilate_before(roi_dilate_before_position) = 0;
-            roi_dilate_before_position_3D = repmat(roi_dilate_before_position, 1, 1, 3);
-            self.three_fold_colored_mask_dilate_before(roi_dilate_before_position_3D) = 0;
-            self.three_fold_mask_dilate_before = components.drawRoi.mask_reorder(self.three_fold_mask_dilate_before);
-
-            % reorder roi index
-            self.three_fold_mask = components.drawRoi.mask_reorder(self.three_fold_mask);
-
-            % update mask
-            self.last_selected_roi_index = 0;
-            self.outline_layer.CData = zeros([self.mask_size, 3]);
-            self.outline_layer.AlphaData = zeros(self.mask_size);
-            self.move_mask_update();
-
-        end
-
-    end
-
-    % update mask functions
-    methods
-
-        function dilate_mask(self, value)
-            % dilate mask
-            SE = strel('disk', value);
-            self.three_fold_mask = imdilate(self.three_fold_mask_dilate_before, SE);
-            self.three_fold_colored_mask = imdilate(self.three_fold_colored_mask_dilate_before, SE);
-
-            % update mask
-            row = self.mask_size(1);
-            col = self.mask_size(2);
-            row_range = row + 1:2 * row;
-            col_range = col + 1:2 * col;
-
-            self.mask = self.three_fold_mask(row_range + self.move_down, col_range + self.move_right);
-            self.colored_mask = self.three_fold_colored_mask(row_range + self.move_down, col_range + self.move_right, :);
-
-        end
-
-        function load_roi_mask(self, path, filename)
-            % load mask file
-            [~, ~, ext] = fileparts(filename);
-
-            switch ext
-                case {'.csv', '.txt'}
-                    self.mask = table2array(readtable(fullfile(path, filename)));
-
-                    if length(unique(self.mask)) == 2
-                        self.mask = logical(self.mask);
-                    end
-
-                    self.mask_size = size(self.mask);
-                    self.colored_mask = components.drawRoi.mask_to_rgb(self.mask, self.colormaps);
-                    self.app.MaskDropDown.Value = "Binary";
-                    self.reset_three_fold_mask();
-                    self.update_mask_layer();
-                case {'.png', '.jpg', '.jpeg'}
-                    imMask = imread(fullfile(path, filename));
-                    dims = ndims(imMask);
-
-                    if dims == 2
-                        % gray image
-                        self.mask = single(imMask);
-
-                        if length(unique(self.mask)) == 2
-                            % binary image
-                            self.mask = logical(self.mask);
-                        end
-
-                    else
-                        % rgb image
-                        self.mask = logical(rgb2gray(imMask));
-                    end
-
-                    self.mask_size = size(self.mask);
-                    self.colored_mask = components.drawRoi.mask_to_rgb(self.mask, self.colormaps);
-                    self.app.MaskDropDown.Value = "Binary";
-                    self.reset_three_fold_mask();
-                    self.update_mask_layer();
-                case '.mat'
-                    % load variable from .mat
-                    S = load(fullfile(path, filename));
-                    self.three_fold_mask = S.three_fold_mask;
-                    self.three_fold_colored_mask = uint8(S.three_fold_colored_mask);
-                    self.mask_size = size(self.three_fold_mask) / 3;
-                    self.move_down = S.move_down;
-                    self.move_right = S.move_right;
-                    self.three_fold_mask_dilate_before = S.three_fold_mask_dilate_before;
-                    self.three_fold_colored_mask_dilate_before = S.three_fold_colored_mask_dilate_before;
-                    self.app.ROIdilateSpinner.Value = S.dilate;
-
-                    % update mask layer
-                    self.move_mask_update();
-            end
-
-        end
-
-        function threshold_update_mask(self, new_mask)
-            result = logical(new_mask) - logical(self.mask);
-            add_area = result > 0;
-            delete_area = result < 0;
-
-            %% Delete roi first
-            if any(delete_area, 'all')
-                % Obtain the indexes to be deleted
-                delete_indexes = unique(self.mask(delete_area), 'sort');
-
-                for i = 1:length(delete_indexes)
-                    % Obtain the location of the ROI to be deleted
-                    roi_position = self.mask == delete_indexes(i);
-                    roi_position_3D = repmat(roi_position, 1, 1, 3);
-                    % Delete ROI in mask
-                    self.mask(roi_position) = 0;
-                    self.colored_mask(roi_position_3D) = 0;
-                end
-
-                % Reorder the seg mask
-                self.mask = components.drawRoi.mask_reorder(self.mask);
-
-            end
-
-            %  Caculate the num of roi
-            n_roi = max(self.mask, [], 'all');
-            %% Add roi
-            if any(add_area, 'all')
-                % Obtain the indexes of the new ROIs
-                add_indexes = unique(new_mask(add_area), 'sort');
-
-                for i = 1:length(add_indexes)
-                    % Obtain the location of the newly added ROI
-                    new_roi_position = new_mask == add_indexes(i);
-                    % Add ROI to seg_mask
-                    n_roi = n_roi + 1;
-                    self.mask(new_roi_position) = n_roi;
-                    % Add new roi area to previous mask
-                    color = self.colormaps(mod(n_roi, 100), :);
-                    self.colored_mask = components.drawRoi.rgb_add_area(self.colored_mask, new_roi_position, color);
-
-                end
-
-            end
-
-            %% update mask layer
-            self.reset_three_fold_mask();
-            self.update_mask_layer();
-        end
-
-        function reset_three_fold_mask(self)
-            self.move_right = 0;
-            self.move_down = 0;
-            row = self.mask_size(1);
-            col = self.mask_size(2);
-            row_range = row + 1:2 * row;
-            col_range = col + 1:2 * col;
-
-            % reset three_fold_mask
-            self.three_fold_mask = zeros(self.mask_size * 3);
-            self.three_fold_colored_mask = zeros([self.mask_size * 3, 3]);
-            self.three_fold_mask(row_range, col_range) = self.mask;
-            self.three_fold_colored_mask(row_range, col_range, :) = self.colored_mask;
-
-            % reset dilate mask
-            self.three_fold_mask_dilate_before = self.three_fold_mask;
-            self.three_fold_colored_mask_dilate_before = self.three_fold_colored_mask;
-
-        end
-
-        function update_three_fold_mask(self)
-            row = self.mask_size(1);
-            col = self.mask_size(2);
-            row_range = row + 1:2 * row;
-            col_range = col + 1:2 * col;
-
-            % update three_fold_mask
-            self.three_fold_mask(row_range + self.move_down, col_range + self.move_right) = self.mask;
-            self.three_fold_colored_mask(row_range + self.move_down, col_range + self.move_right, :) = self.colored_mask;
-
-        end
-
-        function move_mask(self, right, down)
-
-            if self.last_selected_roi_index
-                % move_mask: move binary mask and colored mask in GUI
-                row = self.mask_size(1);
-                col = self.mask_size(2);
-                row_range = row + 1:2 * row;
-                col_range = col + 1:2 * col;
-                % clear roi fisrt
-                three_fold_roi_position = self.three_fold_mask == self.last_selected_roi_index;
-                three_fold_roi_position_3D = repmat(three_fold_roi_position, 1, 3);
-                self.three_fold_mask(three_fold_roi_position) = 0;
-                [row, col] = find(three_fold_roi_position, 1);
-                selected_color = self.three_fold_colored_mask(row, col, :);
-                self.three_fold_colored_mask(three_fold_roi_position_3D) = 0;
-                % then move roi
-                new_roi_position = imtranslate(three_fold_roi_position, [-right, -down], 'FillValues', 0);
-                new_roi_position = (self.three_fold_mask == 0) .* (new_roi_position == 1); % extract position to new
-                new_roi_position = logical(new_roi_position); % to logical array
-                self.three_fold_mask(new_roi_position) = self.last_selected_roi_index;
-
-                new_roi_position_3D = repmat(new_roi_position, 1, 3);
-                self.three_fold_colored_mask(new_roi_position_3D) = repmat(selected_color, sum(new_roi_position, 'all'), 1);
-                % update mask
-                self.mask = self.three_fold_mask(row_range + self.move_down, col_range + self.move_right);
-                self.colored_mask = self.three_fold_colored_mask(row_range + self.move_down, col_range + self.move_right, :);
-                self.update_mask_layer()
-                self.outline_layer.CData = imtranslate(self.outline_layer.CData, [-right, -down], 'FillValues', 0);
-                self.outline_layer.AlphaData = imtranslate(self.outline_layer.AlphaData, [-right, -down], 'FillValues', 0);
-                %clear three_fold_roi_position_3D new_roi_position new_roi_position_3D;
-
-                % move roi update three_fold_mask_dilate_before
-                roi_dilate_before_position = self.three_fold_mask_dilate_before == self.last_selected_roi_index;
-                roi_dilate_before_position_3D = repmat(roi_dilate_before_position, 1, 3);
-                self.three_fold_mask_dilate_before(roi_dilate_before_position) = 0;
-                self.three_fold_colored_mask_dilate_before(roi_dilate_before_position_3D) = 0;
-                % move roi
-                new_roi_dilate_before_position = imtranslate(roi_dilate_before_position, [-right, -down], 'FillValues', 0);
-                new_roi_dilate_before_position = (self.three_fold_mask_dilate_before == 0) .* (new_roi_dilate_before_position == 1); % extract position to new
-                new_roi_dilate_before_position = logical(new_roi_dilate_before_position); % to logical array
-                self.three_fold_mask_dilate_before(new_roi_dilate_before_position) = self.last_selected_roi_index;
-                new_roi_dilate_before_position_3D = repmat(new_roi_dilate_before_position, 1, 3);
-                self.three_fold_colored_mask_dilate_before(new_roi_dilate_before_position_3D) = repmat(selected_color, sum(new_roi_dilate_before_position, 'all'), 1);
-
-            else
-                self.move_mask_update()
-            end
-
-        end
-
-        function move_mask_update(self)
-            % move_mask: move binary mask and colored mask in GUI
-            row = self.mask_size(1);
-            col = self.mask_size(2);
-            row_range = row + 1:2 * row;
-            col_range = col + 1:2 * col;
-            % move mask
-            self.mask = self.three_fold_mask(row_range + self.move_down, col_range + self.move_right);
-            self.colored_mask = self.three_fold_colored_mask(row_range + self.move_down, col_range + self.move_right, :);
-
-            % update mask layer
-            self.update_mask_layer();
-        end
-
-        function update_mask_layer(self)
-
-            arguments
-                self
-            end
-
-            if self.app.MaskOnCheckBox.Value
-                % Update mask layer
-                value = self.app.MaskDropDown.Value;
-
-                switch value
-                    case 'Colored'
-
-                        if isempty(self.mask_layer)
-                            hold(self.app.UIAxes, 'on');
-                            self.mask_layer = imshow(self.colored_mask, [0, 255], 'parent', self.app.UIAxes, 'border', 'tight', 'initialmagnification', 'fit');
-                            self.mask_layer.AlphaData = self.mask_alphadata;
-                            self.outline_layer = imshow(uint8(zeros([self.mask_size, 3])), [0, 255], 'parent', self.app.UIAxes, 'border', 'tight', 'initialmagnification', 'fit');
-                            self.outline_layer.AlphaData = zeros(self.mask_size);
-                            axis(self.app.UIAxes, [0, self.mask_size(2), 0, self.mask_size(1)]);
-                            self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
-                            self.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
-                            hold(self.app.UIAxes, 'off');
-                        else
-                            self.mask_layer.CData = self.colored_mask;
-                            self.mask_layer.AlphaData = self.mask_alphadata;
-                        end
-
-                    case 'Binary'
-
-                        if isempty(self.mask_layer)
-                            hold(self.app.UIAxes, 'on');
-                            self.mask_layer = imshow(self.binary_mask * 255, [0, 255], 'parent', self.app.UIAxes, 'border', 'tight', 'initialmagnification', 'fit');
-                            self.mask_layer.AlphaData = ones(self.mask_size);
-                            self.outline_layer = imshow(uint8(zeros([self.mask_size, 3])), [0, 255], 'parent', self.app.UIAxes, 'border', 'tight', 'initialmagnification', 'fit');
-                            self.outline_layer.AlphaData = zeros(self.mask_size);
-                            axis(self.app.UIAxes, [0, self.mask_size(2), 0, self.mask_size(1)]);
-                            self.app.UIAxes.UserData.origin_xlim = self.app.UIAxes.XLim;
-                            self.app.UIAxes.UserData.origin_ylim = self.app.UIAxes.YLim;
-                            hold(self.app.UIAxes, 'off');
-                        else
-                            self.mask_layer.CData = self.binary_mask * 255; %因为使用imageshow的Cdatga更改图像，scale不会改变，需要手动调整图像对比度
-                            self.mask_layer.AlphaData = ones(self.mask_size);
-                        end
-
-                end
-
-                %self.last_selected_roi_index = 0;
-                %self.outline_layer.CData = zeros([self.mask_size, 3]);
-                %self.outline_layer.AlphaData = zeros(self.mask_size);
-
-                % Caculate roi info
-                self.app.ROIsEditField.Value = length(unique(self.app.DrawROI.mask)) - 1;
-                roiRatio = round(length(find(self.app.DrawROI.mask > 0)) / numel(self.app.DrawROI.mask), 4);
-                self.app.ROIRatioEditField.Value = roiRatio;
-
-            end
-
-        end
-
-        % create custom colormap for draw colored roi
+        
+        % 创建随机颜色映射
         function colors = create_colormap(self) % Change to accept instance input
             numColors = 100; % Define number of colors if not defined elsewhere
             goldenRatio = 0.618033988749895; % 黄金分割比例，用于打乱色调
@@ -603,164 +83,1205 @@ classdef DrawROI < handle
             s = ones(1, numColors) * 0.8; % 饱和度（Saturation）
             v = ones(1, numColors) * 0.95; % 明度（Value）高，保证明亮
             hsvColors = [h; s; v]'; % [numColors x 3]
-            colors = hsv2rgb(hsvColors) * 255; % 输出 [numColors x 3] 的RGB颜色矩阵
+            colors = hsv2rgb(hsvColors); % 输出 [numColors x 3] 的RGB颜色矩阵
         end
-
-    end
-
-    methods
-
-        function modifyROI(self)
-
-            if ~self.isEditingROI
-                % Check if an ROI is selected
-                if self.last_selected_roi_index == 0 || isempty(self.last_selected_roi_index)
-                    disp('Please select an ROI first.');
-                    return;
+        
+        % mask_color setter，处理颜色变更
+        function set.mask_color(self, value)
+            if ischar(value) || isstring(value)
+                if strcmpi(value, 'Random')
+                    self.use_random_color = true;
+                    self.mask_color = 'Random';
+                    for i = 1:length(self.roi_colors) % Corrected loop syntax
+                        self.roi_colors{i} = self.color_map(i, :);
+                    end
+                    % 重置颜色索引
+                    self.color_index = length(self.roi_colors) +1;
+                else
+                    self.use_random_color = false;
+                    self.mask_color = value;
                 end
-                if self.app.ROIdilateSpinner.Value>0
-                    self.app.ROIdilateSpinner.Value = 0;
-                    self.three_fold_mask = self.three_fold_mask_dilate_before;
-                    self.three_fold_colored_mask = self.three_fold_colored_mask_dilate_before;
-                    self.move_mask_update();
-                end
-                % Get the selected ROI's position
-                roi_position = self.mask == self.last_selected_roi_index;
-                [row, col] = find(roi_position);
-
-
-                if isempty(row)
-                    disp('Unable to find ROI boundary.');
-                    return;
-                end
-
-
-                boundaries = bwboundaries(roi_position);
-                boundaries  = fliplr(boundaries{1});
-
-                % Get the ROI color
-                color = double(squeeze(self.colored_mask(row(1), col(1), :))')/255; % Normalize to [0, 1] for Freehand
-
-                % Hide the selected ROI in the mask layer
-                self.mask_layer.AlphaData(roi_position) = 0;
-
-                % Convert to Freehand ROI
-                hold(self.app.UIAxes, 'on');
-                self.outline_layer.AlphaData = zeros(self.mask_size);
-                self.outline_layer.CData = zeros(self.mask_size);
-                self.freehandROI = images.roi.Freehand(self.app.UIAxes, ...
-                    'Position', boundaries, ... % [x, y] format
-                    'Color', color, ...
-                    'LineWidth', 2, ...
-                    'InteractionsAllowed', 'all'); % Allow full editing
-
-
-                % Set editing flag
-                self.isEditingROI = true;
-
-                % Add listener for Freehand ROI deletion
-                addlistener(self.freehandROI, 'ObjectBeingDestroyed', @(src, evt) self.handleFreehandDeleted());
-
-                %disp('ROI converted to editable Freehand. Adjust the shape, then call modifyROI again to save.');
-
             else
-                % Finalize editing and update the mask
-                if isempty(self.freehandROI) || ~isvalid(self.freehandROI)
-                    disp('No valid Freehand ROI exists.');
-                    self.isEditingROI = false;
-                    self.freehandROI = [];
-                    self.update_mask_layer();
-                    return;
+                self.use_random_color = false;
+                if isempty(value)
+                    self.mask_color = [255,255,0]/255; % 默认黄色
+                else
+                    self.mask_color = value;
                 end
-
-                % Get the new position from Freehand ROI
-                new_position = self.freehandROI.Position; % [x, y] format
-                new_mask = poly2mask(new_position(:, 1), new_position(:, 2), self.mask_size(1), self.mask_size(2));
-
-                % Update the mask and colored mask
-                old_position = self.mask == self.last_selected_roi_index;
-                [row, col] = find(old_position);
-                color  = self.colored_mask(row(1), col(1), :);
-                old_position_3D = repmat(old_position, 1, 1, 3);
-                self.mask(old_position) = 0; % Clear old ROI
-                self.colored_mask(old_position_3D) = 0;
-
-                % Add the new ROI
-                self.mask(new_mask) = self.last_selected_roi_index;
-
-                self.colored_mask = components.drawRoi.rgb_add_area(self.colored_mask, new_mask, color);
-
-                % Clean up Freehand ROI
-                delete(self.freehandROI);
-                self.freehandROI = [];
-                self.isEditingROI = false;
-
-                % Update three_fold_mask and mask layer
-                self.update_three_fold_mask();
-                self.three_fold_mask_dilate_before = self.three_fold_mask;
-                self.three_fold_colored_mask_dilate_before = self.three_fold_colored_mask;
-                self.update_mask_layer();
-                self.outline_layer.AlphaData = zeros(self.mask_size);
-                self.outline_layer.CData = zeros(self.mask_size);
-
-                %disp('ROI editing completed and mask updated.');
             end
-
+            
+            % 如果已有ROI，更新它们的颜色
+            self.update_roi_color();
         end
-
-        % Handle Freehand ROI deletion
-        function handleFreehandDeleted(self)
-
-            if self.isEditingROI
-                %disp('Freehand ROI was deleted. Exiting edit mode without saving changes.');
-                self.isEditingROI = false;
-                self.freehandROI = [];
-                self.update_mask_layer(); % Restore original mask display
+        
+        % 获取当前ROI的颜色
+        function color = get_current_roi_color(self,add_index)
+            arguments
+                self
+                add_index  = true
             end
-
+            if self.use_random_color
+                % 使用预生成的随机颜色
+                color = self.color_map(self.color_index, :);
+                % 更新索引，如果超出范围则循环使用
+                if add_index
+                    self.color_index = mod(self.color_index, size(self.color_map, 1)) + 1;
+                end
+            else
+                color = self.mask_color;
+            end
         end
-
+        
+        % 设置是否显示ROI背景色
+        function set.show_background(self, value)
+            self.show_background = value;
+            % 更新所有ROI的背景色显示状态
+            self.update_background_visibility();
+        end
+        
+        % 更新所有ROI背景色的显示状态
+        function update_background_visibility(self)
+            for ax_idx = 1:length(self.axes_list)
+                for roi_idx = 1:length(self.roi_patches{ax_idx})
+                    if ~isempty(self.roi_patches{ax_idx}{roi_idx}) && isvalid(self.roi_patches{ax_idx}{roi_idx})
+                        if self.show_background
+                            % 使用ROI边缘颜色作为背景色
+                            color = get(self.roi_patches{ax_idx}{roi_idx}, 'EdgeColor');
+                            set(self.roi_patches{ax_idx}{roi_idx}, 'FaceColor', color, 'FaceAlpha', self.mask_opacity);
+                        else
+                            % 不显示背景色
+                            set(self.roi_patches{ax_idx}{roi_idx}, 'FaceColor', 'none');
+                        end
+                    end
+                end
+            end
+        end
     end
-
-    % internal set and get function
+    
+    % ROI Drawing Methods
     methods
-
-        function set.mask(self, value)
-            self.mask = value;
-        end
-
-        function result = get.binary_mask(self)
-            result = logical(self.mask);
-        end
-
-        function result = get.mask_alphadata(self)
-            result = self.binary_mask * self.mask_opacity;
-        end
-
-        function set.move_down(self, value)
-            rows = self.mask_size(1);
-
-            if value > rows
-                value = rows;
-            elseif value < -rows
-                value = -rows;
+        function handroi_start(self, x, y)
+            % 检查当前活动轴是否允许绘制
+            if ~self.drawing_enabled(self.active_axes_index)
+                return;
             end
-
-            self.move_down = value;
-        end
-
-        function set.move_right(self, value)
-            cols = self.mask_size(2);
-
-            if value > cols
-                value = cols;
-            elseif value < -cols
-                value = -cols;
+            
+            self.is_drawing = true;
+            self.temp_dilate_level = self.dilate_level;
+            if self.temp_dilate_level ~= 0
+                self.dilate_roi(0);
             end
-
-            self.move_right = value;
+            
+            self.current_stroke = [x, y];
+            
+            % Draw on all UIAxes
+            self.main_plot_handle = gobjects(1, length(self.axes_list));
+            self.start_plot_handles = gobjects(1, length(self.axes_list));
+            for i = 1:length(self.axes_list)
+                % 只在允许绘制的轴上显示绘制过程
+                if self.drawing_enabled(i)
+                    self.main_plot_handle(i) = plot(self.axes_list(i), x, y, 'r-', 'LineWidth', self.brush_size);
+                    self.start_plot_handles(i) = plot(self.axes_list(i), x, y, 'ro', 'MarkerSize', 8);
+                    % 设置状态为绘制中
+                    self.axes_list(i).UserData.status = "handroi_drawing";
+                end
+            end
         end
-
+        
+        function handroi_draw(self, x, y)
+            % Check status of active axes rather than just first axes
+            if self.axes_list(self.active_axes_index).UserData.status ~= "handroi_drawing"
+                return
+            end
+            
+            if ~self.is_handroi_end()
+                self.current_stroke = [self.current_stroke; [x, y]];
+                for i = 1:length(self.axes_list)
+                    if self.drawing_enabled(i)
+                        set(self.main_plot_handle(i), 'XData', self.current_stroke(:,1), 'YData', self.current_stroke(:,2));
+                    end
+                end
+            else
+                self.finish_drawing();
+            end
+        end
+        
+        function result = is_handroi_end(self)
+            if size(self.current_stroke, 1) > 3
+                dist = sqrt(sum((self.current_stroke(1,:) - self.current_stroke(2:end,:)).^2, 2));
+                has_left = find(dist > self.thresh_out);
+                if ~isempty(has_left)
+                    first_left = min(has_left);
+                    has_returned = any(dist(max(4, first_left+1):end) < self.thresh_in);
+                    result = has_returned;
+                else
+                    result = false;
+                end
+            else
+                result = false;
+            end
+        end
+        
+        function handroi_cancel(self)
+            self.current_stroke = [];
+            for i = 1:length(self.axes_list)
+                if ~isempty(self.start_plot_handles) && isvalid(self.start_plot_handles(i))
+                    delete(self.start_plot_handles(i));
+                end
+                if ~isempty(self.main_plot_handle) && isvalid(self.main_plot_handle(i))
+                    delete(self.main_plot_handle(i));
+                end
+                % Reset status of all axes to idle
+                self.axes_list(i).UserData.status = "idle";
+            end
+            self.start_plot_handles = [];
+            self.main_plot_handle = [];
+            self.restore_dilate_level();
+            self.is_drawing = false;
+        end
+        
+        function restore_dilate_level(self)
+            if self.temp_dilate_level ~= 0
+                self.dilate_roi(self.temp_dilate_level);
+                self.temp_dilate_level = 0;
+            end
+        end
+        
+        function finish_drawing(self)
+            % Check if the active axes is in drawing mode
+            if strcmp(self.axes_list(self.active_axes_index).UserData.status, "handroi_drawing")
+                % Reset status of all axes to idle
+                for i = 1:length(self.axes_list)
+                    self.axes_list(i).UserData.status = "idle";
+                end
+                
+                for i = 1:length(self.axes_list)
+                    if ~isempty(self.start_plot_handles) && isvalid(self.start_plot_handles(i))
+                        delete(self.start_plot_handles(i));
+                    end
+                    if ~isempty(self.main_plot_handle) && isvalid(self.main_plot_handle(i))
+                        delete(self.main_plot_handle(i));
+                    end
+                end
+                self.start_plot_handles = [];
+                self.main_plot_handle = [];
+                self.add_roi(self.current_stroke);
+                self.current_stroke = [];
+                self.restore_dilate_level();
+                self.is_drawing = false;
+            end
+        end
+        
+        function set_roi_visibility(self, axes_idx, visible)
+            % 设置指定 axes 上 ROI 的可见性
+            if axes_idx < 1 || axes_idx > length(self.axes_list)
+                return;
+            end
+            
+            self.roi_visibility(axes_idx) = visible;
+            % 同时控制绘制权限
+            self.drawing_enabled(axes_idx) = visible;
+            
+            % 如果正在该轴上绘制而现在禁用了，则取消绘制
+            if ~visible && strcmp(self.axes_list(axes_idx).UserData.status, "handroi_drawing") && self.active_axes_index == axes_idx
+                self.handroi_cancel();
+            end
+            
+            % 设置 ROI patches 的可见性
+            for i = 1:length(self.roi_patches{axes_idx})
+                if ~isempty(self.roi_patches{axes_idx}{i}) && isvalid(self.roi_patches{axes_idx}{i})
+                    if visible
+                        set(self.roi_patches{axes_idx}{i}, 'Visible', 'on');
+                    else
+                        set(self.roi_patches{axes_idx}{i}, 'Visible', 'off');
+                    end
+                end
+            end
+            
+            % 设置 ROI 编号的可见性
+            for i = 1:length(self.roi_numbers{axes_idx})
+                if ~isempty(self.roi_numbers{axes_idx}{i}) && isvalid(self.roi_numbers{axes_idx}{i})
+                    if visible
+                        set(self.roi_numbers{axes_idx}{i}, 'Visible', 'on');
+                    else
+                        set(self.roi_numbers{axes_idx}{i}, 'Visible', 'off');
+                    end
+                end
+            end
+        end
+        
+        % 添加规则ROI（圆形或矩形）
+        function add_regular_roi(self, roi_type)
+            % 检查当前活动轴是否允许绘制
+            if ~self.drawing_enabled(self.active_axes_index)
+                return;
+            end
+            
+            % 如果当前有选择的ROI，取消选择状态
+            if self.selected_roi_idx > 0
+                for ax_idx = 1:length(self.axes_list)
+                    if ~isempty(self.roi_patches{ax_idx}{self.selected_roi_idx}) && isvalid(self.roi_patches{ax_idx}{self.selected_roi_idx})
+                        set(self.roi_patches{ax_idx}{self.selected_roi_idx}, 'EdgeColor', self.roi_colors{self.selected_roi_idx}, 'LineWidth', 1);
+                    end
+                end
+                self.selected_roi_idx = 0;
+            end
+            
+            % 如果已经在添加ROI，先完成或取消之前的操作
+            if self.adding_regular_roi && ~isempty(self.regular_roi_obj) && isvalid(self.regular_roi_obj)
+                self.finish_adding_regular_roi(true);
+            end
+            
+            % 设置标志
+            self.adding_regular_roi = true;
+            self.regular_roi_type = roi_type;
+            
+            % 获取当前活动轴
+            ax = self.axes_list(self.active_axes_index);
+            
+            % 计算当前视图的中心点
+            x_center = mean(ax.XLim);
+            y_center = mean(ax.YLim);
+            
+            % 计算ROI的大小（基于视图的1/4宽度）
+            width = (ax.XLim(2) - ax.XLim(1)) / 4;
+            height = (ax.YLim(2) - ax.YLim(1)) / 4;
+            
+            % 根据ROI类型创建相应的对象
+            switch lower(roi_type)
+                case 'circle'
+                    % 创建圆形ROI
+                    radius = min(width, height);
+                    self.regular_roi_obj = images.roi.Circle(ax, 'Center', [x_center, y_center], 'Radius', radius);
+                    
+                case 'rectangle'
+                    % 创建矩形ROI
+                    position = [x_center-width/2, y_center-height/2, width, height];
+                    self.regular_roi_obj = images.roi.Rectangle(ax, 'Position', position);
+                    
+                otherwise
+                    error('不支持的ROI类型: %s', roi_type);
+            end
+            
+            % 设置ROI属性
+            color = self.get_current_roi_color(false);
+            self.regular_roi_obj.Color = color;
+            self.regular_roi_obj.LineWidth = 2;
+            self.regular_roi_obj.Deletable = false; % 不允许通过UI删除
+            
+            % 设置轴状态为正在添加ROI
+            ax.UserData.status = "adding_regular_roi";
+        end
+        
+        function finish_adding_regular_roi(self, apply_changes)
+            % 检查是否正在添加ROI
+            if ~self.adding_regular_roi || isempty(self.regular_roi_obj) || ~isvalid(self.regular_roi_obj)
+                return;
+            end
+            
+            if apply_changes
+                % 根据ROI类型将ROI转换为轮廓点
+                switch lower(self.regular_roi_type)
+                    case 'circle'
+                        % 对于圆形，正确获取中心点和半径
+                        center = self.regular_roi_obj.Center;
+                        radius = self.regular_roi_obj.Radius;
+                        
+                        % 创建圆形轮廓（用64个点表示）
+                        theta = linspace(0, 2*pi, 64);
+                        x = radius * cos(theta) + center(1);
+                        y = radius * sin(theta) + center(2);
+                        contour = [x', y'];
+                        
+                    case 'rectangle'
+                        % 对于矩形，直接使用四个角点
+                        position = self.regular_roi_obj.Position;
+                        x1 = position(1);
+                        y1 = position(2);
+                        x2 = position(1) + position(3);
+                        y2 = position(2) + position(4);
+                        
+                        contour = [
+                            x1, y1;
+                            x2, y1;
+                            x2, y2;
+                            x1, y2;
+                            x1, y1
+                            ];
+                        
+                    otherwise
+                        error('不支持的ROI类型: %s', self.regular_roi_type);
+                end
+                
+                % 添加新ROI
+                self.add_roi(contour);
+            end
+            
+            % 删除临时ROI对象
+            delete(self.regular_roi_obj);
+            self.regular_roi_obj = [];
+            
+            % 重置标志
+            self.adding_regular_roi = false;
+            self.regular_roi_type = '';
+            
+            % 恢复轴状态为idle
+            self.axes_list(self.active_axes_index).UserData.status = "idle";
+        end
+        
+        function cancel_adding_regular_roi(self)
+            self.finish_adding_regular_roi(false);
+        end
+        
+        function is_adding = is_adding_regular_roi(self)
+            is_adding = self.adding_regular_roi;
+        end
     end
-
+    
+    % ROI Management Methods
+    methods
+        function selecting_roi = select_roi(self, x, y)
+            self.selected_roi_idx = 0;
+            selecting_roi = false;
+            for i = 1:length(self.roi_contours)
+                if inpolygon(x, y, self.roi_contours{i}(:,1), self.roi_contours{i}(:,2))
+                    self.selected_roi_idx = i;
+                    for ax_idx = 1:length(self.axes_list)
+                        set(self.roi_patches{ax_idx}{i}, 'EdgeColor', self.selected_roi_color, 'LineWidth', 2);
+                    end
+                    selecting_roi = true;
+                else
+                    for ax_idx = 1:length(self.axes_list)
+                        set(self.roi_patches{ax_idx}{i}, 'EdgeColor', self.roi_colors{i}, 'LineWidth', 1);
+                    end
+                end
+            end
+            
+            % 如果启用了拖拽模式且选中了ROI，则设置拖拽起始点和状态
+            if selecting_roi && self.drag_enabled
+                self.is_dragging = true;
+                self.drag_start_x = x;
+                self.drag_start_y = y;
+                % 如果启用了拖拽模式但未选中ROI，可以拖动全部ROI
+            elseif self.drag_enabled && ~isempty(self.roi_contours)
+                self.is_dragging = true;
+                self.drag_start_x = x;
+                self.drag_start_y = y;
+            end
+        end
+        
+        function delete_roi(self, x, y)
+            idx = 0;
+            for i = 1:length(self.roi_contours)
+                if inpolygon(x, y, self.roi_contours{i}(:,1), self.roi_contours{i}(:,2))
+                    idx = i;
+                    break;
+                end
+            end
+            if idx > 0
+                for ax_idx = 1:length(self.axes_list)
+                    delete(self.roi_patches{ax_idx}{idx});
+                    if length(self.roi_numbers{ax_idx}) >= idx && ...
+                            ~isempty(self.roi_numbers{ax_idx}{idx}) && ...
+                            isvalid(self.roi_numbers{ax_idx}{idx})
+                        delete(self.roi_numbers{ax_idx}{idx});
+                    end
+                end
+                self.roi_contours(idx) = [];
+                self.original_roi_contours(idx) = [];
+                self.roi_colors(idx) = []; % 删除对应ROI的颜色
+                for ax_idx = 1:length(self.axes_list)
+                    self.roi_patches{ax_idx}(idx) = [];
+                    if ~isempty(self.roi_numbers{ax_idx})
+                        self.roi_numbers{ax_idx}(idx) = [];
+                    end
+                end
+                self.update_roi_numbers();
+                self.selected_roi_idx = 0;
+                self.app.ROIsEditField.Value = length(self.roi_contours);
+            end
+        end
+        
+        function delete_selected_roi(self)
+            if self.selected_roi_idx > 0
+                for ax_idx = 1:length(self.axes_list)
+                    delete(self.roi_patches{ax_idx}{self.selected_roi_idx});
+                    if length(self.roi_numbers{ax_idx}) >= self.selected_roi_idx && ...
+                            ~isempty(self.roi_numbers{ax_idx}{self.selected_roi_idx}) && ...
+                            isvalid(self.roi_numbers{ax_idx}{self.selected_roi_idx})
+                        delete(self.roi_numbers{ax_idx}{self.selected_roi_idx});
+                    end
+                end
+                self.roi_contours(self.selected_roi_idx) = [];
+                self.original_roi_contours(self.selected_roi_idx) = [];
+                self.roi_colors(self.selected_roi_idx) = []; % 删除对应ROI的颜色
+                for ax_idx = 1:length(self.axes_list)
+                    self.roi_patches{ax_idx}(self.selected_roi_idx) = [];
+                    if ~isempty(self.roi_numbers{ax_idx})
+                        self.roi_numbers{ax_idx}(self.selected_roi_idx) = [];
+                    end
+                end
+                self.update_roi_numbers();
+                self.selected_roi_idx = 0;
+                self.app.ROIsEditField.Value = length(self.roi_contours);
+            end
+        end
+        
+        function move_roi(self, dx, dy)
+            if self.selected_roi_idx > 0
+                self.roi_contours{self.selected_roi_idx} = ...
+                    self.roi_contours{self.selected_roi_idx} + [dx, dy];
+                for ax_idx = 1:length(self.axes_list)
+                    set(self.roi_patches{ax_idx}{self.selected_roi_idx}, ...
+                        'XData', self.roi_contours{self.selected_roi_idx}(:,1), ...
+                        'YData', self.roi_contours{self.selected_roi_idx}(:,2));
+                    if length(self.roi_numbers{ax_idx}) >= self.selected_roi_idx && ...
+                            ~isempty(self.roi_numbers{ax_idx}{self.selected_roi_idx}) && ...
+                            isvalid(self.roi_numbers{ax_idx}{self.selected_roi_idx})
+                        center = mean(self.roi_contours{self.selected_roi_idx}, 1);
+                        set(self.roi_numbers{ax_idx}{self.selected_roi_idx}, 'Position', [center(1), center(2), 0]);
+                    end
+                end
+            else
+                for i = 1:length(self.roi_contours)
+                    self.roi_contours{i} = self.roi_contours{i} + [dx, dy];
+                    for ax_idx = 1:length(self.axes_list)
+                        set(self.roi_patches{ax_idx}{i}, ...
+                            'XData', self.roi_contours{i}(:,1), ...
+                            'YData', self.roi_contours{i}(:,2));
+                        if length(self.roi_numbers{ax_idx}) >= i && ...
+                                ~isempty(self.roi_numbers{ax_idx}{i}) && ...
+                                isvalid(self.roi_numbers{ax_idx}{i})
+                            center = mean(self.roi_contours{i}, 1);
+                            set(self.roi_numbers{ax_idx}{i}, 'Position', [center(1), center(2), 0]);
+                        end
+                    end
+                end
+            end
+        end
+        
+        function move_selected_roi(self, dx, dy)
+            if self.selected_roi_idx > 0
+                self.roi_contours{self.selected_roi_idx} = ...
+                    self.roi_contours{self.selected_roi_idx} + [dx, dy];
+                for ax_idx = 1:length(self.axes_list)
+                    set(self.roi_patches{ax_idx}{self.selected_roi_idx}, ...
+                        'XData', self.roi_contours{self.selected_roi_idx}(:,1), ...
+                        'YData', self.roi_contours{self.selected_roi_idx}(:,2));
+                    if length(self.roi_numbers{ax_idx}) >= self.selected_roi_idx && ...
+                            ~isempty(self.roi_numbers{ax_idx}{self.selected_roi_idx}) && ...
+                            isvalid(self.roi_numbers{ax_idx}{self.selected_roi_idx})
+                        center = mean(self.roi_contours{self.selected_roi_idx}, 1);
+                        set(self.roi_numbers{ax_idx}{self.selected_roi_idx}, 'Position', [center(1), center(2), 0]);
+                    end
+                end
+            end
+        end
+        
+        function clear_all_rois(self)
+            if self.is_adding_regular_roi()
+                self.cancel_adding_regular_roi()
+            end
+            for ax_idx = 1:length(self.axes_list)
+                for i = 1:length(self.roi_patches{ax_idx})
+                    if isvalid(self.roi_patches{ax_idx}{i})
+                        delete(self.roi_patches{ax_idx}{i});
+                    end
+                end
+            end
+            self.hide_roi_numbers();
+            self.roi_contours = {};
+            self.roi_patches = cell(1, length(self.axes_list));
+            self.roi_numbers = cell(1, length(self.axes_list));
+            self.original_roi_contours = {};
+            self.roi_colors = {}; % 清空ROI颜色数组
+            self.selected_roi_idx = 0;
+            self.app.ROIsEditField.Value = 0;
+            self.color_index = 1; % 重置颜色索引
+        end
+        
+        function add_roi(self, contour)
+            current_level = self.dilate_level;
+            
+            % 添加ROI轮廓
+            self.roi_contours{end+1} = contour;
+            self.original_roi_contours{end+1} = contour;
+            
+            % 为新的ROI设置颜色并存储
+            roi_color = self.get_current_roi_color();
+            self.roi_colors{end+1} = roi_color;
+            
+            % 更新ROI图形对象和计数
+            self.update_roi_patches();
+            
+            % 如果启用了ROI编号显示，更新编号
+            if self.showRoiNumber
+                self.update_roi_numbers();
+            end
+            
+            % 如果有膨胀/收缩设置，应用到新ROI
+            if current_level ~= 0
+                self.dilate_single_roi(length(self.roi_contours), current_level);
+            end
+        end
+        
+        function dilate_single_roi(self, roi_idx, level)
+            if roi_idx < 1 || roi_idx > length(self.original_roi_contours)
+                return;
+            end
+            
+            original_contour = self.original_roi_contours{roi_idx};
+            
+            if level == 0
+                self.roi_contours{roi_idx} = original_contour;
+            else
+                mask = poly2mask(original_contour(:,1), original_contour(:,2), ...
+                    self.mask_size(1), self.mask_size(2));
+                se = strel('disk', abs(level));
+                if level > 0
+                    dilated_mask = imdilate(mask, se);
+                else
+                    dilated_mask = imerode(mask, se);
+                end
+                [B, ~] = bwboundaries(dilated_mask, 'noholes');
+                if ~isempty(B)
+                    boundary = B{1};
+                    contour = [boundary(:, 2), boundary(:, 1)];
+                    self.roi_contours{roi_idx} = contour;
+                else
+                    self.roi_contours{roi_idx} = original_contour;
+                end
+            end
+            
+            for ax_idx = 1:length(self.axes_list)
+                if roi_idx <= length(self.roi_patches{ax_idx}) && isvalid(self.roi_patches{ax_idx}{roi_idx})
+                    set(self.roi_patches{ax_idx}{roi_idx}, 'XData', self.roi_contours{roi_idx}(:,1), ...
+                        'YData', self.roi_contours{roi_idx}(:,2));
+                    if length(self.roi_numbers{ax_idx}) >= roi_idx && ~isempty(self.roi_numbers{ax_idx}{roi_idx}) && isvalid(self.roi_numbers{ax_idx}{roi_idx})
+                        center = mean(self.roi_contours{roi_idx}, 1);
+                        set(self.roi_numbers{ax_idx}{roi_idx}, 'Position', [center(1), center(2), 0]);
+                    end
+                end
+            end
+        end
+        
+        function dilate_roi(self, level)
+            if isempty(self.original_roi_contours)
+                return
+            end
+            self.dilate_level = level;
+            for i = 1:length(self.original_roi_contours)
+                self.dilate_single_roi(i, level);
+            end
+        end
+        
+        function reorder_rois(self)
+            if isempty(self.roi_contours)
+                return
+            end
+            centers = zeros(length(self.roi_contours), 2);
+            for i = 1:length(self.roi_contours)
+                x = self.roi_contours{i}(:,1);
+                y = self.roi_contours{i}(:,2);
+                centers(i,:) = [mean(x), mean(y)];
+            end
+            [~, y_order] = sort(centers(:,2));
+            new_order = [];
+            y_values = centers(y_order,2);
+            unique_y = unique(round(y_values/20)*20);
+            for i = 1:length(unique_y)
+                row_indices = find(abs(y_values - unique_y(i)) < 20);
+                if ~isempty(row_indices)
+                    row = y_order(row_indices);
+                    [~, x_order] = sort(centers(row,1));
+                    new_order = [new_order; row(x_order)];
+                end
+            end
+            if length(new_order) ~= length(self.roi_contours)
+                new_order = y_order;
+            end
+            old_roi_contours = self.roi_contours;
+            old_roi_patches = self.roi_patches;
+            old_roi_colors = self.roi_colors;
+            for ax_idx = 1:length(self.axes_list)
+                self.roi_patches{ax_idx} = old_roi_patches{ax_idx}(new_order);
+            end
+            self.roi_contours = old_roi_contours(new_order);
+            self.roi_colors = old_roi_colors(new_order);
+            if self.showRoiNumber
+                self.update_roi_numbers();
+            end
+            if self.selected_roi_idx > 0
+                for i = 1:length(new_order)
+                    if new_order(i) == self.selected_roi_idx
+                        self.selected_roi_idx = i;
+                        for ax_idx = 1:length(self.axes_list)
+                            set(self.roi_patches{ax_idx}{i}, 'EdgeColor', self.selected_roi_color, 'LineWidth', 2);
+                        end
+                        break;
+                    end
+                end
+            end
+        end
+        
+        function set.showRoiNumber(self, value)
+            self.showRoiNumber = value;
+            if value
+                self.show_roi_numbers();
+            else
+                self.hide_roi_numbers();
+            end
+        end
+        
+        function set.roi_number_fontSize(self, value)
+            self.roi_number_fontSize = value;
+            if self.showRoiNumber && ~isempty(self.roi_numbers{1})
+                for ax_idx = 1:length(self.axes_list)
+                    for i = 1:length(self.roi_numbers{ax_idx})
+                        if ~isempty(self.roi_numbers{ax_idx}{i}) && isvalid(self.roi_numbers{ax_idx}{i})
+                            set(self.roi_numbers{ax_idx}{i}, 'FontSize', value);
+                        end
+                    end
+                end
+            end
+        end
+        
+        function set.roi_number_fontColor(self, value)
+            self.roi_number_fontColor = value;
+            if self.showRoiNumber && ~isempty(self.roi_numbers{1})
+                for ax_idx = 1:length(self.axes_list)
+                    for i = 1:length(self.roi_numbers{ax_idx})
+                        if ~isempty(self.roi_numbers{ax_idx}{i}) && isvalid(self.roi_numbers{ax_idx}{i})
+                            set(self.roi_numbers{ax_idx}{i}, 'Color', value);
+                        end
+                    end
+                end
+            end
+        end
+        
+        function show_roi_numbers(self)
+            self.hide_roi_numbers();
+            for i = 1:length(self.roi_contours)
+                center = mean(self.roi_contours{i}, 1);
+                for ax_idx = 1:length(self.axes_list)
+                    self.roi_numbers{ax_idx}{i} = text(self.axes_list(ax_idx), center(1), center(2), num2str(i), ...
+                        'Color', self.roi_number_fontColor , 'FontWeight', 'bold', 'FontUnits','points',...
+                        'FontSize', self.roi_number_fontSize, ...
+                        'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle','Clipping','on');
+                    
+                    % 根据当前可见性设置
+                    if ~self.roi_visibility(ax_idx)
+                        set(self.roi_numbers{ax_idx}{i}, 'Visible', 'off');
+                    end
+                end
+            end
+        end
+        
+        function update_roi_numbers(self)
+            if self.showRoiNumber
+                self.show_roi_numbers();
+            end
+        end
+        
+        function hide_roi_numbers(self)
+            for ax_idx = 1:length(self.axes_list)
+                for i = 1:length(self.roi_numbers{ax_idx})
+                    if ~isempty(self.roi_numbers{ax_idx}{i}) && isvalid(self.roi_numbers{ax_idx}{i})
+                        delete(self.roi_numbers{ax_idx}{i});
+                    end
+                end
+                self.roi_numbers{ax_idx} = {};
+            end
+        end
+        
+        % 拖拽ROI相关方法
+        function start_drag(self, x, y)
+            if self.drag_enabled
+                self.is_dragging = true;
+                self.drag_start_x = x;
+                self.drag_start_y = y;
+            end
+        end
+        
+        function drag_move(self, x, y)
+            if self.is_dragging
+                dx = x - self.drag_start_x;
+                dy = y - self.drag_start_y;
+                if dx ~= 0 || dy ~= 0
+                    self.move_roi(dx, dy);
+                    self.drag_start_x = x;
+                    self.drag_start_y = y;
+                end
+            end
+        end
+        
+        function stop_drag(self)
+            self.is_dragging = false;
+        end
+        
+        % 设置拖拽模式
+        function set_drag_mode(self, enabled)
+            self.drag_enabled = enabled;
+            % 如果禁用拖拽模式，同时确保停止当前拖拽
+            if ~enabled
+                self.is_dragging = false;
+            else
+                % 如果启用拖拽模式，并且当前正在编辑ROI，则取消编辑
+                if self.editing_roi
+                    self.cancel_edit_roi();
+                end
+            end
+        end
+        
+        % 获取当前拖拽状态
+        function dragging = is_drag_active(self)
+            dragging = self.is_dragging;
+        end
+        
+        function load_roi_file(self, filepath)
+            % Load ROI mask from various file formats
+            [~, ~, ext] = fileparts(filepath);
+            switch ext
+                case {'.csv', '.txt', '.xlsx'}
+                    % Load mask from text file
+                    mask = table2array(readtable(filepath));
+                    if length(unique(mask)) == 2
+                        mask = logical(mask);
+                    end
+                    self.load_from_mask(mask);
+                    
+                case {'.png', '.jpg', '.jpeg', '.tif', '.tiff'}
+                    % Load mask from image file
+                    imMask = imread(filepath);
+                    dims = ndims(imMask);
+                    if dims == 2
+                        % Gray image
+                        mask = single(imMask);
+                        if length(unique(mask)) == 2
+                            % Binary image
+                            mask = logical(mask);
+                        end
+                    else
+                        % RGB image
+                        mask = logical(rgb2gray(imMask));
+                    end
+                    self.load_from_mask(mask);
+                    
+                case {'.mat'}
+                    % Load variable from .mat file
+                    loaded_data = load(filepath);
+                    if isfield(loaded_data, 'roi_contours') && iscell(loaded_data.roi_contours)
+                        self.clear_all_rois();
+                        if isfield(loaded_data, 'original_roi_contours') && iscell(loaded_data.original_roi_contours)
+                            self.original_roi_contours = loaded_data.original_roi_contours;
+                        else
+                            self.original_roi_contours = loaded_data.roi_contours;
+                        end
+                        for i = 1:length(loaded_data.roi_contours)
+                            old_dilate = self.dilate_level;
+                            self.dilate_level = 0;
+                            self.roi_contours{end+1} = loaded_data.roi_contours{i};
+                            self.update_roi_patches();
+                            self.dilate_level = old_dilate;
+                        end
+                        if isfield(loaded_data, 'dilate_level')
+                            app.DilateSpinner.Value = loaded_data.dilate_level;
+                            self.dilate_level = loaded_data.dilate_level;
+                            if loaded_data.dilate_level ~= 0
+                                self.dilate_roi(loaded_data.dilate_level);
+                            end
+                        end
+                    end
+                case '.zip'
+                    % Load ROI zip from ImageJ
+                    try
+                        rois = ReadImageJROI(filepath);
+                        regions = ROIs2Regions(rois, self.mask_size);
+                        mask = double(labelmatrix(regions)');
+                        self.load_from_mask(mask);
+                    catch ME
+                        errordlg(strcat('Error loading ImageJ ROIs: ', ME.message), 'Error');
+                        disp(ME.getReport('extended'));
+                    end
+            end
+            
+            % 更新 ROI 数目显示
+            if isfield(self.app, 'ROIsEditField')
+                self.app.ROIsEditField.Value = length(self.roi_contours);
+            end
+        end
+        
+        function load_from_mask(self, mask)
+            % Convert labeled mask to ROI contours
+            self.clear_all_rois();
+            self.mask_size = size(mask);
+            
+            % 如果是二值掩码，转换为标签掩码
+            if islogical(mask)
+                [labeled_mask, num_regions] = bwlabel(mask);
+            else
+                labeled_mask = mask;
+                num_regions = max(labeled_mask(:));
+            end
+            
+            % 提取每个 ROI 的轮廓
+            for i = 1:num_regions
+                roi_mask = labeled_mask == i;
+                [B, ~] = bwboundaries(roi_mask, 'noholes');
+                if ~isempty(B)
+                    boundary = B{1};
+                    contour = [boundary(:, 2), boundary(:, 1)];
+                    self.add_roi(contour);
+                end
+            end
+            
+            % 更新 ROI 编号显示
+            if self.showRoiNumber
+                self.show_roi_numbers();
+            end
+            
+            disp(['Loaded ' num2str(num_regions) ' ROIs from mask.']);
+        end
+    end
+    
+    % Visualization Methods
+    methods
+        function update_roi_patches(self)
+            % 更新最新的roi
+            idx = length(self.roi_contours);
+            for ax_idx = 1:length(self.axes_list)
+                if isempty(self.roi_patches{ax_idx})
+                    hold(self.axes_list(ax_idx), 'on');
+                end
+                
+                
+                
+                % 获取当前ROI的颜色
+                if idx <= length(self.roi_colors) && ~isempty(self.roi_colors{idx})
+                    roi_color = self.roi_colors{idx};
+                else
+                    roi_color = self.get_current_roi_color();
+                    self.roi_colors{idx} = roi_color;
+                end
+                
+                % 设置背景色
+                face_color = 'none';
+                face_alpha = 0;
+                if self.show_background
+                    face_color = roi_color;
+                    face_alpha = self.mask_opacity;
+                end
+                
+                
+                
+                % 创建新的patch对象
+                self.roi_patches{ax_idx}{idx} = patch(self.axes_list(ax_idx), ...
+                    self.roi_contours{idx}(:,1), self.roi_contours{idx}(:,2), ...
+                    'y', 'FaceColor', face_color, 'EdgeColor', roi_color, ...
+                    'LineWidth', 1, 'FaceAlpha', face_alpha);
+                
+                % 避免自动变为 'auto' 模式
+                self.axes_list(ax_idx).YLimMode = 'manual';
+                self.axes_list(ax_idx).XLimMode = 'manual';
+                
+                % 根据当前可见性设置
+                if ~self.roi_visibility(ax_idx)
+                    set(self.roi_patches{ax_idx}{idx}, 'Visible', 'off');
+                end
+                
+                
+            end
+            
+            % 更新ROI计数显示
+            self.app.ROIsEditField.Value = length(self.roi_contours);
+            
+            % 如果启用了ROI编号显示，为新的ROI添加编号
+            if self.showRoiNumber
+                center = mean(self.roi_contours{idx}, 1);
+                for ax_idx = 1:length(self.axes_list)
+                    
+                    
+                    self.roi_numbers{ax_idx}{idx} = text(self.axes_list(ax_idx), center(1), center(2), num2str(idx), ...
+                        'Color', self.roi_number_fontColor, 'FontWeight', 'bold', 'FontUnits','points',...
+                        'FontSize', self.roi_number_fontSize, ...
+                        'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle','Clipping','on');
+                    
+                    % 根据当前可见性设置
+                    if ~self.roi_visibility(ax_idx)
+                        set(self.roi_numbers{ax_idx}{idx}, 'Visible', 'off');
+                    end
+                end
+            end
+        end
+        
+        function update_all_roi_patches(self)
+            % 更新所有的ROI patches
+            
+            % 先清除现有的所有ROI patches和numbers
+            for ax_idx = 1:length(self.axes_list)
+                for i = 1:length(self.roi_patches{ax_idx})
+                    if ~isempty(self.roi_patches{ax_idx}{i}) && isvalid(self.roi_patches{ax_idx}{i})
+                        delete(self.roi_patches{ax_idx}{i});
+                    end
+                end
+                self.roi_patches{ax_idx} = {};
+                
+                if self.showRoiNumber
+                    for i = 1:length(self.roi_numbers{ax_idx})
+                        if ~isempty(self.roi_numbers{ax_idx}{i}) && isvalid(self.roi_numbers{ax_idx}{i})
+                            delete(self.roi_numbers{ax_idx}{i});
+                        end
+                    end
+                    self.roi_numbers{ax_idx} = {};
+                end
+                
+                % 确保图表处于hold状态
+                hold(self.axes_list(ax_idx), 'on');
+            end
+            
+            % 重新绘制所有ROI patches
+            for roi_idx = 1:length(self.roi_contours)
+                % 确保有足够的颜色记录
+                if roi_idx > length(self.roi_colors)
+                    self.roi_colors{roi_idx} = self.get_current_roi_color();
+                end
+                
+                for ax_idx = 1:length(self.axes_list)
+                    % 使用ROI的存储颜色
+                    roi_color = self.roi_colors{roi_idx};
+                    
+                    % 设置背景色
+                    face_color = 'none';
+                    face_alpha = 0;
+                    if self.show_background
+                        face_color = roi_color;
+                        face_alpha = self.mask_opacity;
+                    end
+                    
+                    self.roi_patches{ax_idx}{roi_idx} = patch(self.axes_list(ax_idx), ...
+                        self.roi_contours{roi_idx}(:,1), self.roi_contours{roi_idx}(:,2), ...
+                        'y', 'FaceColor', face_color, 'EdgeColor', roi_color, ...
+                        'LineWidth', 1, 'FaceAlpha', face_alpha);
+                    
+                    % 避免自动变为 'auto' 模式
+                    self.axes_list(ax_idx).YLimMode = 'manual';
+                    self.axes_list(ax_idx).XLimMode = 'manual';
+                    
+                    % 根据当前可见性设置
+                    if ~self.roi_visibility(ax_idx)
+                        set(self.roi_patches{ax_idx}{roi_idx}, 'Visible', 'off');
+                    end
+                    
+                    % 如果是被选中的ROI，设置高亮
+                    if roi_idx == self.selected_roi_idx
+                        set(self.roi_patches{ax_idx}{roi_idx}, 'EdgeColor', self.selected_roi_color, 'LineWidth', 2);
+                    end
+                end
+                
+                % 更新ROI编号显示
+                if self.showRoiNumber
+                    center = mean(self.roi_contours{roi_idx}, 1);
+                    for ax_idx = 1:length(self.axes_list)
+                        self.roi_numbers{ax_idx}{roi_idx} = text(self.axes_list(ax_idx), center(1), center(2), num2str(roi_idx), ...
+                            'Color', self.roi_number_fontColor , 'FontWeight', 'bold', 'FontUnits','points',...
+                            'FontSize', self.roi_number_fontSize, ...
+                            'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle','Clipping','on');
+                        
+                        % 根据当前可见性设置
+                        if ~self.roi_visibility(ax_idx)
+                            set(self.roi_numbers{ax_idx}{roi_idx}, 'Visible', 'off');
+                        end
+                    end
+                end
+            end
+            
+            % 更新ROI数量显示
+            if isfield(self.app, 'ROIsEditField')
+                self.app.ROIsEditField.Value = length(self.roi_contours);
+            end
+        end
+        
+        function update_roi_color(self)
+            % 仅更新所有ROI的颜色（边缘和编号），不改变其他属性
+            
+            % 如果使用相同颜色且不是随机模式，确保roi_colors数组使用正确的颜色
+            if ~self.use_random_color
+                for i = 1:length(self.roi_contours)
+                    self.roi_colors{i} = self.mask_color;
+                end
+            end
+            
+            % 更新每个ROI的边缘颜色
+            for roi_idx = 1:length(self.roi_contours)
+                for ax_idx = 1:length(self.axes_list)
+                    if roi_idx <= length(self.roi_patches{ax_idx}) && ~isempty(self.roi_patches{ax_idx}{roi_idx}) && isvalid(self.roi_patches{ax_idx}{roi_idx})
+                        % 设置颜色：如果是选中的ROI，使用高亮颜色；否则使用ROI存储的颜色
+                        if roi_idx == self.selected_roi_idx
+                            edge_color = self.selected_roi_color;
+                            set(self.roi_patches{ax_idx}{roi_idx}, 'EdgeColor', edge_color);
+                        else
+                            edge_color = self.roi_colors{roi_idx};
+                            set(self.roi_patches{ax_idx}{roi_idx}, 'EdgeColor', edge_color);
+                        end
+                        
+                        % 更新背景色
+                        if self.show_background
+                            set(self.roi_patches{ax_idx}{roi_idx}, 'FaceColor', edge_color, 'FaceAlpha', self.mask_opacity);
+                        else
+                            set(self.roi_patches{ax_idx}{roi_idx}, 'FaceColor', 'none');
+                        end
+                    end
+                end
+            end
+            
+            % 如果启用了ROI编号显示，更新每个编号的颜色
+            if self.showRoiNumber
+                for ax_idx = 1:length(self.axes_list)
+                    for roi_idx = 1:length(self.roi_numbers{ax_idx})
+                        if ~isempty(self.roi_numbers{ax_idx}{roi_idx}) && isvalid(self.roi_numbers{ax_idx}{roi_idx})
+                            set(self.roi_numbers{ax_idx}{roi_idx}, 'Color', self.roi_number_fontColor , 'FontSize', self.roi_number_fontSize);
+                        end
+                    end
+                end
+            end
+        end
+        
+        function labeled_mask = generate_labeled_mask(self)
+            labeled_mask = zeros(self.mask_size);
+            for i = 1:length(self.roi_contours)
+                roi_mask = poly2mask(self.roi_contours{i}(:,1), self.roi_contours{i}(:,2), ...
+                    self.mask_size(1), self.mask_size(2));
+                labeled_mask(roi_mask) = i;
+            end
+        end
+        function binary_mask = get.binary_mask(self)
+            % 生成二值掩码
+            binary_mask = zeros(self.mask_size);
+            for i = 1:length(self.roi_contours)
+                roi_mask = poly2mask(self.roi_contours{i}(:,1), self.roi_contours{i}(:,2), ...
+                    self.mask_size(1), self.mask_size(2));
+                binary_mask(roi_mask) = 1;
+            end
+        end
+    end
+    
+    % ROI 编辑相关方法
+    methods
+        function start_edit_roi(self, x, y)
+            % 如果已经在编辑ROI，先结束编辑
+            if self.editing_roi
+                self.finish_edit_roi(true);
+                return;
+            end
+            
+            % 如果当前处于拖拽模式，不允许编辑ROI
+            if self.drag_enabled
+                return;
+            end
+            
+            % 检查点击位置是否在某个ROI内
+            for i = 1:length(self.roi_contours)
+                if inpolygon(x, y, self.roi_contours{i}(:,1), self.roi_contours{i}(:,2))
+                    self.editing_roi_idx = i;
+                    self.editing_roi = true;
+                    
+                    % 只隐藏当前活动轴上的ROI patch对象
+                    if ~isempty(self.roi_patches{self.active_axes_index}{i}) && isvalid(self.roi_patches{self.active_axes_index}{i})
+                        set(self.roi_patches{self.active_axes_index}{i}, 'Visible', 'off');
+                    end
+                    
+                    % 获取当前ROI的颜色
+                    roi_color = self.roi_colors{i};
+                    
+                    % 在活动轴上创建Freehand ROI对象，使用相同的颜色设置
+                    ax = self.axes_list(self.active_axes_index);
+                    position = self.roi_contours{i};
+                    self.freehand_roi = images.roi.Freehand(ax, 'Position', position, 'Color', roi_color, 'LineWidth', 2);
+                    
+                    
+                    
+                    % 设置轴状态为正在编辑ROI
+                    ax.UserData.status = "roi_editing";
+                    
+                    break;
+                end
+            end
+        end
+        
+        function finish_edit_roi(self, apply_changes)
+            if ~self.editing_roi || isempty(self.freehand_roi) || ~isvalid(self.freehand_roi)
+                return;
+            end
+            
+            if apply_changes
+                % 获取修改后的ROI边界
+                new_position = self.freehand_roi.Position;
+                
+                % 更新ROI轮廓
+                self.roi_contours{self.editing_roi_idx} = new_position;
+                self.original_roi_contours{self.editing_roi_idx} = new_position;
+                
+                % 如果有扩展/收缩，重新应用
+                if self.dilate_level ~= 0
+                    self.dilate_single_roi(self.editing_roi_idx, self.dilate_level);
+                end
+                
+                % 更新所有轴上的显示
+                for ax_idx = 1:length(self.axes_list)
+                    if ~isempty(self.roi_patches{ax_idx}{self.editing_roi_idx}) && isvalid(self.roi_patches{ax_idx}{self.editing_roi_idx})
+                        set(self.roi_patches{ax_idx}{self.editing_roi_idx}, ...
+                            'XData', self.roi_contours{self.editing_roi_idx}(:,1), ...
+                            'YData', self.roi_contours{self.editing_roi_idx}(:,2), ...
+                            'Visible', 'on');
+                    end
+                    
+                    % 更新ROI编号位置（如果存在）
+                    if length(self.roi_numbers{ax_idx}) >= self.editing_roi_idx && ...
+                            ~isempty(self.roi_numbers{ax_idx}{self.editing_roi_idx}) && ...
+                            isvalid(self.roi_numbers{ax_idx}{self.editing_roi_idx})
+                        center = mean(self.roi_contours{self.editing_roi_idx}, 1);
+                        set(self.roi_numbers{ax_idx}{self.editing_roi_idx}, ...
+                            'Position', [center(1), center(2), 0], ...
+                            'Visible', self.showRoiNumber && self.roi_visibility(ax_idx));
+                    end
+                end
+            else
+                % 不应用变更，仅恢复显示
+                for ax_idx = 1:length(self.axes_list)
+                    if ~isempty(self.roi_patches{ax_idx}{self.editing_roi_idx}) && isvalid(self.roi_patches{ax_idx}{self.editing_roi_idx})
+                        set(self.roi_patches{ax_idx}{self.editing_roi_idx}, 'Visible', 'on');
+                    end
+                    
+                    % 恢复ROI编号显示（如果存在）
+                    if length(self.roi_numbers{ax_idx}) >= self.editing_roi_idx && ...
+                            ~isempty(self.roi_numbers{ax_idx}{self.editing_roi_idx}) && ...
+                            isvalid(self.roi_numbers{ax_idx}{self.editing_roi_idx})
+                        set(self.roi_numbers{ax_idx}{self.editing_roi_idx}, ...
+                            'Visible', self.showRoiNumber && self.roi_visibility(ax_idx));
+                    end
+                end
+            end
+            
+            % 删除Freehand对象
+            if ~isempty(self.freehand_roi) && isvalid(self.freehand_roi)
+                delete(self.freehand_roi);
+            end
+            self.freehand_roi = [];
+            
+            % 重置编辑状态
+            self.editing_roi = false;
+            
+            % 恢复轴状态为空闲
+            self.axes_list(self.active_axes_index).UserData.status = "idle";
+            
+        end
+        
+        function cancel_edit_roi(self)
+            self.finish_edit_roi(false);
+        end
+        
+        function is_editing = is_roi_editing(self)
+            is_editing = self.editing_roi;
+        end
+    end
 end
