@@ -498,7 +498,12 @@ classdef DrawROI < handle
                 end
                 self.update_roi_numbers();
                 self.selected_roi_idx = 0;
-                self.app.ROIsEditField.Value = length(self.roi_contours);
+                if isprop(self.app, 'ROIsEditField')
+                    self.app.ROIsEditField.Value = length(self.roi_contours);
+                end
+                if isprop(self.app, 'ROIRatioEditField')
+                    self.app.ROIRatioEditField.Value =   mean(self.app.DrawROI.binary_mask(:));
+                end
             end
         end
         
@@ -523,7 +528,12 @@ classdef DrawROI < handle
                 end
                 self.update_roi_numbers();
                 self.selected_roi_idx = 0;
-                self.app.ROIsEditField.Value = length(self.roi_contours);
+                if isprop(self.app, 'ROIsEditField')
+                    self.app.ROIsEditField.Value = length(self.roi_contours);
+                end
+                if isprop(self.app, 'ROIRatioEditField')
+                    self.app.ROIRatioEditField.Value =   mean(self.app.DrawROI.binary_mask(:));
+                end
             end
         end
         
@@ -557,6 +567,13 @@ classdef DrawROI < handle
                         end
                     end
                 end
+            end
+
+            if isprop(self.app, 'ROIsEditField')
+                self.app.ROIsEditField.Value = length(self.roi_contours);
+            end
+            if isprop(self.app, 'ROIRatioEditField')
+                self.app.ROIRatioEditField.Value =   mean(self.app.DrawROI.binary_mask(:));
             end
         end
         
@@ -596,7 +613,12 @@ classdef DrawROI < handle
             self.original_roi_contours = {};
             self.roi_colors = {}; % 清空ROI颜色数组
             self.selected_roi_idx = 0;
-            self.app.ROIsEditField.Value = 0;
+            if isprop(self.app, 'ROIsEditField')
+                self.app.ROIsEditField.Value = 0;
+            end
+            if isprop(self.app, 'ROIRatioEditField')
+                self.app.ROIRatioEditField.Value =  0;
+            end
             self.color_index = 1; % 重置颜色索引
         end
         
@@ -906,8 +928,11 @@ classdef DrawROI < handle
             end
             
             % 更新 ROI 数目显示
-            if isfield(self.app, 'ROIsEditField')
+            if isprop(self.app, 'ROIsEditField')
                 self.app.ROIsEditField.Value = length(self.roi_contours);
+            end
+            if isprop(self.app, 'ROIRatioEditField')
+                self.app.ROIRatioEditField.Value =   mean(self.app.DrawROI.binary_mask(:));
             end
         end
         
@@ -993,8 +1018,12 @@ classdef DrawROI < handle
             end
             
             % 更新ROI计数显示
-            self.app.ROIsEditField.Value = length(self.roi_contours);
-            
+            if isprop(self.app, 'ROIsEditField')
+                self.app.ROIsEditField.Value = length(self.roi_contours);
+            end
+            if isprop(self.app, 'ROIRatioEditField')
+                self.app.ROIRatioEditField.Value =   mean(self.app.DrawROI.binary_mask(:));
+            end
             % 如果启用了ROI编号显示，为新的ROI添加编号
             if self.showRoiNumber
                 center = mean(self.roi_contours{idx}, 1);
@@ -1096,8 +1125,11 @@ classdef DrawROI < handle
             end
             
             % 更新ROI数量显示
-            if isfield(self.app, 'ROIsEditField')
+            if isprop(self.app, 'ROIsEditField')
                 self.app.ROIsEditField.Value = length(self.roi_contours);
+            end
+            if isprop(self.app, 'ROIRatioEditField')
+                self.app.ROIRatioEditField.Value =   mean(self.app.DrawROI.binary_mask(:));
             end
         end
         

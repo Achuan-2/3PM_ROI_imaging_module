@@ -214,23 +214,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             if isempty(app.DrawROI)
                 return;
             end
-            % 检查鼠标是否在任一UIAxes内
-            pt = get(app.UIFigure, 'CurrentPoint');
-            pos1 = getpixelposition(app.UIAxes);
 
-
-            % 判断鼠标是否在任一UIAxes内
-
-            if pt(1) >= pos1(1) && pt(1) <= pos1(1)+pos1(3) && pt(2) >= pos1(2) && pt(2) <= pos1(2)+pos1(4)
-                app.UIFigure.UserData.mouseInAxes = true;
-                % 当鼠标移入UIAxes1时，自动设为活动轴
-                if app.UIFigure.UserData.activeAxes ~= app.UIAxes
-                    app.UIFigure.UserData.activeAxes = app.UIAxes;
-                    app.DrawROI.active_axes_index = 1; % 更新DrawROI的活动轴索引
-                end
-            else
-                app.UIFigure.UserData.mouseInAxes = false;
-            end
+            % 判断鼠标是否在UIAxes内
 
             currentPosition = app.UIFigure.UserData.activeAxes.CurrentPoint;
             x = currentPosition(1,1);
@@ -238,6 +223,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             if  x >= app.UIFigure.UserData.activeAxes.XLim(1) && x <= app.UIFigure.UserData.activeAxes.XLim(2) && ...
                     y >= app.UIFigure.UserData.activeAxes.YLim(1) && y <= app.UIFigure.UserData.activeAxes.YLim(2)
+                app.UIFigure.UserData.mouseInAxes = true;
                 switch app.UIFigure.UserData.activeAxes.UserData.status
                     case "axes_paning"
                         % 如果正在添加ROI，则不执行平移
@@ -254,6 +240,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                             app.DrawROI.drag_move(x, y);
                         end
                 end
+            else
+                app.UIFigure.UserData.mouseInAxes = false;
             end
         end
 
@@ -1176,11 +1164,22 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % load mask
             if isempty(app.lastRoiMaskPath)
                 % 考虑当前文件夹可能不是app文件夹
-                roimaskPath = fullfile(app.folder,app.defaultConfig.roimaskPath);
-                [filename,path] = utils.select_file({'*.mat';'*.png';'*.csv';'*.txt'},roimaskPath);
-            else
+                [filename,path] = utils.select_file({ ...
+                '*.mat;*.zip', 'ROI Mask files (*.mat, *.zip, *.png)'; ...
+                '*.mat', 'MAT files (*.mat)'; ...
+                '*.zip', 'Image ROI files (*.zip)'; ...
+                '*.png;*.csv;*.txt;*.xlsx','Custom files (*.png;*.csv;*.txt;*.xlsx)'; ...
+                '*.*', 'All Files (*.*)'}, ...
+                app.last_seg_tiff_folder);
 
-                [filename,path] = utils.select_file({'*.mat';'*.png';'*.csv';'*.txt'},app.lastRoiMaskPath);
+            else
+                [filename,path] = utils.select_file({ ...
+                    '*.mat;*.zip', 'ROI Mask files (*.mat, *.zip, *.png)'; ...
+                    '*.mat', 'MAT files (*.mat)'; ...
+                    '*.zip', 'Image ROI files (*.zip)'; ...
+                    '*.png;*.csv;*.txt;*.xlsx','Custom files (*.png;*.csv;*.txt;*.xlsx)'; ...
+                    '*.*', 'All Files (*.*)'}, ...
+                    app.lastRoiMaskPath);
             end
 
 
@@ -1194,11 +1193,20 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 drawnow
 
                 % load roi
-                app.MaskOnCheckBox.Value = true;
-                app.DrawROI.load_roi_mask(path,filename);
-
+                
+                try
+                    app.DrawROI.load_roi_file(fullfile(path,filename));
+                catch
+                    app.LoadMaskButton.Enable = 'on';
+                    app.LoadMaskButton.FontColor = [0,0,0];
+                    app.LoadMaskButton.BackgroundColor = [0.96,0.96,0.96];
+                    app.ROIImagingLamp.Color = [0.90,0.90,0.90];
+                    return
+                end
+                
                 % enable draw roi
-                app.DrawROI.enable  = true;
+                app.MaskOnCheckBox.Value = true;
+                
                 app.Seg.enable = true;
                 app.Seg.auto_rerun = false;
 
