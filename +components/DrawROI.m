@@ -565,9 +565,9 @@ classdef DrawROI < handle
 
             % 提示删除的ROI数量
             if ~isempty(to_remove)
-                disp(['已删除 ' num2str(length(to_remove)) ' 个ROI']);
+                disp(['Removed ' num2str(length(to_remove)) ' ROIs']);
             else
-                disp('没有找到位于矩形区域内的ROI');
+                disp('No ROIs found within the rectangular region');
             end
         end
 
