@@ -11,6 +11,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         SettingsMenu                 matlab.ui.container.Menu
         AWGSettingsMenu              matlab.ui.container.Menu
         ScannerSettingsMenu          matlab.ui.container.Menu
+        ROIMaskSettingsMenu          matlab.ui.container.Menu
         AddonsMenu                   matlab.ui.container.Menu
         PowerCaculateMenu            matlab.ui.container.Menu
         AWGControlMenu               matlab.ui.container.Menu
@@ -41,14 +42,15 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         AbortButton                  matlab.ui.control.Button
         LaserROIImagingButton        matlab.ui.control.Button
         ManualcorrectionPanel        matlab.ui.container.Panel
-        ClearMaskButton              matlab.ui.control.Button
+        ROIMaskSettingsButton        matlab.ui.control.Button
+        ROIMaskClearButton           matlab.ui.control.Button
         SaveMaskButton               matlab.ui.control.Button
         LoadMaskButton               matlab.ui.control.Button
         ROIdilateSpinner             matlab.ui.control.Spinner
         ROIdilateSpinnerLabel        matlab.ui.control.Label
         MaskOnCheckBox               matlab.ui.control.CheckBox
-        MaskDropDown                 matlab.ui.control.DropDown
-        MaskDropDownLabel            matlab.ui.control.Label
+        ROIMaskDropDown              matlab.ui.control.DropDown
+        ROIMaskDropDownLabel         matlab.ui.control.Label
         NeuronSegmentationPanel      matlab.ui.container.Panel
         StructureTypeDropDown        matlab.ui.control.DropDown
         LoadSegImageButton           matlab.ui.control.Button
@@ -92,11 +94,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
     properties (Access = public)
         % Sub APP
-        AwgSettingsApp = 0;% sub-app for awg settings
-        ScannerSettingsApp = 0; % sub-app for scanner settings
+        AwgSettingsApp;% sub-app for awg settings
+        ScannerSettingsApp; % sub-app for scanner settings
         AwgControlApp;
         SimulationApp;
         PowerCaculateAPP;
+        ROIMaskSettingsApp;
 
         roiMask % Dilate之后
 
@@ -310,6 +313,9 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 case 'delete'
                     if app.DrawROI.selected_roi_idx > 0
                         app.DrawROI.delete_selected_roi();
+                    end
+                    if app.DrawROI.is_adding_regular_roi()
+                        app.DrawROI.cancel_adding_regular_roi();
                     end
                 case 'uparrow'
                     % 只有当鼠标在UIAxes区域内时才响应方向键
@@ -828,7 +834,10 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % create empty mask
             app.DrawROI = components.DrawROI(app, [app.UIAxes]);
             app.DrawROI.mask_size = size(app.img_seg_data);
-
+            app.DrawROI.mask_color = 'random';
+            app.DrawROI.showRoiNumber = false; % 默认不显示字体
+            app.DrawROI.show_background = true; % 默认显示mask 背景
+            app.DrawROI.roi_number_fontSize = 15; % 设置默认字体大小
 
             % enable components
             app.MaskOnCheckBox.Value = true;
@@ -899,6 +908,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                     modelName = 'nuclei';
                 elseif startsWith(fileName, 'cytotorch_')
                     modelName = 'cyto';
+                    
                 else
                     modelName = fileName;
                 end
@@ -916,7 +926,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             % Update the dropdown menu items and set the default value
             app.ModelsDropDown.Items = modelNames;
-            app.ModelsDropDown.Value = modelNames{1};
+            app.ModelsDropDown.Value = modelNames{2};
         end
 
         
@@ -973,17 +983,15 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             % init awg settings
             app.init_awg_settings();
-            app.UIFigure.UserData.CtrlPressed = false;
-            app.UIFigure.UserData.ShiftPressed = false;
 
-            % init hand draw roi settings
+
+            % init DrawROI component
             app.DrawROI = components.DrawROI(app, [app.UIAxes]);
             app.UIFigure.UserData.CtrlPressed = false;
             app.UIFigure.UserData.ShiftPressed = false;
             app.UIFigure.UserData.AltPressed = false;
             app.UIFigure.UserData.SpacePressed = false;
 
-            % 将原属性初始化到UserData中
             app.UIFigure.UserData.Pan = struct('previous_point', [0 0 0 0]);
             app.UIFigure.UserData.activeAxes = app.UIAxes; % 默认活动轴
             app.UIAxes.UserData.status = 'idle';
@@ -998,9 +1006,11 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             set(app.UIFigure, 'WindowKeyPressFcn', @app.keyPress);
             set(app.UIFigure, 'WindowKeyReleaseFcn', @app.keyRelease);
             set(app.UIFigure, 'WindowScrollWheelFcn', @app.windowScrollWheel);
-            % seg
+
+            % init Seg component
             app.Seg = components.Segmentation();
-            app.getCellposeModels(app.Seg.cellpose_model_folder)
+            app.Seg.cellpose_model_folder = fullfile(app.folder,'cellposeModels/');
+            getCellposeModels(app,app.Seg.cellpose_model_folder)
 
             % ui
             app.ScanimageButton.BackgroundColor = [1.00,0.00,0.00];
@@ -1056,10 +1066,10 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
 
                 % if subapp is open
-                if app.AwgSettingsApp ~= 0
+                if ~isempty(app.AwgSettingsApp)
                     app.AwgSettingsApp.variableInit();
                 end
-                if app.ScannerSettingsApp ~= 0
+                if ~isempty(app.ScannerSettingsApp)
                     app.ScannerSettingsApp.variableInit();
                 end
             end
@@ -1094,13 +1104,15 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
 
             % close subapp
-            if app.AwgSettingsApp ~= 0
+            if  ~isempty(app.AwgSettingsApp)
                 delete(app.AwgSettingsApp)
             end
-            if app.ScannerSettingsApp ~= 0
+            if  ~isempty(app.ScannerSettingsApp)
                 delete(app.ScannerSettingsApp)
             end
-
+            if ~isempty(app.ROIMaskSettingsApp)
+                delete(app.ROIMaskSettingsApp);
+            end
 
             % close MainApp
             delete(app)
@@ -1364,18 +1376,9 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         % Value changed function: ROIdilateSpinner
         function ROIdilateSpinnerValueChanged(app, event)
-            value = app.ROIdilateSpinner.Value();
-            if value
-                app.DrawROI.is_dilating = true;
-            else
-                app.DrawROI.is_dilating = false;
-            end
+            value = app.ROIdilateSpinner.Value;
+            app.DrawROI.dilate_roi(value);
 
-            % generate dilated mask
-            app.DrawROI.dilate_mask(app.ROIdilateSpinner.Value);
-
-            % update mask layer
-            app.DrawROI.update_mask_layer();
 
             % caculate ROI Power
             app.caculate_power();
@@ -1461,18 +1464,10 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             model_type = app.ModelsDropDown.Value;
             flow_threshold = app.ThresholdSpinner.Value;
             cp = cellpose(Model=model_type,ModelFolder=app.Seg.cellpose_model_folder);
-            app.DrawROI.mask = segmentCells2D(cp,app.img_seg_data,CellThreshold=0,FlowErrorThreshold=flow_threshold,ImageCellDiameter=15); %ImageCellDiameter=56
-
+            labeled_mask = segmentCells2D(cp,app.img_seg_data,CellThreshold=0,FlowErrorThreshold=flow_threshold,ImageCellDiameter=15); %ImageCellDiameter=56
+            app.DrawROI.load_from_mask(labeled_mask);
             % close the dialog box
             close(progressDlg);
-
-
-            % toggle mask style button to colored mask
-            app.MaskDropDown.Value = "Colored";
-            app.DrawROI.colored_mask = components.drawRoi.mask_to_rgb(app.DrawROI.mask,app.DrawROI.colormaps);
-
-            app.DrawROI.reset_three_fold_mask();
-            app.DrawROI.update_mask_layer();
 
 
             app.Seg.auto_rerun = true; % 支持调整threshold，就自动显示
@@ -1486,19 +1481,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         % Value changed function: ThresholdSpinner
         function ThresholdSpinnerValueChanged(app, event)
 
-            if  ~app.Seg.auto_rerun
-                return
-            end
-            model_type = app.ModelsDropDown.Value;
-            new_threshold = app.ThresholdSpinner.Value;
-            cp = cellpose(Model=model_type,ModelFolder=app.Seg.cellpose_model_folder);
-            new_mask = segmentCells2D(cp,app.img_seg_data,FlowErrorThreshold=new_threshold); %ImageCellDiameter=56
-
-            % 为了已存在的roi不更改颜色，只在mask上新增新的roi和删除roi，需要找出new mask和old mask的不同
-            app.DrawROI.threshold_update_mask(new_mask);
-
-            % 关闭ROI灯，提示ROI成像与当前ROI mask不一致
-            app.ROIImagingLamp.Color = [0.90,0.90,0.90];
         end
 
         % Value changed function: ModelsDropDown
@@ -1508,26 +1490,19 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         end
 
-        % Value changed function: MaskDropDown
-        function MaskDropDownValueChanged(app, event)
-            app.DrawROI.update_mask_layer();
+        % Value changed function: ROIMaskDropDown
+        function ROIMaskDropDownValueChanged(app, event)
+            
         end
 
         % Value changed function: MaskOnCheckBox
         function MaskOnCheckBoxValueChanged(app, event)
-            value = app.MaskOnCheckBox.Value;
-            if isempty(app.DrawROI.mask_layer)
+
+            if isempty(app.DrawROI)
                 return
             end
-            if value
-                % disable draw roi
-                app.DrawROI.enable  = true;
-                app.DrawROI.update_mask_layer();
-            else
-                % enable draw roi
-                app.DrawROI.enable  = false;
-                app.DrawROI.mask_layer.AlphaData = 0;
-            end
+            value = app.MaskOnCheckBox.Value;
+            app.DrawROI.set_roi_visibility(1, value);
 
         end
 
@@ -1847,8 +1822,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             end
         end
 
-        % Button pushed function: ClearMaskButton
-        function ClearMaskButtonPushed(app, event)
+        % Button pushed function: ROIMaskClearButton
+        function ROIMaskClearButtonPushed(app, event)
             if ~isempty(app.DrawROI)
                 choice = questdlg('Are you sure you want to clear all ROIs?', ...
                     'Clear ROIs', 'Yes', 'No', 'No');
@@ -1856,6 +1831,18 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                     app.DrawROI.clear_all_rois();
                 end
             end
+        end
+
+        % Button pushed function: ROIMaskSettingsButton
+        function ROIMaskSettingsButtonPushed(app, event)
+            % ROI面板打开ROIMaskSettings
+            app.ROIMaskSettingsApp=subapps.ROIMaskSettings(app);
+        end
+
+        % Menu selected function: ROIMaskSettingsMenu
+        function ROIMaskSettingsMenuSelected(app, event)
+            % 顶部菜单打开ROIMaskSettings
+            app.ROIMaskSettingsApp=subapps.ROIMaskSettings(app);
         end
 
         % Changes arrangement of the app based on UIFigure width
@@ -1931,6 +1918,11 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ScannerSettingsMenu.MenuSelectedFcn = createCallbackFcn(app, @ScannerSettingsMenuSelected, true);
             app.ScannerSettingsMenu.Text = 'Scanner Settings';
 
+            % Create ROIMaskSettingsMenu
+            app.ROIMaskSettingsMenu = uimenu(app.SettingsMenu);
+            app.ROIMaskSettingsMenu.MenuSelectedFcn = createCallbackFcn(app, @ROIMaskSettingsMenuSelected, true);
+            app.ROIMaskSettingsMenu.Text = 'ROI Mask Settings';
+
             % Create AddonsMenu
             app.AddonsMenu = uimenu(app.UIFigure);
             app.AddonsMenu.Text = ' Add-ons ';
@@ -1963,7 +1955,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             % Create SimulationToggleTool
             app.SimulationToggleTool = uitoggletool(app.Toolbar);
-            app.SimulationToggleTool.Icon = fullfile(pathToMLAPP, 'assets', 'icon', 'simulation.svg');
+            app.SimulationToggleTool.Icon = fullfile(pathToMLAPP, '+assets', 'simulation.svg');
 
             % Create GridLayout
             app.GridLayout = uigridlayout(app.UIFigure);
@@ -1992,11 +1984,11 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             % Create ModelsDropDown
             app.ModelsDropDown = uidropdown(app.NeuronSegmentationPanel);
-            app.ModelsDropDown.Items = {'cyto2', 'cyto'};
+            app.ModelsDropDown.Items = {'cyto3', 'cyto2', 'cyto'};
             app.ModelsDropDown.ValueChangedFcn = createCallbackFcn(app, @ModelsDropDownValueChanged, true);
             app.ModelsDropDown.Tooltip = {'segmentation model'};
             app.ModelsDropDown.Position = [88 77 100 22];
-            app.ModelsDropDown.Value = 'cyto2';
+            app.ModelsDropDown.Value = 'cyto3';
 
             % Create ThresholdSpinnerLabel
             app.ThresholdSpinnerLabel = uilabel(app.NeuronSegmentationPanel);
@@ -2022,7 +2014,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create LoadSegImageButton
             app.LoadSegImageButton = uibutton(app.NeuronSegmentationPanel, 'push');
             app.LoadSegImageButton.ButtonPushedFcn = createCallbackFcn(app, @LoadSegImageButtonPushed, true);
-            app.LoadSegImageButton.Icon = fullfile(pathToMLAPP, 'assets', 'icon', 'folder-open.svg');
+            app.LoadSegImageButton.Icon = fullfile(pathToMLAPP, '+assets', 'folder-open.svg');
             app.LoadSegImageButton.BackgroundColor = [0.9608 0.9608 0.9608];
             app.LoadSegImageButton.Tooltip = {'Load Image to Segmentation'};
             app.LoadSegImageButton.Position = [13 114 152 23];
@@ -2041,18 +2033,18 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ManualcorrectionPanel.SizeChangedFcn = createCallbackFcn(app, @ManualcorrectionPanelSizeChanged, true);
             app.ManualcorrectionPanel.Position = [8 125 284 136];
 
-            % Create MaskDropDownLabel
-            app.MaskDropDownLabel = uilabel(app.ManualcorrectionPanel);
-            app.MaskDropDownLabel.Position = [16 76 34 22];
-            app.MaskDropDownLabel.Text = 'Mask';
+            % Create ROIMaskDropDownLabel
+            app.ROIMaskDropDownLabel = uilabel(app.ManualcorrectionPanel);
+            app.ROIMaskDropDownLabel.Position = [16 76 58 22];
+            app.ROIMaskDropDownLabel.Text = 'ROI Mask';
 
-            % Create MaskDropDown
-            app.MaskDropDown = uidropdown(app.ManualcorrectionPanel);
-            app.MaskDropDown.Items = {'Colored', 'Binary'};
-            app.MaskDropDown.ValueChangedFcn = createCallbackFcn(app, @MaskDropDownValueChanged, true);
-            app.MaskDropDown.Tooltip = {'Choose mask style to display: colored mask or binary mask'};
-            app.MaskDropDown.Position = [65 76 100 22];
-            app.MaskDropDown.Value = 'Colored';
+            % Create ROIMaskDropDown
+            app.ROIMaskDropDown = uidropdown(app.ManualcorrectionPanel);
+            app.ROIMaskDropDown.Items = {'Colored', 'Binary'};
+            app.ROIMaskDropDown.ValueChangedFcn = createCallbackFcn(app, @ROIMaskDropDownValueChanged, true);
+            app.ROIMaskDropDown.Tooltip = {'Choose mask style to display: colored mask or binary mask'};
+            app.ROIMaskDropDown.Position = [78 75 100 22];
+            app.ROIMaskDropDown.Value = 'Colored';
 
             % Create MaskOnCheckBox
             app.MaskOnCheckBox = uicheckbox(app.ManualcorrectionPanel);
@@ -2076,7 +2068,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create LoadMaskButton
             app.LoadMaskButton = uibutton(app.ManualcorrectionPanel, 'push');
             app.LoadMaskButton.ButtonPushedFcn = createCallbackFcn(app, @LoadMaskButtonPushed, true);
-            app.LoadMaskButton.Icon = fullfile(pathToMLAPP, 'assets', 'icon', 'upload.svg');
+            app.LoadMaskButton.Icon = fullfile(pathToMLAPP, '+assets', 'upload.svg');
             app.LoadMaskButton.BackgroundColor = [0.9412 0.9412 0.9412];
             app.LoadMaskButton.Tooltip = {'Load external mask  '};
             app.LoadMaskButton.Position = [15 11 98 23];
@@ -2085,20 +2077,28 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create SaveMaskButton
             app.SaveMaskButton = uibutton(app.ManualcorrectionPanel, 'push');
             app.SaveMaskButton.ButtonPushedFcn = createCallbackFcn(app, @SaveMaskButtonPushed, true);
-            app.SaveMaskButton.Icon = fullfile(pathToMLAPP, 'assets', 'icon', 'save.svg');
+            app.SaveMaskButton.Icon = fullfile(pathToMLAPP, '+assets', 'save.svg');
             app.SaveMaskButton.Tooltip = {'choose where to save mask as .mat and .jpg'};
             app.SaveMaskButton.Position = [123 10 100 23];
             app.SaveMaskButton.Text = 'Save Mask';
 
-            % Create ClearMaskButton
-            app.ClearMaskButton = uibutton(app.ManualcorrectionPanel, 'push');
-            app.ClearMaskButton.ButtonPushedFcn = createCallbackFcn(app, @ClearMaskButtonPushed, true);
-            app.ClearMaskButton.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
-            app.ClearMaskButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ClearMaskButton.Tooltip = {'Load external mask  '};
-            app.ClearMaskButton.Position = [194 45 90 23];
-            app.ClearMaskButton.Text = 'Clear Mask';
-            app.ClearMaskButton.Icon = fullfile(pathToMLAPP, '+assets', 'clear.svg');
+            % Create ROIMaskClearButton
+            app.ROIMaskClearButton = uibutton(app.ManualcorrectionPanel, 'push');
+            app.ROIMaskClearButton.ButtonPushedFcn = createCallbackFcn(app, @ROIMaskClearButtonPushed, true);
+            app.ROIMaskClearButton.Icon = fullfile(pathToMLAPP, '+assets', 'clear.svg');
+            app.ROIMaskClearButton.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
+            app.ROIMaskClearButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.ROIMaskClearButton.Tooltip = {'Clear all ROI'};
+            app.ROIMaskClearButton.Position = [234 11 19 21];
+            app.ROIMaskClearButton.Text = '';
+
+            % Create ROIMaskSettingsButton
+            app.ROIMaskSettingsButton = uibutton(app.ManualcorrectionPanel, 'push');
+            app.ROIMaskSettingsButton.ButtonPushedFcn = createCallbackFcn(app, @ROIMaskSettingsButtonPushed, true);
+            app.ROIMaskSettingsButton.Icon = fullfile(pathToMLAPP, '+assets', 'setting.svg');
+            app.ROIMaskSettingsButton.Tooltip = {'Open Settings'};
+            app.ROIMaskSettingsButton.Position = [217 75 41 23];
+            app.ROIMaskSettingsButton.Text = '';
 
             % Create ROIImagingPanel
             app.ROIImagingPanel = uipanel(app.LeftPanel);
@@ -2181,7 +2181,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create ScanimageButton
             app.ScanimageButton = uibutton(app.SettingsPanel, 'state');
             app.ScanimageButton.ValueChangedFcn = createCallbackFcn(app, @ScanimageButtonValueChanged, true);
-            app.ScanimageButton.Icon = fullfile(pathToMLAPP, 'assets', 'icon', 'ScanImage.png');
+            app.ScanimageButton.Icon = fullfile(pathToMLAPP, '+assets', 'ScanImage.png');
             app.ScanimageButton.Text = '';
             app.ScanimageButton.BackgroundColor = [1 0 0];
             app.ScanimageButton.FontColor = [0.149 0.149 0.149];
@@ -2313,7 +2313,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create UIAxesHomeButton
             app.UIAxesHomeButton = uibutton(app.RightPanel, 'push');
             app.UIAxesHomeButton.ButtonPushedFcn = createCallbackFcn(app, @UIAxesHomeButtonPushed, true);
-            app.UIAxesHomeButton.Icon = fullfile(pathToMLAPP, 'assets', 'icon', 'home.svg');
+            app.UIAxesHomeButton.Icon = fullfile(pathToMLAPP, '+assets', 'home.svg');
             app.UIAxesHomeButton.Position = [491 613 53 23];
             app.UIAxesHomeButton.Text = '';
 
