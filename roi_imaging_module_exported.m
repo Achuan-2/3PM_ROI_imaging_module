@@ -2251,6 +2251,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             % Create AWGSimulateButton
             app.AWGSimulateButton = uibutton(app.SettingsPanel, 'state');
+            app.AWGSimulateButton.Visible = 'off';
             app.AWGSimulateButton.Tooltip = {'Simulation'};
             app.AWGSimulateButton.Icon = fullfile(pathToMLAPP, '+assets', 'simulation.svg');
             app.AWGSimulateButton.Text = '';
