@@ -700,7 +700,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
 
             if app.StructureTypeDropDown.Value == "1/10 Imaging"
-                utils.tiff_save(imgStack,fullfile(folderProcessed, [fname,'_rebuild',fext]),tagstruct);
+                utils.tiff_save(imgStack,fullfile(path, [fname,'_rebuild',fext]),tagstruct);
             end
 
 
@@ -968,6 +968,9 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         
        function save_mask(app)
             try
+                if isempty(app.DrawROI.roi_contours)
+                    return
+                end
                 % save matfile
                 data.roi_contours = app.DrawROI.roi_contours;
                 data.original_roi_contours = app.DrawROI.original_roi_contours;
@@ -1444,46 +1447,50 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 [~, app.img_seg_fname, ~]  = fileparts(app.img_seg_filename); % 获取文件名，无后缀
 
                 info = imfinfo(fullfile(path,filename));
-
-                % load image
-                if length(info)>1
-                    %% stacked frames
-                    % Projection dropdown切换
-                    app.DropDown.Enable = 'on';
-                    app.DropDown.Items = {'AVG','Std','Max','Movie'};
-                    app.DropDown.Value = app.DropDown.Items{1};
-
-                    process_structure_image(app,filename,path);
-                else
-                    % single frame
-                    app.img_seg_data= imread(fullfile(app.last_seg_tiff_folder,filename));
-                    app.refImg = app.img_seg_data;
-                    
-                    % Projection dropdown切换
-                    app.DropDown.Enable = 'off';
-                    app.DropDown.Items = {'1 Frame'};
-                    app.DropDown.Value = app.DropDown.Items{1};
-                    
-                    % 显示图片
-                    hold(app.UIAxes,'off');
-                    app.seg_img_layer = imshow(app.img_seg_data,[],'parent',app.UIAxes,'border','tight','initialmagnification','fit');
-                    img_size = size(app.img_seg_data);
-                    axis(app.UIAxes,[0,img_size(2),0,img_size(1)]);
-                    hold(app.UIAxes,'on');
-                    
-                    % 隐藏movide slider
-                    app.FrameSliderLabel.Visible = 'off';
-                    app.FrameSlider.Visible = 'off';
-
-
-                    % 对比度滑条
-                    app.ContrastSlider.Limits = [double(min(app.img_seg_data,[],"all")), double(max(app.img_seg_data,[],"all"))];
-                    app.ContrastSlider.Value = app.ContrastSlider.Limits;
-                    app.UIAxes.CLim = app.ContrastSlider.Value;
-                    % init DrawROI components
-                    app.init_DrawROI();
+                try
+                    % load image
+                    if length(info)>1
+                        %% stacked frames
+                        % Projection dropdown切换
+                        app.DropDown.Enable = 'on';
+                        app.DropDown.Items = {'AVG','Std','Max','Movie'};
+                        app.DropDown.Value = app.DropDown.Items{1};
+    
+                        process_structure_image(app,filename,path);
+                    else
+                        % single frame
+                        app.img_seg_data= imread(fullfile(app.last_seg_tiff_folder,filename));
+                        app.refImg = app.img_seg_data;
+                        
+                        % Projection dropdown切换
+                        app.DropDown.Enable = 'off';
+                        app.DropDown.Items = {'1 Frame'};
+                        app.DropDown.Value = app.DropDown.Items{1};
+                        
+                        % 显示图片
+                        hold(app.UIAxes,'off');
+                        app.seg_img_layer = imshow(app.img_seg_data,[],'parent',app.UIAxes,'border','tight','initialmagnification','fit');
+                        img_size = size(app.img_seg_data);
+                        axis(app.UIAxes,[0,img_size(2),0,img_size(1)]);
+                        hold(app.UIAxes,'on');
+                        
+                        % 隐藏movide slider
+                        app.FrameSliderLabel.Visible = 'off';
+                        app.FrameSlider.Visible = 'off';
+    
+    
+                        % 对比度滑条
+                        app.ContrastSlider.Limits = [double(min(app.img_seg_data,[],"all")), double(max(app.img_seg_data,[],"all"))];
+                        app.ContrastSlider.Value = app.ContrastSlider.Limits;
+                        app.UIAxes.CLim = app.ContrastSlider.Value;
+                        % init DrawROI components
+                        app.init_DrawROI();
+                    end
+                catch ME
+                    % 捕获并显示错误信息
+                    errordlg(ME.message, 'Error');
+                    fprintf(2,'%s\n', ME.getReport('extended'));
                 end
-
                 % close the dialog box
                 close(d);
 
@@ -1569,7 +1576,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         % Button pushed function: SaveMaskButton
         function SaveMaskButtonPushed(app, event)
 
-            [~, app.img_seg_fname, ~]  = fileparts(app.img_seg_filename);
             non_modal_filename_input(app,app.img_seg_fname);
 
             function non_modal_filename_input(app,file_name)
@@ -2200,7 +2206,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.SaveMaskButton = uibutton(app.ManualcorrectionPanel, 'push');
             app.SaveMaskButton.ButtonPushedFcn = createCallbackFcn(app, @SaveMaskButtonPushed, true);
             app.SaveMaskButton.Icon = fullfile(pathToMLAPP, '+assets', 'save.svg');
-            app.SaveMaskButton.Tooltip = {'choose where to save mask as .mat and .jpg'};
+            app.SaveMaskButton.Tooltip = {'save ROI'; ' mask as .mat and image'};
             app.SaveMaskButton.Position = [123 10 100 23];
             app.SaveMaskButton.Text = 'Save Mask';
 
