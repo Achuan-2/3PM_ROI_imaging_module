@@ -8,12 +8,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         LoadExternalmaskMenu         matlab.ui.container.Menu
         SaveConfigMenu               matlab.ui.container.Menu
         LoadConfigMenu               matlab.ui.container.Menu
-        SettingsMenu                 matlab.ui.container.Menu
+        WindowsMenu                  matlab.ui.container.Menu
         AWGSettingsMenu              matlab.ui.container.Menu
         ScannerSettingsMenu          matlab.ui.container.Menu
         ROIMaskSettingsMenu          matlab.ui.container.Menu
-        AddonsMenu                   matlab.ui.container.Menu
         PowerCaculateMenu            matlab.ui.container.Menu
+        AddonsMenu                   matlab.ui.container.Menu
         AWGControlMenu               matlab.ui.container.Menu
         ROIImagingSimulationMenu     matlab.ui.container.Menu
         CustomDrawMenu_2             matlab.ui.container.Menu
@@ -59,14 +59,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         ModelsDropDown               matlab.ui.control.DropDown
         ModelsDropDownLabel          matlab.ui.control.Label
         RightPanel                   matlab.ui.container.Panel
-        ROIIDLabel                   matlab.ui.control.Label
-        ShowROINumbersCheckBox       matlab.ui.control.CheckBox
+        ContrastSlider               matlab.ui.control.RangeSlider
+        ContrastSliderLabel          matlab.ui.control.Label
         FrameSliderLabel             matlab.ui.control.Label
         FrameSlider                  matlab.ui.control.Slider
-        ContrastLabel                matlab.ui.control.Label
         Label                        matlab.ui.control.Label
         DropDown                     matlab.ui.control.DropDown
-        AdjustButton                 matlab.ui.control.StateButton
         UIAxesHomeButton             matlab.ui.control.Button
         ROIRatioEditField            matlab.ui.control.NumericEditField
         ROIRatioEditField_2Label     matlab.ui.control.Label
@@ -146,6 +144,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         defaultConfig = struct();
         waveformConfig = struct();
         scannerConfig = struct();
+        roiStyleConfig = struct();
     end
 
     % 配准
@@ -359,7 +358,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                         % 检查是否在添加规则ROI模式
                     elseif app.DrawROI.is_adding_regular_roi()
                         app.DrawROI.finish_adding_regular_roi(true);
-                        if app.ShowROINumbersCheckBox.Value
+                        if app.DrawROI.showRoiNumber
                             app.DrawROI.show_roi_numbers();
                         end
                         % 使用活动轴的状态判断，而不是固定使用第一个轴
@@ -438,7 +437,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             colNum = floor(imageSize/n);
             for i=1:n
                 % 创建一个黑色的图像矩阵
-                temp_mask = repmat(app.defaultConfig.pulseOff,imageSize, imageSize);
+                temp_mask = repmat(app.waveformConfig.pulseOff,imageSize, imageSize);
 
                 % 计算本次要填充的列
                 start = (i-1)*colNum+1;
@@ -446,10 +445,10 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 % 将这些列填充为白色
                 if i == 10
                     % 如果是最后一列，则最后一次填充剩余的所有列
-                    temp_mask(:, start:end) = app.defaultConfig.pulseOn;
+                    temp_mask(:, start:end) = app.waveformConfig.pulseOn;
                 else
                     % 如果是前9次，则一次填充colNum列
-                    temp_mask(:, start:start+colNum-1) = app.defaultConfig.pulseOn;
+                    temp_mask(:, start:start+colNum-1) = app.waveformConfig.pulseOn;
                 end
 
 
@@ -491,23 +490,23 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             roiMaskPulse(2:2:end, :) = fliplr(roiMaskPulse(2:2:end, :)); % Because of bidirectional scanning, the laser is scanned from left to right in the first line, and the second line is directly scanned from right, so even rows need to be mirrored
 
             % Add scan right to odd rows
-            oddLineSignal = [roiMaskPulse(1:2:end, :) repmat(app.defaultConfig.pulseOff, imageSize / 2, scanBackRightPixelTwice)];
+            oddLineSignal = [roiMaskPulse(1:2:end, :) repmat(app.waveformConfig.pulseOff, imageSize / 2, scanBackRightPixelTwice)];
 
             % Add scan left to even rows
-            evenLineSignal = [roiMaskPulse(2:2:end, :) repmat(app.defaultConfig.pulseOff, imageSize / 2, scanBackLeftPixelTwice)];
+            evenLineSignal = [roiMaskPulse(2:2:end, :) repmat(app.waveformConfig.pulseOff, imageSize / 2, scanBackLeftPixelTwice)];
 
             % Then the odd row matrix and the even row matrix are pasted together in sequence and reduced to 1*n (considering the impact of changing the length of the array dynamically in the loop on performance, so use this method to optimize)
             signalPulse = reshape([oddLineSignal evenLineSignal]', 1, []);
 
             % Compose the final framePusle
-            waitPulse = repmat(app.defaultConfig.pulseOff, 1, scanWait); % Add wait time in front
-            scanleftFirstPulse = repmat(app.defaultConfig.pulseOff, 1, round(scanBackLeftPixelTwice / 2));
+            waitPulse = repmat(app.waveformConfig.pulseOff, 1, scanWait); % Add wait time in front
+            scanleftFirstPulse = repmat(app.waveformConfig.pulseOff, 1, round(scanBackLeftPixelTwice / 2));
             framePulse = [waitPulse, scanleftFirstPulse, signalPulse(1:end - round(scanBackLeftPixelTwice / 2))]; % The first scanleft is missing, the last scanleft is extra
 
             % Actually, do not need to consider Flyback, but the length of the waveform must be an integer multiple of 4, so it needs to be supplemented
             if mod(length(framePulse), 4) ~= 0
                 extraNum = 4 - mod(length(framePulse), 4);
-                framePulse = [framePulse, repmat(app.defaultConfig.pulseOff, 1, extraNum)];
+                framePulse = [framePulse, repmat(app.waveformConfig.pulseOff, 1, extraNum)];
             end
         end
 
@@ -526,16 +525,16 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             % Handle scan direction and add scan back time
             if mod(lineIndex, 2) == 1 % Odd lines (1, 3, 5...) - Scan Left to Right
-                lineSignal = [repmat(app.defaultConfig.pulseOff, 1, scanWait), repmat(app.defaultConfig.pulseOff, 1, round(scanBackLeftPixelTwice/2)), roiMaskLinePulse, repmat(app.defaultConfig.pulseOff, 1, round(scanBackRightPixelTwice/2))];
+                lineSignal = [repmat(app.waveformConfig.pulseOff, 1, scanWait), repmat(app.waveformConfig.pulseOff, 1, round(scanBackLeftPixelTwice/2)), roiMaskLinePulse, repmat(app.waveformConfig.pulseOff, 1, round(scanBackRightPixelTwice/2))];
             else % Even lines (2, 4, 6...) - Scan Right to Left
                 roiMaskLinePulse = fliplr(roiMaskLinePulse); % Flip for right-to-left scan
-                lineSignal = [repmat(app.defaultConfig.pulseOff, 1, scanWait), repmat(app.defaultConfig.pulseOff, 1, round(scanBackRightPixelTwice/2)), roiMaskLinePulse, repmat(app.defaultConfig.pulseOff, 1, round(scanBackLeftPixelTwice/2))];
+                lineSignal = [repmat(app.waveformConfig.pulseOff, 1, scanWait), repmat(app.waveformConfig.pulseOff, 1, round(scanBackRightPixelTwice/2)), roiMaskLinePulse, repmat(app.waveformConfig.pulseOff, 1, round(scanBackLeftPixelTwice/2))];
             end
 
             % Ensure waveform length is a multiple of 4
             if mod(length(lineSignal), 4) ~= 0
                 extraNum = 4 - mod(length(lineSignal), 4);
-                lineSignal = [lineSignal, repmat(app.defaultConfig.pulseOff, 1, extraNum)];
+                lineSignal = [lineSignal, repmat(app.waveformConfig.pulseOff, 1, extraNum)];
             end
             linePulse = lineSignal;
         end
@@ -546,7 +545,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             imageHeight = app.scannerConfig.imageSize; % Assuming imageSize is square
 
             % Determine ROI mask based on pulse logic
-            if ~app.defaultConfig.pulseOn
+            if ~app.waveformConfig.pulseOn
                 app.roiMask = utils.active_low_logic(app.DrawROI.binary_mask);
             else
                 app.roiMask = app.DrawROI.binary_mask;
@@ -586,26 +585,74 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         end
 
 
-        function load_config(app,path)
-            % read file
+        function load_config(app, path)
+            %% read file
             fid = fopen(path, 'r');
+            if fid == -1
+                error('Cannot open configuration file: %s', path);
+            end
             jsonStr = fscanf(fid, '%c');
             fclose(fid);
+
             % json to struct
-            userConfig  = jsondecode(jsonStr);
-            % assignment value
-            app.defaultConfig = userConfig.defaultConfig;
-            app.waveformConfig = userConfig.waveformConfig;
-            app.scannerConfig = userConfig.scannerConfig;
+            try
+                userConfig = jsondecode(jsonStr);
+            catch e
+                error('Error decoding JSON configuration: %s', e.message);
+            end
+
+            %% assignment value with field checking
+            if isfield(userConfig, 'defaultConfig')
+                app.defaultConfig = userConfig.defaultConfig;
+            else
+                warning('defaultConfig field not found in configuration file');
+            end
+
+            if isfield(userConfig, 'waveformConfig')
+                app.waveformConfig = userConfig.waveformConfig;
+            else
+                warning('waveformConfig field not found in configuration file');
+            end
+
+            if isfield(userConfig, 'scannerConfig')
+                app.scannerConfig = userConfig.scannerConfig;
+            else
+                warning('scannerConfig field not found in configuration file');
+            end
+
+            if isfield(userConfig, 'roiStyleConfig')
+                app.roiStyleConfig = userConfig.roiStyleConfig;
+            else
+                warning('roiStyleConfig field not found in configuration file');
+            end
+
+
+
+            % if subapp is open
+            if ~isempty(app.AwgSettingsApp)
+                app.AwgSettingsApp.variableInit();
+            end
+            if ~isempty(app.ScannerSettingsApp)
+                app.ScannerSettingsApp.variableInit();
+            end
+            % 更新ROI mask外观
+            if ~isempty(app.DrawROI)
+                init_DrawROI_Style(app);
+            end
+            % 更新ROI mask settings的值
+            if ~isempty(app.ROIMaskSettingsApp)
+               app.ROIMaskSettingsApp.variableInit();
+            end
         end
 
-        function init_awg_settings(app)
+
+        function init_config(app)
             % defaultConfig
-            app.defaultConfig.pulseOn = 0;
-            app.defaultConfig.pulseOff = 1;
-            app.defaultConfig.configPath = './config/';
-            app.defaultConfig.roimaskPath = './roi_mask/';
+            app.defaultConfig.configPath = fullfile(app.folder,'/config/');
+            app.defaultConfig.roimaskPath = fullfile(app.folder,'/roi_mask/');
             % waveformConfig
+            app.waveformConfig.pulseOn = 0;
+            app.waveformConfig.pulseOff = 1;
             app.waveformConfig.resourceID = "Dev1"; % AWG Var: resourceID
             app.waveformConfig.gain = 3.3;
             app.waveformConfig.offset = 0;
@@ -625,7 +672,14 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.scannerConfig.scanWait = 56;
             app.scannerConfig.scanBackLeftPixelTwice = 40; % unit: pixel，scanleft和 scan right 也受到 pulsePerPixel 的影响
             app.scannerConfig.scanBackRightPixelTwice = 40; % unit: pixel
-            app.scannerConfig.clockMode = 'Line Clock'; % Line Clock or Frame Clock
+            app.scannerConfig.clockMode = 'Frame Clock'; % Line Clock or Frame Clock
+
+            % roiStyleConfig
+            app.roiStyleConfig.mask_color = 'random'; % 默认随机颜色
+            app.roiStyleConfig.showRoiNumber = false; % 默认不显示字体
+            app.roiStyleConfig.show_background = true; % 默认显示mask 背景
+            app.roiStyleConfig.roi_number_fontSize = 6; % 设置默认字体大小
+            app.roiStyleConfig.roi_number_fontColor = [255,0, 255]/255; % 设置默认字体颜色
         end
 
         function process_structure_image(app,filename,path)
@@ -633,29 +687,15 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             fullpath = fullfile(path, filename);
             imgStack = utils.tiff_read(fullpath);
             % read reoulution info
-            t = Tiff(fullpath, 'r');
-            tagstruct = struct();
-            try
-                tagstruct.XResolution = t.getTag("XResolution");
-                tagstruct.YResolution = tagstruct.XResolution;
-            catch
-
-            end
-            t.close();
+            tagstruct = utils.tiff_read_tag(fullpath);
 
 
+            % 1/10 重构
             if app.StructureTypeDropDown.Value == "1/10 Imaging"
                 imgStack =  utils.tiff_extract(imgStack);
             end
 
-            % get path
-            folderProcessed = fullfile(path);
-            if ~exist(folderProcessed, 'dir')
-                mkdir(folderProcessed)
-            end
-
             % 保存为raw tif
-            frames = size(imgStack,3);
             [~, fname, fext] = fileparts(filename);
 
 
@@ -665,18 +705,11 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
 
 
-            % AVG 和 imgStack 的数据类型不一样，AVG是8bit，所以app.seg\_img\_layer.CData换成imgStack就非常亮，可能需要把imgStack换成uint8类型？
-            % imgStack_normalized = mat2gray(imgStack);
-            % imgStack_normalized = imgStack_normalized * 255;
-            %app.seg_img_stack = imgStack_normalized;
+            % 保存到类属性
             app.seg_img_stack = imgStack;
+            
             % 保存为average tif
             imgAvgCh = utils.tiff_projection_avg(imgStack);
-            %utils.tiff_save(imgAvgCh,fullfile(folderProcessed, sprintf('%s_%d_Frames_AVG%s', fname,frames, fext)),tagstruct);
-
-            % 自动调整对比度 EnhanceContrastsh
-            %app.img_avg_Ch1 = imadjust(imgAvgCh);
-            %utils.tiff_save(app.img_avg_Ch1,fullfile(folderProcessed, sprintf('%s_%d_Frames_AVG_EnhanceContrast%s', fname,frames, fext)),tagstruct);
 
             % 生成配准参考图
             % ops = register.default_ops();
@@ -684,29 +717,28 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % utils.tiff_save(app.refImg, ...
             %     fullfile(folderProcessed, sprintf('%s_ref%s', fname, fext)));
 
-            % 加载Ch1的图像
-            %app.ChannelDropDown.Enable = "on";
 
+            % 默认显示平均图
             hold(app.UIAxes,'off');
             app.img_seg_data = imgAvgCh;
-            %app.ChannelDropDown.Value = 'CH1';
             app.seg_img_layer = imshow(app.img_seg_data,[],'parent',app.UIAxes,'border','tight','initialmagnification','fit');
-
             img_size = size(app.img_seg_data);
             axis(app.UIAxes,[0,img_size(2),0,img_size(1)]);
             hold(app.UIAxes,'on');
-
-            % init DrawROI components
-            app.init_DrawROI();
-
+            % 更新contrast slider
+            app.ContrastSlider.Limits = [double(min(app.img_seg_data,[],"all")), double(max(app.img_seg_data,[],"all"))];
+            app.ContrastSlider.Value = app.ContrastSlider.Limits;
+            app.UIAxes.CLim = app.ContrastSlider.Value;
+    
             % for save mask
             app.img_seg_fname = fname;
             app.img_seg_ext =  fext;
             app.img_seg_filename = [app.img_seg_fname,app.img_seg_ext];
-            app.last_seg_tiff_folder = fullfile(path,'Structure');
-            if ~exist(app.last_seg_tiff_folder, 'dir')
-                mkdir(app.last_seg_tiff_folder)
-            end
+            app.last_seg_tiff_folder = path;
+
+
+            % init DrawROI components
+            app.init_DrawROI();
         end
 
 
@@ -770,7 +802,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             reset(app.awgDevice);
 
             % create Arb waveform
-            waveformDataArray = repmat(app.defaultConfig.pulseOn,1,20);
+            waveformDataArray = repmat(app.waveformConfig.pulseOn,1,20);
             waveformHandle = awg.create_waveform_handle(app.awgDevice,waveformDataArray);
 
             % generate Arb waveform with no trigger(do not wait until scanimage grab a image)
@@ -795,7 +827,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function laser_keep_off(app)
             reset(app.awgDevice);
             % create pulse for keeping laser off
-            waveformDataArray = repmat(app.defaultConfig.pulseOff,1,20);
+            waveformDataArray = repmat(app.waveformConfig.pulseOff,1,20);
             waveformHandle = awg.create_waveform_handle(app.awgDevice,waveformDataArray);
 
             % generate Arb waveform with no trigger(do not wait until scanimage grab a image)
@@ -833,11 +865,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % create empty mask
             app.DrawROI = components.DrawROI(app, [app.UIAxes]);
             app.DrawROI.mask_size = size(app.img_seg_data);
-            app.DrawROI.mask_color = 'random';
-            app.DrawROI.showRoiNumber = false; % 默认不显示字体
-            app.DrawROI.show_background = true; % 默认显示mask 背景
-            app.DrawROI.roi_number_fontSize = 15; % 设置默认字体大小
-
+            init_DrawROI_Style(app);
             % enable components
             app.MaskOnCheckBox.Value = true;
             app.Seg.enable = true;
@@ -846,6 +874,15 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.UIAxes.UserData.status = 'idle';
             app.UIAxes.UserData.origin_xlim = app.UIAxes.XLim;
             app.UIAxes.UserData.origin_ylim = app.UIAxes.YLim;
+        end
+        function init_DrawROI_Style(app)
+            if ~isempty(app.DrawROI) && ~isempty(fieldnames(app.roiStyleConfig))
+                app.DrawROI.mask_color = app.roiStyleConfig.mask_color;
+                app.DrawROI.showRoiNumber = app.roiStyleConfig.showRoiNumber; % 默认不显示字体
+                app.DrawROI.show_background = app.roiStyleConfig.show_background; % 默认显示mask 背景
+                app.DrawROI.roi_number_fontSize = app.roiStyleConfig.roi_number_fontSize; % 设置默认字体大小
+                app.DrawROI.roi_number_fontColor = app.roiStyleConfig.roi_number_fontColor; % 设置默认字体颜色
+            end
         end
         function roi_imaging_loop_callback(app,~,~)
             reset(app.awgDevice);
@@ -981,7 +1018,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             addpath(genpath(fullfile(app.folder,'libs')))
 
             % init awg settings
-            app.init_awg_settings();
+            app.init_config();
 
 
             % init DrawROI component
@@ -1015,7 +1052,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ScanimageButton.BackgroundColor = [1.00,0.00,0.00];
 
             % init config settings
-            default_json = fullfile(app.folder,app.defaultConfig.configPath,'default.json');
+            default_json = fullfile(app.defaultConfig.configPath,'default.json');
             if exist(default_json,'file') ~= 0
                 % if default.json exist
                 app.load_config(default_json);
@@ -1062,15 +1099,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
                 % log in command line
                 disp(['Loaded Config：',fullpath]);
-
-
-                % if subapp is open
-                if ~isempty(app.AwgSettingsApp)
-                    app.AwgSettingsApp.variableInit();
-                end
-                if ~isempty(app.ScannerSettingsApp)
-                    app.ScannerSettingsApp.variableInit();
-                end
             end
 
 
@@ -1271,8 +1299,18 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             userConfig.defaultConfig = app.defaultConfig;
             userConfig.waveformConfig = app.waveformConfig;
             userConfig.scannerConfig = app.scannerConfig;
-
-
+            userConfig.roiStyleConfig = app.roiStyleConfig;
+            % 自动替换路径中的反斜杠为正斜杠，否则会报错
+            fields = fieldnames(userConfig.defaultConfig); % 获取 defaultConfig 中的所有字段名
+            for i = 1:length(fields)
+                fieldName = fields{i};
+                fieldValue = userConfig.defaultConfig.(fieldName);
+                if ischar(fieldValue) % 仅处理字符串类型的字段
+                    % 替换反斜杠为正斜杠
+                    modifiedValue = strrep(fieldValue, '\', '/');
+                    userConfig.defaultConfig.(fieldName) = modifiedValue;
+                end
+            end
 
             if isempty(app.lastConfigPath)
                 [filename,path] =  utils.save_file({'*.json'},app.defaultConfig.configPath);
@@ -1409,25 +1447,39 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
                 % load image
                 if length(info)>1
-                    % stacked frames
+                    %% stacked frames
+                    % Projection dropdown切换
                     app.DropDown.Enable = 'on';
+                    app.DropDown.Items = {'AVG','Std','Max','Movie'};
+                    app.DropDown.Value = app.DropDown.Items{1};
+
                     process_structure_image(app,filename,path);
                 else
                     % single frame
                     app.img_seg_data= imread(fullfile(app.last_seg_tiff_folder,filename));
                     app.refImg = app.img_seg_data;
-                    %app.img_seg_data = imadjust(app.img_seg_data);
-
+                    
+                    % Projection dropdown切换
                     app.DropDown.Enable = 'off';
+                    app.DropDown.Items = {'1 Frame'};
+                    app.DropDown.Value = app.DropDown.Items{1};
+                    
+                    % 显示图片
                     hold(app.UIAxes,'off');
-
                     app.seg_img_layer = imshow(app.img_seg_data,[],'parent',app.UIAxes,'border','tight','initialmagnification','fit');
-
-
                     img_size = size(app.img_seg_data);
                     axis(app.UIAxes,[0,img_size(2),0,img_size(1)]);
                     hold(app.UIAxes,'on');
+                    
+                    % 隐藏movide slider
+                    app.FrameSliderLabel.Visible = 'off';
+                    app.FrameSlider.Visible = 'off';
 
+
+                    % 对比度滑条
+                    app.ContrastSlider.Limits = [double(min(app.img_seg_data,[],"all")), double(max(app.img_seg_data,[],"all"))];
+                    app.ContrastSlider.Value = app.ContrastSlider.Limits;
+                    app.UIAxes.CLim = app.ContrastSlider.Value;
                     % init DrawROI components
                     app.init_DrawROI();
                 end
@@ -1615,7 +1667,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             elseif strcmpi(app.scannerConfig.clockMode, 'Frame Clock')
                 % --- Frame Clock Logic (Original) ---
                 % Determine ROI mask based on pulse logic
-                if ~app.defaultConfig.pulseOn
+                if ~app.waveformConfig.pulseOn
                     app.roiMask = utils.active_low_logic(app.DrawROI.binary_mask);
                 else
                     app.roiMask = app.DrawROI.binary_mask;
@@ -1736,7 +1788,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.hSI.hMotionManager.enable = true;
         end
 
-        % Value changed function: AdjustButton
+        % Callback function: not associated with a component
         function AdjustButtonValueChanged(app, event)
             value = app.AdjustButton.Value;
             if value
@@ -1756,20 +1808,68 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                         % 隐藏滑条
                         app.FrameSlider.Visible = 'off';
                         app.FrameSliderLabel.Visible = 'off';
+                        % 显示avg图片
+                        d = uiprogressdlg(app.UIFigure,'Title','Processing','Indeterminate','on');
+                        app.img_seg_data = utils.tiff_projection_avg(app.seg_img_stack);
+                        close(d);
                         app.seg_img_layer.CData = app.img_seg_data;
+                        % update contrast slider
+                        app.ContrastSlider.Limits = [double(min(app.img_seg_data,[],"all")), double(max(app.img_seg_data,[],"all"))];
+                        app.ContrastSlider.Value = app.ContrastSlider.Limits;
+                        app.UIAxes.CLim = app.ContrastSlider.Value;
                     end
+
                 case 'Movie'
                     if ~isempty(app.img_seg_data)
                         % 显示滑条
                         app.FrameSlider.Visible = 'on';
                         app.FrameSliderLabel.Visible = 'on';
+                        % 显示单帧
                         app.seg_img_layer.CData = app.seg_img_stack(:,:,1);
                         n_frames = size(app.seg_img_stack,3);
                         app.FrameSlider.Value =1;
                         app.FrameSlider.Limits = [1,n_frames];
                         app.FrameSliderLabel.Text = sprintf("%d/%d",1,n_frames);
+                        avg_img = utils.tiff_projection_avg(app.seg_img_stack);
+                        % update contrast slider
+                        app.ContrastSlider.Limits = [double(min(avg_img,[],"all")), double(max(avg_img,[],"all"))];
+                        app.ContrastSlider.Value = app.ContrastSlider.Limits;
+                        app.UIAxes.CLim = app.ContrastSlider.Value;
                     end
 
+                case 'Std'
+                    if ~isempty(app.img_seg_data)
+                        % 隐藏滑条
+                        app.FrameSlider.Visible = 'off';
+                        app.FrameSliderLabel.Visible = 'off';
+                        % 显示avg图片
+                        d = uiprogressdlg(app.UIFigure,'Title','Processing','Indeterminate','on');
+                        app.img_seg_data = utils.tiff_projection_std(app.seg_img_stack);
+                        app.seg_img_layer.CData = app.img_seg_data;
+                        close(d);
+                        % update contrast slider
+                        app.ContrastSlider.Limits = [double(min(app.img_seg_data,[],"all")), double(max(app.img_seg_data,[],"all"))];
+                        app.ContrastSlider.Value = app.ContrastSlider.Limits;
+                        app.UIAxes.CLim = app.ContrastSlider.Value;
+                    end
+                case 'Max'
+                    if ~isempty(app.img_seg_data)
+                        % 隐藏滑条
+                        app.FrameSlider.Visible = 'off';
+                        app.FrameSliderLabel.Visible = 'off';
+                        % 显示avg图片
+                        d = uiprogressdlg(app.UIFigure,'Title','Processing','Indeterminate','on');
+                        app.img_seg_data = utils.tiff_projection_max(app.seg_img_stack);
+                        app.seg_img_layer.CData = app.img_seg_data;
+                        
+                        close(d)
+                        % update contrast slider
+                        app.ContrastSlider.Limits = [double(min(app.img_seg_data,[],"all")), double(max(app.img_seg_data,[],"all"))];
+                        app.ContrastSlider.Value = app.ContrastSlider.Limits;
+                        app.UIAxes.CLim = app.ContrastSlider.Value;
+                        
+                    end
+                
 
             end
         end
@@ -1821,7 +1921,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             end
         end
 
-        % Callback function: not associated with a component
+        % Callback function
         function ROIMaskClearButtonPushed(app, event)
             if ~isempty(app.DrawROI)
                 choice = questdlg('Are you sure you want to clear all ROIs?', ...
@@ -1842,6 +1942,28 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         function ROIMaskSettingsMenuSelected(app, event)
             % 顶部菜单打开ROIMaskSettings
             app.ROIMaskSettingsApp=subapps.ROIMaskSettings(app);
+        end
+
+        % Value changed function: ContrastSlider
+        function ContrastSliderValueChanged(app, event)
+            value = app.ContrastSlider.Value;
+            if value(1) ~= value(2)
+                app.UIAxes.CLim =value;
+            end
+        end
+
+        % Value changing function: ContrastSlider
+        function ContrastSliderValueChanging(app, event)
+            value = event.Value;
+            if value(1) ~= value(2)
+                app.UIAxes.CLim =value;
+            end
+
+        end
+
+        % Menu selected function: LoadConfigMenu
+        function LoadConfigMenuSelected(app, event)
+            ConfigFileSelectButtonPushed(app)
         end
 
         % Changes arrangement of the app based on UIFigure width
@@ -1901,35 +2023,36 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             % Create LoadConfigMenu
             app.LoadConfigMenu = uimenu(app.FileMenu);
+            app.LoadConfigMenu.MenuSelectedFcn = createCallbackFcn(app, @LoadConfigMenuSelected, true);
             app.LoadConfigMenu.Text = 'Load Config';
 
-            % Create SettingsMenu
-            app.SettingsMenu = uimenu(app.UIFigure);
-            app.SettingsMenu.Text = ' Settings ';
+            % Create WindowsMenu
+            app.WindowsMenu = uimenu(app.UIFigure);
+            app.WindowsMenu.Text = 'Windows';
 
             % Create AWGSettingsMenu
-            app.AWGSettingsMenu = uimenu(app.SettingsMenu);
+            app.AWGSettingsMenu = uimenu(app.WindowsMenu);
             app.AWGSettingsMenu.MenuSelectedFcn = createCallbackFcn(app, @AWGSettingsMenuSelected, true);
             app.AWGSettingsMenu.Text = 'AWG Settings';
 
             % Create ScannerSettingsMenu
-            app.ScannerSettingsMenu = uimenu(app.SettingsMenu);
+            app.ScannerSettingsMenu = uimenu(app.WindowsMenu);
             app.ScannerSettingsMenu.MenuSelectedFcn = createCallbackFcn(app, @ScannerSettingsMenuSelected, true);
             app.ScannerSettingsMenu.Text = 'Scanner Settings';
 
             % Create ROIMaskSettingsMenu
-            app.ROIMaskSettingsMenu = uimenu(app.SettingsMenu);
+            app.ROIMaskSettingsMenu = uimenu(app.WindowsMenu);
             app.ROIMaskSettingsMenu.MenuSelectedFcn = createCallbackFcn(app, @ROIMaskSettingsMenuSelected, true);
             app.ROIMaskSettingsMenu.Text = 'ROI Mask Settings';
+
+            % Create PowerCaculateMenu
+            app.PowerCaculateMenu = uimenu(app.WindowsMenu);
+            app.PowerCaculateMenu.MenuSelectedFcn = createCallbackFcn(app, @PowerCaculateMenuSelected, true);
+            app.PowerCaculateMenu.Text = 'Power Caculate';
 
             % Create AddonsMenu
             app.AddonsMenu = uimenu(app.UIFigure);
             app.AddonsMenu.Text = ' Add-ons ';
-
-            % Create PowerCaculateMenu
-            app.PowerCaculateMenu = uimenu(app.AddonsMenu);
-            app.PowerCaculateMenu.MenuSelectedFcn = createCallbackFcn(app, @PowerCaculateMenuSelected, true);
-            app.PowerCaculateMenu.Text = 'Power Caculate';
 
             % Create AWGControlMenu
             app.AWGControlMenu = uimenu(app.AddonsMenu);
@@ -2062,7 +2185,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIdilateSpinner.Limits = [0 Inf];
             app.ROIdilateSpinner.ValueChangedFcn = createCallbackFcn(app, @ROIdilateSpinnerValueChanged, true);
             app.ROIdilateSpinner.Tooltip = {'Dilate roi mask, in range from [0,+∞}'};
-            app.ROIdilateSpinner.Position = [93 45 100 22];
+            app.ROIdilateSpinner.Position = [79 45 100 22];
 
             % Create LoadMaskButton
             app.LoadMaskButton = uibutton(app.ManualcorrectionPanel, 'push');
@@ -2276,7 +2399,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create ROIsEditFieldLabel
             app.ROIsEditFieldLabel = uilabel(app.RightPanel);
             app.ROIsEditFieldLabel.HorizontalAlignment = 'right';
-            app.ROIsEditFieldLabel.Position = [47 35 32 22];
+            app.ROIsEditFieldLabel.Position = [167 615 32 22];
             app.ROIsEditFieldLabel.Text = 'ROIs';
 
             % Create ROIsEditField
@@ -2284,12 +2407,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIsEditField.Limits = [0 Inf];
             app.ROIsEditField.ValueDisplayFormat = '%.0f';
             app.ROIsEditField.Editable = 'off';
-            app.ROIsEditField.Position = [94 35 51 22];
+            app.ROIsEditField.Position = [211 613 51 22];
 
             % Create ROIRatioEditField_2Label
             app.ROIRatioEditField_2Label = uilabel(app.RightPanel);
             app.ROIRatioEditField_2Label.HorizontalAlignment = 'right';
-            app.ROIRatioEditField_2Label.Position = [371 35 58 22];
+            app.ROIRatioEditField_2Label.Position = [289 614 58 22];
             app.ROIRatioEditField_2Label.Text = 'ROI Ratio';
 
             % Create ROIRatioEditField
@@ -2297,7 +2420,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIRatioEditField.Limits = [0 Inf];
             app.ROIRatioEditField.ValueDisplayFormat = '%.3f';
             app.ROIRatioEditField.Editable = 'off';
-            app.ROIRatioEditField.Position = [444 35 100 22];
+            app.ROIRatioEditField.Position = [362 614 100 22];
 
             % Create UIAxesHomeButton
             app.UIAxesHomeButton = uibutton(app.RightPanel, 'push');
@@ -2305,12 +2428,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.UIAxesHomeButton.Icon = fullfile(pathToMLAPP, '+assets', 'home.svg');
             app.UIAxesHomeButton.Position = [491 613 53 23];
             app.UIAxesHomeButton.Text = '';
-
-            % Create AdjustButton
-            app.AdjustButton = uibutton(app.RightPanel, 'state');
-            app.AdjustButton.ValueChangedFcn = createCallbackFcn(app, @AdjustButtonValueChanged, true);
-            app.AdjustButton.Text = 'Adjust';
-            app.AdjustButton.Position = [238 615 51 23];
 
             % Create DropDown
             app.DropDown = uidropdown(app.RightPanel);
@@ -2322,11 +2439,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create Label
             app.Label = uilabel(app.RightPanel);
             app.Label.Position = [1 668 2 2];
-
-            % Create ContrastLabel
-            app.ContrastLabel = uilabel(app.RightPanel);
-            app.ContrastLabel.Position = [179 615 50 22];
-            app.ContrastLabel.Text = 'Contrast';
 
             % Create FrameSlider
             app.FrameSlider = uislider(app.RightPanel);
@@ -2343,20 +2455,23 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.FrameSliderLabel = uilabel(app.RightPanel);
             app.FrameSliderLabel.HorizontalAlignment = 'center';
             app.FrameSliderLabel.Visible = 'off';
-            app.FrameSliderLabel.Position = [58 61 490 22];
+            app.FrameSliderLabel.Position = [48 64 490 22];
             app.FrameSliderLabel.Text = '1/1000';
 
-            % Create ShowROINumbersCheckBox
-            app.ShowROINumbersCheckBox = uicheckbox(app.RightPanel);
-            app.ShowROINumbersCheckBox.Tooltip = {'Show ROI number'};
-            app.ShowROINumbersCheckBox.Text = '';
-            app.ShowROINumbersCheckBox.Position = [207 36 25 22];
-            app.ShowROINumbersCheckBox.Value = true;
+            % Create ContrastSliderLabel
+            app.ContrastSliderLabel = uilabel(app.RightPanel);
+            app.ContrastSliderLabel.HorizontalAlignment = 'right';
+            app.ContrastSliderLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.ContrastSliderLabel.Position = [48 43 50 22];
+            app.ContrastSliderLabel.Text = 'Contrast';
 
-            % Create ROIIDLabel
-            app.ROIIDLabel = uilabel(app.RightPanel);
-            app.ROIIDLabel.Position = [162 37 45 22];
-            app.ROIIDLabel.Text = 'ROI ID ';
+            % Create ContrastSlider
+            app.ContrastSlider = uislider(app.RightPanel, 'range');
+            app.ContrastSlider.Limits = [0 2500];
+            app.ContrastSlider.ValueChangedFcn = createCallbackFcn(app, @ContrastSliderValueChanged, true);
+            app.ContrastSlider.ValueChangingFcn = createCallbackFcn(app, @ContrastSliderValueChanging, true);
+            app.ContrastSlider.Position = [120 52 413 3];
+            app.ContrastSlider.Value = [0 400];
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';

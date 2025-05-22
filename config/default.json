@@ -1,11 +1,11 @@
 {
   "defaultConfig": {
-    "pulseOn": 0,
-    "pulseOff": 1,
     "configPath": "./config/",
     "roimaskPath": "./roi_mask/"
   },
   "waveformConfig": {
+    "pulseOn": 0,
+    "pulseOff": 1,
     "resourceID": "Dev1",
     "gain": 4,
     "offset": 0,
@@ -26,5 +26,16 @@
     "scanBackLeftPixelTwice": 28,
     "scanBackRightPixelTwice": 28,
     "clockMode": "Frame Clock"
+  },
+  "roiStyleConfig": {
+    "mask_color": "random",
+    "showRoiNumber": false,
+    "show_background": true,
+    "roi_number_fontSize": 6,
+    "roi_number_fontColor": [
+      1,
+      0,
+      1
+    ]
   }
 }
