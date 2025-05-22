@@ -8,7 +8,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         LoadExternalmaskMenu         matlab.ui.container.Menu
         SaveConfigMenu               matlab.ui.container.Menu
         LoadConfigMenu               matlab.ui.container.Menu
-        WindowsMenu                  matlab.ui.container.Menu
+        ViewMenu                     matlab.ui.container.Menu
         AWGSettingsMenu              matlab.ui.container.Menu
         ScannerSettingsMenu          matlab.ui.container.Menu
         ROIMaskSettingsMenu          matlab.ui.container.Menu
@@ -16,10 +16,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         AddonsMenu                   matlab.ui.container.Menu
         AWGControlMenu               matlab.ui.container.Menu
         ROIImagingSimulationMenu     matlab.ui.container.Menu
-        CustomDrawMenu_2             matlab.ui.container.Menu
         HelpMenu                     matlab.ui.container.Menu
-        Toolbar                      matlab.ui.container.Toolbar
-        SimulationToggleTool         matlab.ui.container.toolbar.ToggleTool
+        GithubMenu                   matlab.ui.container.Menu
         GridLayout                   matlab.ui.container.GridLayout
         LeftPanel                    matlab.ui.container.Panel
         StructureImagingPanel        matlab.ui.container.Panel
@@ -27,6 +25,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         Laser1on9offButton           matlab.ui.control.Button
         StructureImagingLamp         matlab.ui.control.Lamp
         SettingsPanel                matlab.ui.container.Panel
+        AWGSimulateButton            matlab.ui.control.StateButton
         ScanimageButton              matlab.ui.control.StateButton
         ConfigurationFileEditField   matlab.ui.control.EditField
         ConfigurationEditFieldLabel  matlab.ui.control.Label
@@ -42,14 +41,13 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         AbortButton                  matlab.ui.control.Button
         LaserROIImagingButton        matlab.ui.control.Button
         ManualcorrectionPanel        matlab.ui.container.Panel
+        ROIMaskShowLabel             matlab.ui.control.Label
         ROIMaskSettingsButton        matlab.ui.control.Button
         SaveMaskButton               matlab.ui.control.Button
         LoadMaskButton               matlab.ui.control.Button
         ROIdilateSpinner             matlab.ui.control.Spinner
         ROIdilateSpinnerLabel        matlab.ui.control.Label
         MaskOnCheckBox               matlab.ui.control.CheckBox
-        ROIMaskDropDown              matlab.ui.control.DropDown
-        ROIMaskDropDownLabel         matlab.ui.control.Label
         NeuronSegmentationPanel      matlab.ui.container.Panel
         StructureTypeDropDown        matlab.ui.control.DropDown
         LoadSegImageButton           matlab.ui.control.Button
@@ -70,16 +68,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         ROIRatioEditField_2Label     matlab.ui.control.Label
         ROIsEditField                matlab.ui.control.NumericEditField
         ROIsEditFieldLabel           matlab.ui.control.Label
-        PowerCaculatePanel           matlab.ui.container.Panel
-        UpdateButton                 matlab.ui.control.Button
-        PowerCostEditField           matlab.ui.control.NumericEditField
-        PowerCoseLabel               matlab.ui.control.Label
-        ROIPowerEditField            matlab.ui.control.NumericEditField
-        ROIPowermWEditField_2Label   matlab.ui.control.Label
-        StructurePowerEditField      matlab.ui.control.NumericEditField
-        MHzPowermWEditFieldLabel     matlab.ui.control.Label
-        ImagingPowerEditField        matlab.ui.control.NumericEditField
-        LaserPowermWLabel            matlab.ui.control.Label
         UIAxes                       matlab.ui.control.UIAxes
     end
 
@@ -145,6 +133,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         waveformConfig = struct();
         scannerConfig = struct();
         roiStyleConfig = struct();
+        PowerCaculatConfig = struct();
     end
 
     % 配准
@@ -625,7 +614,11 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             else
                 warning('roiStyleConfig field not found in configuration file');
             end
-
+            if isfield(userConfig, 'PowerCaculatConfig')
+                app.PowerCaculatConfig = userConfig.PowerCaculatConfig;
+            else
+                warning('PowerCaculatConfig field not found in configuration file');
+            end
 
 
             % if subapp is open
@@ -642,6 +635,10 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % 更新ROI mask settings的值
             if ~isempty(app.ROIMaskSettingsApp)
                app.ROIMaskSettingsApp.variableInit();
+            end
+            % 更新PowerCaculate的值
+            if ~isempty(app.PowerCaculateAPP)
+               app.PowerCaculateAPP.variableInit();
             end
         end
 
@@ -680,6 +677,9 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.roiStyleConfig.show_background = true; % 默认显示mask 背景
             app.roiStyleConfig.roi_number_fontSize = 6; % 设置默认字体大小
             app.roiStyleConfig.roi_number_fontColor = [255,0, 255]/255; % 设置默认字体颜色
+
+            % power Caculate Config
+            app.PowerCaculatConfig.hBeamID = 2; % hbeam ID
         end
 
         function process_structure_image(app,filename,path)
@@ -743,25 +743,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
 
 
-        function caculate_power(app)
-            % 计算理想激光功率，方便调整
-            % get value
-            imagingPower= app.ImagingPowerEditField.Value;
-            powerCost = app.PowerCostEditField.Value;
-            roiRatio = app.ROIRatioEditField.Value;
-            scanArea = (app.scannerConfig.scanBackLeftPixelTwice/2+app.scannerConfig.imageSize+app.scannerConfig.scanBackRightPixelTwice/2)*app.scannerConfig.imageSize+app.scannerConfig.scanWait;
-            acquisitionArea = app.scannerConfig.imageSize*app.scannerConfig.imageSize;
-            fillfraction = acquisitionArea/scanArea;
-
-            % caculate power
-            %structurePower = imagingPower *0.1* powerCost*fillfraction;
-            structurePower = imagingPower *0.1;
-            roiPower = imagingPower*roiRatio*fillfraction*powerCost;
-
-            % update value in gui
-            app.StructurePowerEditField.Value = structurePower;
-            app.ROIPowerEditField.Value = roiPower;
-        end
 
 
         function structure_imaging_callback(app,~,~)
@@ -846,20 +827,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.LaserROIImagingButton.FontColor = [0 0 0];
         end
 
-        function get_scanimage_power(app)
-            lut = app.hSI.hBeams.hBeams{1, 1}.powerFraction2PowerWattLut;
-            fraction = app.hSI.hBeams.powerFractions;
-            power_W = utils.interp1_extended(lut(:,1),lut(:,2),fraction,'linear','extrap'); % unit: W
-            app.ImagingPowerEditField.Value = round(power_W(1)*10^3);
-        end
 
-        function update_scanimage_power(app,~,~)
-            % get scanimage power fraction and caculate the laser power by
-            % lut
-            app.get_scanimage_power();
-            % caculate 0.1MHz and ROI actual power
-            app.caculate_power();
-        end
 
         function init_DrawROI(app)
             % create empty mask
@@ -1143,7 +1111,9 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             if ~isempty(app.ROIMaskSettingsApp)
                 delete(app.ROIMaskSettingsApp);
             end
-
+            if ~isempty(app.PowerCaculateAPP)
+                delete(app.PowerCaculateAPP);
+            end
             % close MainApp
             delete(app)
         end
@@ -1153,7 +1123,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % If not connected, click to connect
             if app.isConnectedLabel.Text == "Disconnected"
                 % simulated mode on or off
-                simulateState = app.SimulationToggleTool.State;
+                simulateState = app.AWGSimulateButton.State;
 
                 % create progress dialog
                 d = uiprogressdlg(app.UIFigure,'Title','Connecting AWG',...
@@ -1303,6 +1273,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             userConfig.waveformConfig = app.waveformConfig;
             userConfig.scannerConfig = app.scannerConfig;
             userConfig.roiStyleConfig = app.roiStyleConfig;
+            userConfig.PowerCaculatConfig = app.PowerCaculatConfig;
             % 自动替换路径中的反斜杠为正斜杠，否则会报错
             fields = fieldnames(userConfig.defaultConfig); % 获取 defaultConfig 中的所有字段名
             for i = 1:length(fields)
@@ -1366,25 +1337,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         % Menu selected function: PowerCaculateMenu
         function PowerCaculateMenuSelected(app, event)
-            app.PowerCaculateAPP = addons.Power_Caculate();
+            app.PowerCaculateAPP = subapps.PowerCaculate(app);
         end
 
-        % Value changed function: ImagingPowerEditField
+        % Callback function: not associated with a component
         function ImagingPowerEditFieldValueChanged(app, event)
-            app.caculate_power();
-
-        end
-
-        % Button pushed function: UpdateButton
-        function UpdateButtonPushed(app, event)
-            if isa(app.hSI,'scanimage.SI')
-                app.get_scanimage_power();
-                % 更新完功率后自动更新
-                app.caculate_power();
-            else
-                uialert(app.UIFigure,"Please Start Scanimage First",'Warning','Icon','warning','Modal',false);
-            end
-
+            caculate_power(app);
 
         end
 
@@ -1546,11 +1504,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             app.Seg.auto_rerun = false;
 
-        end
-
-        % Value changed function: ROIMaskDropDown
-        function ROIMaskDropDownValueChanged(app, event)
-            
         end
 
         % Value changed function: MaskOnCheckBox
@@ -1794,7 +1747,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.hSI.hMotionManager.enable = true;
         end
 
-        % Callback function: not associated with a component
+        % Callback function
         function AdjustButtonValueChanged(app, event)
             value = app.AdjustButton.Value;
             if value
@@ -1972,12 +1925,17 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             ConfigFileSelectButtonPushed(app)
         end
 
+        % Menu selected function: GithubMenu
+        function GithubMenuSelected(app, event)
+            web('https://github.com/Achuan-2/3PM_ROI');
+        end
+
         % Changes arrangement of the app based on UIFigure width
         function updateAppLayout(app, event)
             currentFigureWidth = app.UIFigure.Position(3);
             if(currentFigureWidth <= app.onePanelWidth)
                 % Change to a 2x1 grid
-                app.GridLayout.RowHeight = {670, 670};
+                app.GridLayout.RowHeight = {678, 678};
                 app.GridLayout.ColumnWidth = {'1x'};
                 app.RightPanel.Layout.Row = 2;
                 app.RightPanel.Layout.Column = 1;
@@ -2003,7 +1961,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create UIFigure and hide until all components are created
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.AutoResizeChildren = 'off';
-            app.UIFigure.Position = [99.8571428571428 99.8571428571428 1178 670];
+            app.UIFigure.Position = [99.8571428571428 99.8571428571428 957 678];
             app.UIFigure.Name = 'ROI Imaging Module';
             app.UIFigure.Resize = 'off';
             app.UIFigure.CloseRequestFcn = createCallbackFcn(app, @UIFigureCloseRequest, true);
@@ -2032,27 +1990,27 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.LoadConfigMenu.MenuSelectedFcn = createCallbackFcn(app, @LoadConfigMenuSelected, true);
             app.LoadConfigMenu.Text = 'Load Config';
 
-            % Create WindowsMenu
-            app.WindowsMenu = uimenu(app.UIFigure);
-            app.WindowsMenu.Text = 'Windows';
+            % Create ViewMenu
+            app.ViewMenu = uimenu(app.UIFigure);
+            app.ViewMenu.Text = 'View';
 
             % Create AWGSettingsMenu
-            app.AWGSettingsMenu = uimenu(app.WindowsMenu);
+            app.AWGSettingsMenu = uimenu(app.ViewMenu);
             app.AWGSettingsMenu.MenuSelectedFcn = createCallbackFcn(app, @AWGSettingsMenuSelected, true);
             app.AWGSettingsMenu.Text = 'AWG Settings';
 
             % Create ScannerSettingsMenu
-            app.ScannerSettingsMenu = uimenu(app.WindowsMenu);
+            app.ScannerSettingsMenu = uimenu(app.ViewMenu);
             app.ScannerSettingsMenu.MenuSelectedFcn = createCallbackFcn(app, @ScannerSettingsMenuSelected, true);
             app.ScannerSettingsMenu.Text = 'Scanner Settings';
 
             % Create ROIMaskSettingsMenu
-            app.ROIMaskSettingsMenu = uimenu(app.WindowsMenu);
+            app.ROIMaskSettingsMenu = uimenu(app.ViewMenu);
             app.ROIMaskSettingsMenu.MenuSelectedFcn = createCallbackFcn(app, @ROIMaskSettingsMenuSelected, true);
             app.ROIMaskSettingsMenu.Text = 'ROI Mask Settings';
 
             % Create PowerCaculateMenu
-            app.PowerCaculateMenu = uimenu(app.WindowsMenu);
+            app.PowerCaculateMenu = uimenu(app.ViewMenu);
             app.PowerCaculateMenu.MenuSelectedFcn = createCallbackFcn(app, @PowerCaculateMenuSelected, true);
             app.PowerCaculateMenu.Text = 'Power Caculate';
 
@@ -2070,20 +2028,14 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIImagingSimulationMenu.MenuSelectedFcn = createCallbackFcn(app, @ROIImagingSimulationMenuSelected, true);
             app.ROIImagingSimulationMenu.Text = 'ROI Imaging Simulation';
 
-            % Create CustomDrawMenu_2
-            app.CustomDrawMenu_2 = uimenu(app.AddonsMenu);
-            app.CustomDrawMenu_2.Text = 'Custom Draw';
-
             % Create HelpMenu
             app.HelpMenu = uimenu(app.UIFigure);
             app.HelpMenu.Text = ' Help ';
 
-            % Create Toolbar
-            app.Toolbar = uitoolbar(app.UIFigure);
-
-            % Create SimulationToggleTool
-            app.SimulationToggleTool = uitoggletool(app.Toolbar);
-            app.SimulationToggleTool.Icon = fullfile(pathToMLAPP, '+assets', 'simulation.svg');
+            % Create GithubMenu
+            app.GithubMenu = uimenu(app.HelpMenu);
+            app.GithubMenu.MenuSelectedFcn = createCallbackFcn(app, @GithubMenuSelected, true);
+            app.GithubMenu.Text = 'Github';
 
             % Create GridLayout
             app.GridLayout = uigridlayout(app.UIFigure);
@@ -2103,7 +2055,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create NeuronSegmentationPanel
             app.NeuronSegmentationPanel = uipanel(app.LeftPanel);
             app.NeuronSegmentationPanel.Title = '2. Neuron Segmentation';
-            app.NeuronSegmentationPanel.Position = [7 272 285 173];
+            app.NeuronSegmentationPanel.Position = [7 280 285 173];
 
             % Create ModelsDropDownLabel
             app.ModelsDropDownLabel = uilabel(app.NeuronSegmentationPanel);
@@ -2159,31 +2111,18 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ManualcorrectionPanel.AutoResizeChildren = 'off';
             app.ManualcorrectionPanel.Title = '3. Manual correction';
             app.ManualcorrectionPanel.SizeChangedFcn = createCallbackFcn(app, @ManualcorrectionPanelSizeChanged, true);
-            app.ManualcorrectionPanel.Position = [8 125 284 136];
-
-            % Create ROIMaskDropDownLabel
-            app.ROIMaskDropDownLabel = uilabel(app.ManualcorrectionPanel);
-            app.ROIMaskDropDownLabel.Position = [16 76 58 22];
-            app.ROIMaskDropDownLabel.Text = 'ROI Mask';
-
-            % Create ROIMaskDropDown
-            app.ROIMaskDropDown = uidropdown(app.ManualcorrectionPanel);
-            app.ROIMaskDropDown.Items = {'Colored', 'Binary'};
-            app.ROIMaskDropDown.ValueChangedFcn = createCallbackFcn(app, @ROIMaskDropDownValueChanged, true);
-            app.ROIMaskDropDown.Tooltip = {'Choose mask style to display: colored mask or binary mask'};
-            app.ROIMaskDropDown.Position = [78 75 100 22];
-            app.ROIMaskDropDown.Value = 'Colored';
+            app.ManualcorrectionPanel.Position = [8 133 284 136];
 
             % Create MaskOnCheckBox
             app.MaskOnCheckBox = uicheckbox(app.ManualcorrectionPanel);
             app.MaskOnCheckBox.ValueChangedFcn = createCallbackFcn(app, @MaskOnCheckBoxValueChanged, true);
             app.MaskOnCheckBox.Text = '';
             app.MaskOnCheckBox.FontColor = [0.3922 0.8314 0.0745];
-            app.MaskOnCheckBox.Position = [188 75 14 22];
+            app.MaskOnCheckBox.Position = [119 82 14 22];
 
             % Create ROIdilateSpinnerLabel
             app.ROIdilateSpinnerLabel = uilabel(app.ManualcorrectionPanel);
-            app.ROIdilateSpinnerLabel.Position = [16 45 62 22];
+            app.ROIdilateSpinnerLabel.Position = [16 48 62 22];
             app.ROIdilateSpinnerLabel.Text = 'ROI  dilate';
 
             % Create ROIdilateSpinner
@@ -2191,7 +2130,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIdilateSpinner.Limits = [0 Inf];
             app.ROIdilateSpinner.ValueChangedFcn = createCallbackFcn(app, @ROIdilateSpinnerValueChanged, true);
             app.ROIdilateSpinner.Tooltip = {'Dilate roi mask, in range from [0,+∞}'};
-            app.ROIdilateSpinner.Position = [79 45 100 22];
+            app.ROIdilateSpinner.Position = [79 48 100 22];
 
             % Create LoadMaskButton
             app.LoadMaskButton = uibutton(app.ManualcorrectionPanel, 'push');
@@ -2199,7 +2138,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.LoadMaskButton.Icon = fullfile(pathToMLAPP, '+assets', 'upload.svg');
             app.LoadMaskButton.BackgroundColor = [0.9412 0.9412 0.9412];
             app.LoadMaskButton.Tooltip = {'Load external mask  '};
-            app.LoadMaskButton.Position = [15 11 98 23];
+            app.LoadMaskButton.Position = [15 14 98 23];
             app.LoadMaskButton.Text = 'Load Mask';
 
             % Create SaveMaskButton
@@ -2207,7 +2146,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.SaveMaskButton.ButtonPushedFcn = createCallbackFcn(app, @SaveMaskButtonPushed, true);
             app.SaveMaskButton.Icon = fullfile(pathToMLAPP, '+assets', 'save.svg');
             app.SaveMaskButton.Tooltip = {'save ROI'; ' mask as .mat and image'};
-            app.SaveMaskButton.Position = [123 10 100 23];
+            app.SaveMaskButton.Position = [123 13 100 23];
             app.SaveMaskButton.Text = 'Save Mask';
 
             % Create ROIMaskSettingsButton
@@ -2215,24 +2154,29 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIMaskSettingsButton.ButtonPushedFcn = createCallbackFcn(app, @ROIMaskSettingsButtonPushed, true);
             app.ROIMaskSettingsButton.Icon = fullfile(pathToMLAPP, '+assets', 'setting.svg');
             app.ROIMaskSettingsButton.Tooltip = {'Open Settings'};
-            app.ROIMaskSettingsButton.Position = [217 75 41 23];
+            app.ROIMaskSettingsButton.Position = [144 81 41 23];
             app.ROIMaskSettingsButton.Text = '';
+
+            % Create ROIMaskShowLabel
+            app.ROIMaskShowLabel = uilabel(app.ManualcorrectionPanel);
+            app.ROIMaskShowLabel.Position = [16 81 92 22];
+            app.ROIMaskShowLabel.Text = 'ROI Mask Show';
 
             % Create ROIImagingPanel
             app.ROIImagingPanel = uipanel(app.LeftPanel);
             app.ROIImagingPanel.Title = '4. ROI Imaging';
-            app.ROIImagingPanel.Position = [7 7 285 105];
+            app.ROIImagingPanel.Position = [7 15 285 105];
 
             % Create LaserROIImagingButton
             app.LaserROIImagingButton = uibutton(app.ROIImagingPanel, 'push');
             app.LaserROIImagingButton.ButtonPushedFcn = createCallbackFcn(app, @LaserROIImagingButtonPushed, true);
-            app.LaserROIImagingButton.Position = [14 41 100 23];
+            app.LaserROIImagingButton.Position = [14 46 100 23];
             app.LaserROIImagingButton.Text = 'ROI Imaging';
 
             % Create AbortButton
             app.AbortButton = uibutton(app.ROIImagingPanel, 'push');
             app.AbortButton.ButtonPushedFcn = createCallbackFcn(app, @AbortButtonPushed, true);
-            app.AbortButton.Position = [149 41 98 23];
+            app.AbortButton.Position = [149 46 98 23];
             app.AbortButton.Text = 'Abort';
 
             % Create ROIImagingLamp
@@ -2251,13 +2195,13 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create RealtimeregistrationButton
             app.RealtimeregistrationButton = uibutton(app.ROIImagingPanel, 'push');
             app.RealtimeregistrationButton.ButtonPushedFcn = createCallbackFcn(app, @RealtimeregistrationButtonPushed, true);
-            app.RealtimeregistrationButton.Position = [14 9 129 23];
+            app.RealtimeregistrationButton.Position = [14 10 129 23];
             app.RealtimeregistrationButton.Text = 'Real-time registration';
 
             % Create SettingsPanel
             app.SettingsPanel = uipanel(app.LeftPanel);
             app.SettingsPanel.Title = 'Settings';
-            app.SettingsPanel.Position = [7 536 285 130];
+            app.SettingsPanel.Position = [7 544 285 130];
 
             % Create AwgConnectButton
             app.AwgConnectButton = uibutton(app.SettingsPanel, 'push');
@@ -2305,10 +2249,17 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ScanimageButton.FontColor = [0.149 0.149 0.149];
             app.ScanimageButton.Position = [17 12 82 23];
 
+            % Create AWGSimulateButton
+            app.AWGSimulateButton = uibutton(app.SettingsPanel, 'state');
+            app.AWGSimulateButton.Tooltip = {'Simulation'};
+            app.AWGSimulateButton.Icon = fullfile(pathToMLAPP, '+assets', 'simulation.svg');
+            app.AWGSimulateButton.Text = '';
+            app.AWGSimulateButton.Position = [253 78 27 23];
+
             % Create StructureImagingPanel
             app.StructureImagingPanel = uipanel(app.LeftPanel);
             app.StructureImagingPanel.Title = '1. Structure Imaging';
-            app.StructureImagingPanel.Position = [8 453 284 78];
+            app.StructureImagingPanel.Position = [8 461 284 78];
 
             % Create StructureImagingLamp
             app.StructureImagingLamp = uilamp(app.StructureImagingPanel);
@@ -2345,67 +2296,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.UIAxes.BoxStyle = 'full';
             app.UIAxes.LineWidth = 1;
             app.UIAxes.Box = 'on';
-            app.UIAxes.Position = [47 93 512 512];
-
-            % Create PowerCaculatePanel
-            app.PowerCaculatePanel = uipanel(app.RightPanel);
-            app.PowerCaculatePanel.Title = 'Power Caculate';
-            app.PowerCaculatePanel.Position = [616 394 260 270];
-
-            % Create LaserPowermWLabel
-            app.LaserPowermWLabel = uilabel(app.PowerCaculatePanel);
-            app.LaserPowermWLabel.HorizontalAlignment = 'right';
-            app.LaserPowermWLabel.Position = [15 206 115 22];
-            app.LaserPowermWLabel.Text = 'Laser  Power(mW)';
-
-            % Create ImagingPowerEditField
-            app.ImagingPowerEditField = uieditfield(app.PowerCaculatePanel, 'numeric');
-            app.ImagingPowerEditField.ValueChangedFcn = createCallbackFcn(app, @ImagingPowerEditFieldValueChanged, true);
-            app.ImagingPowerEditField.Position = [145 206 100 22];
-
-            % Create MHzPowermWEditFieldLabel
-            app.MHzPowermWEditFieldLabel = uilabel(app.PowerCaculatePanel);
-            app.MHzPowermWEditFieldLabel.HorizontalAlignment = 'right';
-            app.MHzPowermWEditFieldLabel.Position = [17 107 113 22];
-            app.MHzPowermWEditFieldLabel.Text = '0.1MHz Power(mW)';
-
-            % Create StructurePowerEditField
-            app.StructurePowerEditField = uieditfield(app.PowerCaculatePanel, 'numeric');
-            app.StructurePowerEditField.Editable = 'off';
-            app.StructurePowerEditField.Position = [145 107 100 22];
-
-            % Create ROIPowermWEditField_2Label
-            app.ROIPowermWEditField_2Label = uilabel(app.PowerCaculatePanel);
-            app.ROIPowermWEditField_2Label.HorizontalAlignment = 'right';
-            app.ROIPowermWEditField_2Label.Position = [38 72 93 22];
-            app.ROIPowermWEditField_2Label.Text = 'ROI Power(mW)';
-
-            % Create ROIPowerEditField
-            app.ROIPowerEditField = uieditfield(app.PowerCaculatePanel, 'numeric');
-            app.ROIPowerEditField.Editable = 'off';
-            app.ROIPowerEditField.Position = [146 72 100 22];
-
-            % Create PowerCoseLabel
-            app.PowerCoseLabel = uilabel(app.PowerCaculatePanel);
-            app.PowerCoseLabel.HorizontalAlignment = 'right';
-            app.PowerCoseLabel.Position = [63 146 67 22];
-            app.PowerCoseLabel.Text = 'Power Cost';
-
-            % Create PowerCostEditField
-            app.PowerCostEditField = uieditfield(app.PowerCaculatePanel, 'numeric');
-            app.PowerCostEditField.Position = [145 146 100 22];
-            app.PowerCostEditField.Value = 1;
-
-            % Create UpdateButton
-            app.UpdateButton = uibutton(app.PowerCaculatePanel, 'push');
-            app.UpdateButton.ButtonPushedFcn = createCallbackFcn(app, @UpdateButtonPushed, true);
-            app.UpdateButton.Position = [146 176 100 23];
-            app.UpdateButton.Text = 'Update';
+            app.UIAxes.Position = [47 101 512 512];
 
             % Create ROIsEditFieldLabel
             app.ROIsEditFieldLabel = uilabel(app.RightPanel);
             app.ROIsEditFieldLabel.HorizontalAlignment = 'right';
-            app.ROIsEditFieldLabel.Position = [167 615 32 22];
+            app.ROIsEditFieldLabel.Position = [167 623 32 22];
             app.ROIsEditFieldLabel.Text = 'ROIs';
 
             % Create ROIsEditField
@@ -2413,12 +2309,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIsEditField.Limits = [0 Inf];
             app.ROIsEditField.ValueDisplayFormat = '%.0f';
             app.ROIsEditField.Editable = 'off';
-            app.ROIsEditField.Position = [211 613 51 22];
+            app.ROIsEditField.Position = [211 621 51 22];
 
             % Create ROIRatioEditField_2Label
             app.ROIRatioEditField_2Label = uilabel(app.RightPanel);
             app.ROIRatioEditField_2Label.HorizontalAlignment = 'right';
-            app.ROIRatioEditField_2Label.Position = [289 614 58 22];
+            app.ROIRatioEditField_2Label.Position = [289 622 58 22];
             app.ROIRatioEditField_2Label.Text = 'ROI Ratio';
 
             % Create ROIRatioEditField
@@ -2426,25 +2322,25 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIRatioEditField.Limits = [0 Inf];
             app.ROIRatioEditField.ValueDisplayFormat = '%.3f';
             app.ROIRatioEditField.Editable = 'off';
-            app.ROIRatioEditField.Position = [362 614 100 22];
+            app.ROIRatioEditField.Position = [362 622 100 22];
 
             % Create UIAxesHomeButton
             app.UIAxesHomeButton = uibutton(app.RightPanel, 'push');
             app.UIAxesHomeButton.ButtonPushedFcn = createCallbackFcn(app, @UIAxesHomeButtonPushed, true);
             app.UIAxesHomeButton.Icon = fullfile(pathToMLAPP, '+assets', 'home.svg');
-            app.UIAxesHomeButton.Position = [491 613 53 23];
+            app.UIAxesHomeButton.Position = [491 621 53 23];
             app.UIAxesHomeButton.Text = '';
 
             % Create DropDown
             app.DropDown = uidropdown(app.RightPanel);
             app.DropDown.Items = {'AVG', 'Movie'};
             app.DropDown.ValueChangedFcn = createCallbackFcn(app, @DropDownValueChanged, true);
-            app.DropDown.Position = [45 615 100 22];
+            app.DropDown.Position = [45 623 100 22];
             app.DropDown.Value = 'AVG';
 
             % Create Label
             app.Label = uilabel(app.RightPanel);
-            app.Label.Position = [1 668 2 2];
+            app.Label.Position = [1 676 2 2];
 
             % Create FrameSlider
             app.FrameSlider = uislider(app.RightPanel);
@@ -2454,21 +2350,21 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.FrameSlider.ValueChangingFcn = createCallbackFcn(app, @FrameSliderValueChanging, true);
             app.FrameSlider.MinorTicks = [];
             app.FrameSlider.Visible = 'off';
-            app.FrameSlider.Position = [58 83 490 3];
+            app.FrameSlider.Position = [58 91 490 3];
             app.FrameSlider.Value = 1;
 
             % Create FrameSliderLabel
             app.FrameSliderLabel = uilabel(app.RightPanel);
             app.FrameSliderLabel.HorizontalAlignment = 'center';
             app.FrameSliderLabel.Visible = 'off';
-            app.FrameSliderLabel.Position = [48 64 490 22];
+            app.FrameSliderLabel.Position = [48 72 490 22];
             app.FrameSliderLabel.Text = '1/1000';
 
             % Create ContrastSliderLabel
             app.ContrastSliderLabel = uilabel(app.RightPanel);
             app.ContrastSliderLabel.HorizontalAlignment = 'right';
             app.ContrastSliderLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ContrastSliderLabel.Position = [48 43 50 22];
+            app.ContrastSliderLabel.Position = [48 51 50 22];
             app.ContrastSliderLabel.Text = 'Contrast';
 
             % Create ContrastSlider
@@ -2476,7 +2372,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ContrastSlider.Limits = [0 2500];
             app.ContrastSlider.ValueChangedFcn = createCallbackFcn(app, @ContrastSliderValueChanged, true);
             app.ContrastSlider.ValueChangingFcn = createCallbackFcn(app, @ContrastSliderValueChanging, true);
-            app.ContrastSlider.Position = [120 52 413 3];
+            app.ContrastSlider.Position = [120 60 413 3];
             app.ContrastSlider.Value = [0 400];
 
             % Show the figure after all components are created
