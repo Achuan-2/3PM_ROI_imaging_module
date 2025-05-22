@@ -12,7 +12,7 @@ classdef DrawROI < handle
         mask_color = [255,0,0]/255; % default ROI color
         binary_mask = [];            % 二进制掩膜
         labeled_mask = [];           % 标记掩膜
-        selected_roi_color = [0,255,0]/255; % Corrected selected ROI color
+        selected_roi_color = [199,236,238]/255; % Corrected selected ROI color
         mask_opacity double = 0.3; % alpha value for visualization
         showRoiNumber logical = true; % Control whether to show ROI numbers
         roi_number_fontSize double = 7; % ROI number font size
@@ -94,7 +94,11 @@ classdef DrawROI < handle
                     self.use_random_color = true;
                     self.mask_color = 'Random';
                     for i = 1:length(self.roi_colors) % Corrected loop syntax
-                        self.roi_colors{i} = self.color_map(i, :);
+                        i_color = mod(i,length(self.color_map));
+                        if i_color==0
+                            i_color = length(self.color_map);
+                        end
+                        self.roi_colors{i} = self.color_map(i_color, :);
                     end
                     % 重置颜色索引
                     self.color_index = length(self.roi_colors) +1;
@@ -123,7 +127,11 @@ classdef DrawROI < handle
             end
             if self.use_random_color
                 % 使用预生成的随机颜色
-                color = self.color_map(self.color_index, :);
+                i_color = mod(self.color_index,size(self.color_map, 1));
+                if i_color==0
+                    i_color = size(self.color_map, 1);
+                end
+                color = self.color_map(i_color, :);
                 % 更新索引，如果超出范围则循环使用
                 if add_index
                     self.color_index = mod(self.color_index, size(self.color_map, 1)) + 1;
@@ -366,10 +374,12 @@ classdef DrawROI < handle
 
             % 设置ROI属性
             color = self.get_current_roi_color(false);
+            if ischar(color)
+                color = utils.hex2matrix(color);
+            end
             self.regular_roi_obj.Color = color;
             self.regular_roi_obj.LineWidth = 2;
             self.regular_roi_obj.Deletable = false; % 不允许通过UI删除
-
             % 设置轴状态为正在添加ROI
             ax.UserData.status = "adding_regular_roi";
         end
