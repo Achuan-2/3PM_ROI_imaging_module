@@ -2,7 +2,7 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
-        UIFigure                      matlab.ui.Figure
+        PowerCaculateUIFigure         matlab.ui.Figure
         GridLayout3                   matlab.ui.container.GridLayout
         CaculateROIimagingpowerPanel  matlab.ui.container.Panel
         GridLayout2                   matlab.ui.container.GridLayout
@@ -47,9 +47,9 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
             % get value
             imagingPower= app.ImagingPowerEditField.Value;
             powerCost = app.PowerCostEditField.Value;
-            roiRatio = app.ROIRatioEditField.Value;
-            scanArea = (app.scannerConfig.scanBackLeftPixelTwice/2+app.scannerConfig.imageSize+app.scannerConfig.scanBackRightPixelTwice/2)*app.scannerConfig.imageSize+app.scannerConfig.scanWait;
-            acquisitionArea = app.scannerConfig.imageSize*app.scannerConfig.imageSize;
+            roiRatio = app.MainApp.ROIRatioEditField.Value;
+            scanArea = (app.MainApp.scannerConfig.scanBackLeftPixelTwice/2+app.MainApp.scannerConfig.imageSize+app.MainApp.scannerConfig.scanBackRightPixelTwice/2)*app.MainApp.scannerConfig.imageSize+app.MainApp.scannerConfig.scanWait;
+            acquisitionArea = app.MainApp.scannerConfig.imageSize*app.MainApp.scannerConfig.imageSize;
             fillfraction = acquisitionArea/scanArea;
 
             % caculate power
@@ -64,7 +64,7 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
         function get_scanimage_power(app)
             hBeamsID = app.hBeamsIDEditField.Value;
             lut = app.MainApp.hSI.hBeams.hBeams{hBeamsID}.powerFraction2PowerWattLut;
-            fraction = app.MainApp.hSI.hBeams.powerFractions{hBeamsID};
+            fraction = app.MainApp.hSI.hBeams.powerFractions(hBeamsID);
             power_W = utils.interp1_extended(lut(:,1),lut(:,2),fraction,'linear','extrap'); % unit: W
             app.ImagingPowerEditField.Value = round(power_W(1)*10^3);
         end
@@ -78,8 +78,8 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
         % Code that executes after component creation
         function startupFcn(app, mainApp)
             app.MainApp = mainApp;
-            app.UIFigure.Position(1) = app.MainApp.UIFigure.Position(1)+app.MainApp.UIFigure.Position(3)+5;
-            app.UIFigure.Position(2) = app.MainApp.UIFigure.Position(2)+app.MainApp.UIFigure.Position(4)-app.UIFigure.Position(4);
+            app.PowerCaculateUIFigure.Position(1) = app.MainApp.UIFigure.Position(1)+app.MainApp.UIFigure.Position(3)+5;
+            app.PowerCaculateUIFigure.Position(2) = app.MainApp.UIFigure.Position(2)+app.MainApp.UIFigure.Position(4)-app.PowerCaculateUIFigure.Position(4);
             variableInit(app)
             UpdateButtonPushed(app);
         end
@@ -99,8 +99,8 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
             caculate_power(app);
         end
 
-        % Close request function: UIFigure
-        function UIFigureCloseRequest(app, event)
+        % Close request function: PowerCaculateUIFigure
+        function PowerCaculateUIFigureCloseRequest(app, event)
             app.MainApp.PowerCaculateAPP = [];
             delete(app)
             
@@ -118,14 +118,14 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
         % Create UIFigure and components
         function createComponents(app)
 
-            % Create UIFigure and hide until all components are created
-            app.UIFigure = uifigure('Visible', 'off');
-            app.UIFigure.Position = [100 100 262 320];
-            app.UIFigure.Name = 'MATLAB App';
-            app.UIFigure.CloseRequestFcn = createCallbackFcn(app, @UIFigureCloseRequest, true);
+            % Create PowerCaculateUIFigure and hide until all components are created
+            app.PowerCaculateUIFigure = uifigure('Visible', 'off');
+            app.PowerCaculateUIFigure.Position = [100 100 262 320];
+            app.PowerCaculateUIFigure.Name = 'Power Caculate';
+            app.PowerCaculateUIFigure.CloseRequestFcn = createCallbackFcn(app, @PowerCaculateUIFigureCloseRequest, true);
 
             % Create GridLayout3
-            app.GridLayout3 = uigridlayout(app.UIFigure);
+            app.GridLayout3 = uigridlayout(app.PowerCaculateUIFigure);
             app.GridLayout3.ColumnWidth = {'1x'};
 
             % Create GetLaserPowerPanel
@@ -228,7 +228,7 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
             app.PowerCostEditField.Value = 1;
 
             % Show the figure after all components are created
-            app.UIFigure.Visible = 'on';
+            app.PowerCaculateUIFigure.Visible = 'on';
         end
     end
 
@@ -247,14 +247,14 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
                 createComponents(app)
 
                 % Register the app with App Designer
-                registerApp(app, app.UIFigure)
+                registerApp(app, app.PowerCaculateUIFigure)
 
                 % Execute the startup function
                 runStartupFcn(app, @(app)startupFcn(app, varargin{:}))
             else
 
                 % Focus the running singleton app
-                figure(runningApp.UIFigure)
+                figure(runningApp.PowerCaculateUIFigure)
 
                 app = runningApp;
             end
@@ -268,7 +268,7 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
         function delete(app)
 
             % Delete UIFigure when app is deleted
-            delete(app.UIFigure)
+            delete(app.PowerCaculateUIFigure)
         end
     end
 end

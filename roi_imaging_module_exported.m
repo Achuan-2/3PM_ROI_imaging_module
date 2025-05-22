@@ -1123,7 +1123,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % If not connected, click to connect
             if app.isConnectedLabel.Text == "Disconnected"
                 % simulated mode on or off
-                simulateState = app.AWGSimulateButton.State;
+                simulateState = app.AWGSimulateButton.Value;
 
                 % create progress dialog
                 d = uiprogressdlg(app.UIFigure,'Title','Connecting AWG',...
@@ -1340,7 +1340,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.PowerCaculateAPP = subapps.PowerCaculate(app);
         end
 
-        % Callback function: not associated with a component
+        % Callback function
         function ImagingPowerEditFieldValueChanged(app, event)
             caculate_power(app);
 
