@@ -25,7 +25,7 @@ def default_ops():
         'cellprob_threshold': 0,
         'stitch_threshold': 0,
         # minimum number of pixels per mask, can turn off with -1, (default: 15)
-        'min_size': 15,
+        'min_size': 10,
         'invert': False,  # invert grayscale channel
         'batch_size': 8, # inference batch size. Default: %(default)s
         'interp': False,  # interpolate when running dynamics (default: False)
