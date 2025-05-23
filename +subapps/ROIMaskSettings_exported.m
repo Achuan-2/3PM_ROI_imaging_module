@@ -289,7 +289,7 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
 
             % Yes 按钮回调函数
             function yesCallback(~, ~, app, fig)
-                app.mainApp.DrawROI.clear_all_rois(); % 执行清除操作
+                app.MainApp.DrawROI.clear_all_rois(); % 执行清除操作
                 delete(fig); % 关闭对话框
             end
 
@@ -481,6 +481,7 @@ classdef ROIMaskSettings_exported < matlab.apps.AppBase
             app.DragROIsButton = uibutton(app.AdjustROIPanel, 'state');
             app.DragROIsButton.ValueChangedFcn = createCallbackFcn(app, @DragROIsButtonValueChanged, true);
             app.DragROIsButton.Icon = fullfile(pathToMLAPP, '+assets', 'drag.svg');
+            app.DragROIsButton.HorizontalAlignment = 'left';
             app.DragROIsButton.Text = 'Drag ROIs';
             app.DragROIsButton.Position = [131 36 100 23];
 
