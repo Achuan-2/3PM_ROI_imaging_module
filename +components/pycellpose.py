@@ -41,12 +41,15 @@ def default_ops():
         'NZ':1 # number of z slices in 3D image
     }
 
-def seg(img, ops):
-    # Parameter settings
+def init(ops):
+        # Parameter settings
     device, gpu = models.assign_device(
         use_torch=True, gpu=ops['gpu'], device=ops['device'])
 
     model = models.CellposeModel(gpu=gpu, device=device)  # model for cellpose segmentation
+    return model
+def seg(model,img, ops):
+
 
     out = model.eval(img,batch_size=ops['batch_size'], flow_threshold=ops['flow_threshold'], cellprob_threshold=ops['cellprob_threshold'],
                                   normalize={"tile_norm_blocksize": ops['tile_norm_blocksize']} )

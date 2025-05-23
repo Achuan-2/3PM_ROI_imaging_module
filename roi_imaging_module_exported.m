@@ -2,73 +2,72 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
-        UIFigure                     matlab.ui.Figure
-        FileMenu                     matlab.ui.container.Menu
-        LoadStructureImageMenu       matlab.ui.container.Menu
-        LoadExternalmaskMenu         matlab.ui.container.Menu
-        SaveConfigMenu               matlab.ui.container.Menu
-        LoadConfigMenu               matlab.ui.container.Menu
-        ViewMenu                     matlab.ui.container.Menu
-        AWGSettingsMenu              matlab.ui.container.Menu
-        ScannerSettingsMenu          matlab.ui.container.Menu
-        ROIMaskSettingsMenu          matlab.ui.container.Menu
-        PowerCaculateMenu            matlab.ui.container.Menu
-        AddonsMenu                   matlab.ui.container.Menu
-        AWGControlMenu               matlab.ui.container.Menu
-        ROIImagingSimulationMenu     matlab.ui.container.Menu
-        HelpMenu                     matlab.ui.container.Menu
-        GithubMenu                   matlab.ui.container.Menu
-        GridLayout                   matlab.ui.container.GridLayout
-        LeftPanel                    matlab.ui.container.Panel
-        StructureImagingPanel        matlab.ui.container.Panel
-        RegularImagingButton         matlab.ui.control.Button
-        Laser1on9offButton           matlab.ui.control.Button
-        StructureImagingLamp         matlab.ui.control.Lamp
-        SettingsPanel                matlab.ui.container.Panel
-        AWGSimulateButton            matlab.ui.control.StateButton
-        ScanimageButton              matlab.ui.control.StateButton
-        ConfigurationFileEditField   matlab.ui.control.EditField
-        ConfigurationEditFieldLabel  matlab.ui.control.Label
-        AdvancedSettingsOpenButton   matlab.ui.control.Button
-        ConfigFileSelectButton       matlab.ui.control.Button
-        isConnectedLabel             matlab.ui.control.Label
-        AWGStatusLabel               matlab.ui.control.Label
-        AwgConnectButton             matlab.ui.control.Button
-        ROIImagingPanel              matlab.ui.container.Panel
-        RealtimeregistrationButton   matlab.ui.control.Button
-        ChannelDropDown_2            matlab.ui.control.DropDown
-        ROIImagingLamp               matlab.ui.control.Lamp
-        AbortButton                  matlab.ui.control.Button
-        LaserROIImagingButton        matlab.ui.control.Button
-        ManualcorrectionPanel        matlab.ui.container.Panel
-        ROIMaskShowLabel             matlab.ui.control.Label
-        ROIMaskSettingsButton        matlab.ui.control.Button
-        SaveMaskButton               matlab.ui.control.Button
-        LoadMaskButton               matlab.ui.control.Button
-        ROIdilateSpinner             matlab.ui.control.Spinner
-        ROIdilateSpinnerLabel        matlab.ui.control.Label
-        MaskOnCheckBox               matlab.ui.control.CheckBox
-        NeuronSegmentationPanel      matlab.ui.container.Panel
-        StructureTypeDropDown        matlab.ui.control.DropDown
-        LoadSegImageButton           matlab.ui.control.Button
-        RunModelButton               matlab.ui.control.Button
-        ThresholdSpinner             matlab.ui.control.Spinner
-        ThresholdSpinnerLabel        matlab.ui.control.Label
-        ModelsDropDown               matlab.ui.control.DropDown
-        ModelsDropDownLabel          matlab.ui.control.Label
-        RightPanel                   matlab.ui.container.Panel
-        ContrastSlider               matlab.ui.control.RangeSlider
-        ContrastSliderLabel          matlab.ui.control.Label
-        FrameSliderLabel             matlab.ui.control.Label
-        FrameSlider                  matlab.ui.control.Slider
-        Label                        matlab.ui.control.Label
-        DropDown                     matlab.ui.control.DropDown
-        UIAxesHomeButton             matlab.ui.control.Button
-        ROIRatioEditField            matlab.ui.control.NumericEditField
-        ROIRatioEditField_2Label     matlab.ui.control.Label
-        ROIsEditField                matlab.ui.control.NumericEditField
-        ROIsEditFieldLabel           matlab.ui.control.Label
-        UIAxes                       matlab.ui.control.UIAxes
+        UIFigure                      matlab.ui.Figure
+        FileMenu                      matlab.ui.container.Menu
+        SaveConfigMenu                matlab.ui.container.Menu
+        LoadConfigMenu                matlab.ui.container.Menu
+        ViewMenu                      matlab.ui.container.Menu
+        AWGSimulateModeMenu           matlab.ui.container.Menu
+        AWGSettingsMenu               matlab.ui.container.Menu
+        ScannerSettingsMenu           matlab.ui.container.Menu
+        ROIMaskSettingsMenu           matlab.ui.container.Menu
+        PowerCaculateMenu             matlab.ui.container.Menu
+        AddonsMenu                    matlab.ui.container.Menu
+        AWGControlMenu                matlab.ui.container.Menu
+        ROIImagingSimulationMenu      matlab.ui.container.Menu
+        HelpMenu                      matlab.ui.container.Menu
+        GithubMenu                    matlab.ui.container.Menu
+        GridLayout                    matlab.ui.container.GridLayout
+        LeftPanel                     matlab.ui.container.Panel
+        StructureImagingPanel         matlab.ui.container.Panel
+        RegularImagingButton          matlab.ui.control.Button
+        Laser1on9offButton            matlab.ui.control.Button
+        StructureImagingLamp          matlab.ui.control.Lamp
+        SettingsPanel                 matlab.ui.container.Panel
+        AWGSimulateButton             matlab.ui.control.StateButton
+        ScanimageButton               matlab.ui.control.StateButton
+        ConfigurationFileEditField    matlab.ui.control.EditField
+        ConfigurationEditFieldLabel   matlab.ui.control.Label
+        AdvancedSettingsOpenButton    matlab.ui.control.Button
+        ConfigFileSelectButton        matlab.ui.control.Button
+        isConnectedLabel              matlab.ui.control.Label
+        AWGStatusLabel                matlab.ui.control.Label
+        AwgConnectButton              matlab.ui.control.Button
+        ROIImagingPanel               matlab.ui.container.Panel
+        RealtimeregistrationButton    matlab.ui.control.Button
+        ChannelDropDown_2             matlab.ui.control.DropDown
+        ROIImagingLamp                matlab.ui.control.Lamp
+        AbortButton                   matlab.ui.control.Button
+        LaserROIImagingButton         matlab.ui.control.Button
+        ManualcorrectionPanel         matlab.ui.container.Panel
+        ROIMaskShowLabel              matlab.ui.control.Label
+        ROIMaskSettingsButton         matlab.ui.control.Button
+        SaveMaskButton                matlab.ui.control.Button
+        LoadMaskButton                matlab.ui.control.Button
+        ROIdilateSpinner              matlab.ui.control.Spinner
+        ROIdilateSpinnerLabel         matlab.ui.control.Label
+        MaskOnCheckBox                matlab.ui.control.CheckBox
+        NeuronSegmentationPanel       matlab.ui.container.Panel
+        norm_blocksizeEditField       matlab.ui.control.NumericEditField
+        norm_blocksizeEditFieldLabel  matlab.ui.control.Label
+        StructureTypeDropDown         matlab.ui.control.DropDown
+        LoadSegImageButton            matlab.ui.control.Button
+        RunModelButton                matlab.ui.control.Button
+        thresholdSpinner              matlab.ui.control.Spinner
+        thresholdSpinnerLabel         matlab.ui.control.Label
+        RightPanel                    matlab.ui.container.Panel
+        ContrastSlider                matlab.ui.control.RangeSlider
+        ContrastSliderLabel           matlab.ui.control.Label
+        FrameSliderLabel              matlab.ui.control.Label
+        FrameSlider                   matlab.ui.control.Slider
+        Label                         matlab.ui.control.Label
+        DropDown                      matlab.ui.control.DropDown
+        UIAxesHomeButton              matlab.ui.control.Button
+        ROIRatioEditField             matlab.ui.control.NumericEditField
+        ROIRatioEditField_2Label      matlab.ui.control.Label
+        ROIsEditField                 matlab.ui.control.NumericEditField
+        ROIsEditFieldLabel            matlab.ui.control.Label
+        UIAxes                        matlab.ui.control.UIAxes
     end
 
     % Properties that correspond to apps with auto-reflow
@@ -78,6 +77,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
 
     properties (Access = public)
+        awgSimulateState = false; % awg是否使用模拟模式
         % Sub APP
         AwgSettingsApp;% sub-app for awg settings
         ScannerSettingsApp; % sub-app for scanner settings
@@ -1015,9 +1015,9 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             set(app.UIFigure, 'WindowScrollWheelFcn', @app.windowScrollWheel);
 
             % init Seg component
-            app.Seg = components.Segmentation();
-            app.Seg.cellpose_model_folder = fullfile(app.folder,'cellposeModels/');
-            getCellposeModels(app,app.Seg.cellpose_model_folder)
+            app.Seg = components.SegmentationPy();
+            % app.Seg.cellpose_model_folder = fullfile(app.folder,'cellposeModels/');
+            % getCellposeModels(app,app.Seg.cellpose_model_folder)
 
             % ui
             app.ScanimageButton.BackgroundColor = [1.00,0.00,0.00];
@@ -1030,7 +1030,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 app.ConfigurationFileEditField.Value = 'default.json';
             end
 
-
+            % 导入cellpose
+            folder = fullfile(app.folder,'\+components');
+            if count(py.sys.path,folder) == 0
+                insert(py.sys.path,int32(0),folder );
+            end
+            py.importlib.import_module('pycellpose');
             % 确认Scanimage是否启动
             try
                 app.hSI = evalin('base', 'hSI');
@@ -1378,8 +1383,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.DrawROI.dilate_roi(value);
 
 
-            % caculate ROI Power
-            app.caculate_power();
 
             % 关闭ROI灯，提示ROI成像与当前ROI mask不一致
             app.ROIImagingLamp.Color = [0.90,0.90,0.90];
@@ -1477,11 +1480,14 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 'Indeterminate','on');
             drawnow
 
-            model_type = app.ModelsDropDown.Value;
-            flow_threshold = app.ThresholdSpinner.Value;
-            cp = cellpose(Model=model_type,ModelFolder=app.Seg.cellpose_model_folder);
-            labeled_mask = segmentCells2D(cp,app.img_seg_data,CellThreshold=0,FlowErrorThreshold=flow_threshold,ImageCellDiameter=15); %ImageCellDiameter=56
+
+            flow_threshold = app.thresholdSpinner.Value;
+            norm_blocksize= app.norm_blocksizeEditField.Value;
+            labeled_mask =  app.Seg.run(app.img_seg_data,flow_threshold,norm_blocksize);
             app.DrawROI.load_from_mask(labeled_mask);
+            % cp = cellpose(Model=model_type,ModelFolder=app.Seg.cellpose_model_folder, ExecutionEnvironment="gpu");
+            % labeled_mask = segmentCells2D(cp,app.img_seg_data,CellThreshold=0,FlowErrorThreshold=flow_threshold,ImageCellDiameter=15); %ImageCellDiameter=56
+            % app.DrawROI.load_from_mask(labeled_mask);
             % close the dialog box
             close(progressDlg);
 
@@ -1494,12 +1500,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         end
 
-        % Value changed function: ThresholdSpinner
-        function ThresholdSpinnerValueChanged(app, event)
+        % Value changed function: thresholdSpinner
+        function thresholdSpinnerValueChanged(app, event)
 
         end
 
-        % Value changed function: ModelsDropDown
+        % Callback function: not associated with a component
         function ModelsDropDownValueChanged(app, event)
 
             app.Seg.auto_rerun = false;
@@ -1930,12 +1936,25 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             web('https://github.com/Achuan-2/3PM_ROI');
         end
 
+        % Menu selected function: AWGSimulateModeMenu
+        function AWGSimulateModeMenuSelected(app, event)
+            if ~app.awgSimulateState
+                app.awgSimulateState = true;
+                app.AWGSimulateButton.Visible = 'on';
+                app.AWGSimulateButton.Value = true;
+            else
+                app.awgSimulateState = false;
+                app.AWGSimulateButton.Visible = 'off';
+                app.AWGSimulateButton.Value = false;
+            end
+        end
+
         % Changes arrangement of the app based on UIFigure width
         function updateAppLayout(app, event)
             currentFigureWidth = app.UIFigure.Position(3);
             if(currentFigureWidth <= app.onePanelWidth)
                 % Change to a 2x1 grid
-                app.GridLayout.RowHeight = {678, 678};
+                app.GridLayout.RowHeight = {670, 670};
                 app.GridLayout.ColumnWidth = {'1x'};
                 app.RightPanel.Layout.Row = 2;
                 app.RightPanel.Layout.Column = 1;
@@ -1961,7 +1980,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create UIFigure and hide until all components are created
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.AutoResizeChildren = 'off';
-            app.UIFigure.Position = [99.8571428571428 99.8571428571428 957 678];
+            app.UIFigure.Position = [99.8571428571428 99.8571428571428 864 670];
             app.UIFigure.Name = 'ROI Imaging Module';
             app.UIFigure.Resize = 'off';
             app.UIFigure.CloseRequestFcn = createCallbackFcn(app, @UIFigureCloseRequest, true);
@@ -1971,14 +1990,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.FileMenu = uimenu(app.UIFigure);
             app.FileMenu.MenuSelectedFcn = createCallbackFcn(app, @FileMenuSelected, true);
             app.FileMenu.Text = ' File ';
-
-            % Create LoadStructureImageMenu
-            app.LoadStructureImageMenu = uimenu(app.FileMenu);
-            app.LoadStructureImageMenu.Text = 'Load Structure Image';
-
-            % Create LoadExternalmaskMenu
-            app.LoadExternalmaskMenu = uimenu(app.FileMenu);
-            app.LoadExternalmaskMenu.Text = 'Load External mask';
 
             % Create SaveConfigMenu
             app.SaveConfigMenu = uimenu(app.FileMenu);
@@ -1993,6 +2004,11 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create ViewMenu
             app.ViewMenu = uimenu(app.UIFigure);
             app.ViewMenu.Text = 'View';
+
+            % Create AWGSimulateModeMenu
+            app.AWGSimulateModeMenu = uimenu(app.ViewMenu);
+            app.AWGSimulateModeMenu.MenuSelectedFcn = createCallbackFcn(app, @AWGSimulateModeMenuSelected, true);
+            app.AWGSimulateModeMenu.Text = 'AWG Simulate Mode';
 
             % Create AWGSettingsMenu
             app.AWGSettingsMenu = uimenu(app.ViewMenu);
@@ -2055,35 +2071,22 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create NeuronSegmentationPanel
             app.NeuronSegmentationPanel = uipanel(app.LeftPanel);
             app.NeuronSegmentationPanel.Title = '2. Neuron Segmentation';
-            app.NeuronSegmentationPanel.Position = [7 280 285 173];
+            app.NeuronSegmentationPanel.Position = [7 272 285 173];
 
-            % Create ModelsDropDownLabel
-            app.ModelsDropDownLabel = uilabel(app.NeuronSegmentationPanel);
-            app.ModelsDropDownLabel.Position = [13 77 44 22];
-            app.ModelsDropDownLabel.Text = 'Models';
+            % Create thresholdSpinnerLabel
+            app.thresholdSpinnerLabel = uilabel(app.NeuronSegmentationPanel);
+            app.thresholdSpinnerLabel.Position = [13 46 54 22];
+            app.thresholdSpinnerLabel.Text = 'threshold';
 
-            % Create ModelsDropDown
-            app.ModelsDropDown = uidropdown(app.NeuronSegmentationPanel);
-            app.ModelsDropDown.Items = {'cyto3', 'cyto2', 'cyto'};
-            app.ModelsDropDown.ValueChangedFcn = createCallbackFcn(app, @ModelsDropDownValueChanged, true);
-            app.ModelsDropDown.Tooltip = {'segmentation model'};
-            app.ModelsDropDown.Position = [88 77 100 22];
-            app.ModelsDropDown.Value = 'cyto3';
-
-            % Create ThresholdSpinnerLabel
-            app.ThresholdSpinnerLabel = uilabel(app.NeuronSegmentationPanel);
-            app.ThresholdSpinnerLabel.Position = [13 46 58 22];
-            app.ThresholdSpinnerLabel.Text = 'Threshold';
-
-            % Create ThresholdSpinner
-            app.ThresholdSpinner = uispinner(app.NeuronSegmentationPanel);
-            app.ThresholdSpinner.Step = 0.05;
-            app.ThresholdSpinner.LowerLimitInclusive = 'off';
-            app.ThresholdSpinner.Limits = [0 3];
-            app.ThresholdSpinner.ValueChangedFcn = createCallbackFcn(app, @ThresholdSpinnerValueChanged, true);
-            app.ThresholdSpinner.Tooltip = {'set  higher to get more cells, in range from (0,3]'};
-            app.ThresholdSpinner.Position = [87 46 55 22];
-            app.ThresholdSpinner.Value = 0.4;
+            % Create thresholdSpinner
+            app.thresholdSpinner = uispinner(app.NeuronSegmentationPanel);
+            app.thresholdSpinner.Step = 0.05;
+            app.thresholdSpinner.LowerLimitInclusive = 'off';
+            app.thresholdSpinner.Limits = [0 3];
+            app.thresholdSpinner.ValueChangedFcn = createCallbackFcn(app, @thresholdSpinnerValueChanged, true);
+            app.thresholdSpinner.Tooltip = {'set  higher to get more cells, in range from (0,3]'};
+            app.thresholdSpinner.Position = [113 46 55 22];
+            app.thresholdSpinner.Value = 0.4;
 
             % Create RunModelButton
             app.RunModelButton = uibutton(app.NeuronSegmentationPanel, 'push');
@@ -2106,12 +2109,23 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.StructureTypeDropDown.Position = [179 114 79 22];
             app.StructureTypeDropDown.Value = 'normal imaging';
 
+            % Create norm_blocksizeEditFieldLabel
+            app.norm_blocksizeEditFieldLabel = uilabel(app.NeuronSegmentationPanel);
+            app.norm_blocksizeEditFieldLabel.HorizontalAlignment = 'right';
+            app.norm_blocksizeEditFieldLabel.Position = [10 75 88 22];
+            app.norm_blocksizeEditFieldLabel.Text = 'norm_blocksize';
+
+            % Create norm_blocksizeEditField
+            app.norm_blocksizeEditField = uieditfield(app.NeuronSegmentationPanel, 'numeric');
+            app.norm_blocksizeEditField.Position = [113 75 52 22];
+            app.norm_blocksizeEditField.Value = 64;
+
             % Create ManualcorrectionPanel
             app.ManualcorrectionPanel = uipanel(app.LeftPanel);
             app.ManualcorrectionPanel.AutoResizeChildren = 'off';
             app.ManualcorrectionPanel.Title = '3. Manual correction';
             app.ManualcorrectionPanel.SizeChangedFcn = createCallbackFcn(app, @ManualcorrectionPanelSizeChanged, true);
-            app.ManualcorrectionPanel.Position = [8 133 284 136];
+            app.ManualcorrectionPanel.Position = [8 125 284 136];
 
             % Create MaskOnCheckBox
             app.MaskOnCheckBox = uicheckbox(app.ManualcorrectionPanel);
@@ -2165,7 +2179,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create ROIImagingPanel
             app.ROIImagingPanel = uipanel(app.LeftPanel);
             app.ROIImagingPanel.Title = '4. ROI Imaging';
-            app.ROIImagingPanel.Position = [7 15 285 105];
+            app.ROIImagingPanel.Position = [7 7 285 105];
 
             % Create LaserROIImagingButton
             app.LaserROIImagingButton = uibutton(app.ROIImagingPanel, 'push');
@@ -2201,7 +2215,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create SettingsPanel
             app.SettingsPanel = uipanel(app.LeftPanel);
             app.SettingsPanel.Title = 'Settings';
-            app.SettingsPanel.Position = [7 544 285 130];
+            app.SettingsPanel.Position = [7 536 285 130];
 
             % Create AwgConnectButton
             app.AwgConnectButton = uibutton(app.SettingsPanel, 'push');
@@ -2260,7 +2274,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create StructureImagingPanel
             app.StructureImagingPanel = uipanel(app.LeftPanel);
             app.StructureImagingPanel.Title = '1. Structure Imaging';
-            app.StructureImagingPanel.Position = [8 461 284 78];
+            app.StructureImagingPanel.Position = [8 453 284 78];
 
             % Create StructureImagingLamp
             app.StructureImagingLamp = uilamp(app.StructureImagingPanel);
@@ -2297,12 +2311,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.UIAxes.BoxStyle = 'full';
             app.UIAxes.LineWidth = 1;
             app.UIAxes.Box = 'on';
-            app.UIAxes.Position = [47 101 512 512];
+            app.UIAxes.Position = [47 93 512 512];
 
             % Create ROIsEditFieldLabel
             app.ROIsEditFieldLabel = uilabel(app.RightPanel);
             app.ROIsEditFieldLabel.HorizontalAlignment = 'right';
-            app.ROIsEditFieldLabel.Position = [167 623 32 22];
+            app.ROIsEditFieldLabel.Position = [167 615 32 22];
             app.ROIsEditFieldLabel.Text = 'ROIs';
 
             % Create ROIsEditField
@@ -2310,12 +2324,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIsEditField.Limits = [0 Inf];
             app.ROIsEditField.ValueDisplayFormat = '%.0f';
             app.ROIsEditField.Editable = 'off';
-            app.ROIsEditField.Position = [211 621 51 22];
+            app.ROIsEditField.Position = [211 613 51 22];
 
             % Create ROIRatioEditField_2Label
             app.ROIRatioEditField_2Label = uilabel(app.RightPanel);
             app.ROIRatioEditField_2Label.HorizontalAlignment = 'right';
-            app.ROIRatioEditField_2Label.Position = [289 622 58 22];
+            app.ROIRatioEditField_2Label.Position = [289 614 58 22];
             app.ROIRatioEditField_2Label.Text = 'ROI Ratio';
 
             % Create ROIRatioEditField
@@ -2323,25 +2337,25 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ROIRatioEditField.Limits = [0 Inf];
             app.ROIRatioEditField.ValueDisplayFormat = '%.3f';
             app.ROIRatioEditField.Editable = 'off';
-            app.ROIRatioEditField.Position = [362 622 100 22];
+            app.ROIRatioEditField.Position = [362 614 100 22];
 
             % Create UIAxesHomeButton
             app.UIAxesHomeButton = uibutton(app.RightPanel, 'push');
             app.UIAxesHomeButton.ButtonPushedFcn = createCallbackFcn(app, @UIAxesHomeButtonPushed, true);
             app.UIAxesHomeButton.Icon = fullfile(pathToMLAPP, '+assets', 'home.svg');
-            app.UIAxesHomeButton.Position = [491 621 53 23];
+            app.UIAxesHomeButton.Position = [491 613 53 23];
             app.UIAxesHomeButton.Text = '';
 
             % Create DropDown
             app.DropDown = uidropdown(app.RightPanel);
             app.DropDown.Items = {'AVG', 'Movie'};
             app.DropDown.ValueChangedFcn = createCallbackFcn(app, @DropDownValueChanged, true);
-            app.DropDown.Position = [45 623 100 22];
+            app.DropDown.Position = [45 615 100 22];
             app.DropDown.Value = 'AVG';
 
             % Create Label
             app.Label = uilabel(app.RightPanel);
-            app.Label.Position = [1 676 2 2];
+            app.Label.Position = [1 668 2 2];
 
             % Create FrameSlider
             app.FrameSlider = uislider(app.RightPanel);
@@ -2351,21 +2365,21 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.FrameSlider.ValueChangingFcn = createCallbackFcn(app, @FrameSliderValueChanging, true);
             app.FrameSlider.MinorTicks = [];
             app.FrameSlider.Visible = 'off';
-            app.FrameSlider.Position = [58 91 490 3];
+            app.FrameSlider.Position = [58 83 490 3];
             app.FrameSlider.Value = 1;
 
             % Create FrameSliderLabel
             app.FrameSliderLabel = uilabel(app.RightPanel);
             app.FrameSliderLabel.HorizontalAlignment = 'center';
             app.FrameSliderLabel.Visible = 'off';
-            app.FrameSliderLabel.Position = [48 72 490 22];
+            app.FrameSliderLabel.Position = [48 64 490 22];
             app.FrameSliderLabel.Text = '1/1000';
 
             % Create ContrastSliderLabel
             app.ContrastSliderLabel = uilabel(app.RightPanel);
             app.ContrastSliderLabel.HorizontalAlignment = 'right';
             app.ContrastSliderLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ContrastSliderLabel.Position = [48 51 50 22];
+            app.ContrastSliderLabel.Position = [48 43 50 22];
             app.ContrastSliderLabel.Text = 'Contrast';
 
             % Create ContrastSlider
@@ -2373,7 +2387,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ContrastSlider.Limits = [0 2500];
             app.ContrastSlider.ValueChangedFcn = createCallbackFcn(app, @ContrastSliderValueChanged, true);
             app.ContrastSlider.ValueChangingFcn = createCallbackFcn(app, @ContrastSliderValueChanging, true);
-            app.ContrastSlider.Position = [120 60 413 3];
+            app.ContrastSlider.Position = [120 52 413 3];
             app.ContrastSlider.Value = [0 400];
 
             % Show the figure after all components are created

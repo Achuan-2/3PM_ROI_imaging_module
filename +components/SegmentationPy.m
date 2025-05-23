@@ -3,11 +3,14 @@ classdef SegmentationPy < handle
     %   Detailed explanation goes here
 
     properties
+        model
         img_nparray
         ops
         seg_mask = [];
         seg_flow = [];
         seg_mask_matlab = [];
+        auto_rerun =false;
+        enable = false;
     end
     methods(Static)
         function result = mat2nparray(matarray)
@@ -41,14 +44,16 @@ classdef SegmentationPy < handle
             %UNTITLED Construct an instance of this class
             %   Detailed explanation goes here
             self.ops = py.pycellpose.default_ops();
+            self.model = py.pycellpose.init(self.ops);
         end
 
-        function [mask_matlab]= run(self,img,flow_threshold)
+        function [mask_matlab]= run(self,img,flow_threshold,norm_blocksize)
             self.ops{'flow_threshold'} = flow_threshold;
+            self.ops{'tile_norm_blocksize'} = norm_blocksize;
             self.img_nparray = self.mat2nparray(img);
 
             % run segmentation
-            results = py.pycellpose.seg(self.img_nparray,self.ops);
+            results = py.pycellpose.seg(self.model,self.img_nparray,self.ops);
 
 
             % segment result
