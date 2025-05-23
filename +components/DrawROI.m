@@ -427,7 +427,7 @@ classdef DrawROI < handle
             self.regular_roi_obj.Color = [1, 0, 0];  % 红色
             self.regular_roi_obj.LineWidth = 2;
             self.regular_roi_obj.Deletable = false; % 不允许通过UI删除
-            self.regular_roi_obj.Label = 'Enter to Delete ROIs in range';
+            self.regular_roi_obj.Label = 'Prcess Enter to Delete ROIs in range';
             self.regular_roi_obj.LabelVisible = 'hover';
 
             % 设置轴状态为正在添加ROI
