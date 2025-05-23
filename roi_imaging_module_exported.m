@@ -979,20 +979,21 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         % Code that executes after component creation
         function startupFcn(app)
+
             % export app to base
             assignin("base",'app',app);
 
-            % get app folder
+            %% get app folder
             fullpath = mfilename('fullpath');
             [path,~]=fileparts(fullpath);
             app.folder = path;
             addpath(genpath(fullfile(app.folder,'libs')))
 
-            % init awg settings
+            %% init awg settings
             app.init_config();
 
 
-            % init DrawROI component
+            %% init DrawROI component
             app.DrawROI = components.DrawROI(app, [app.UIAxes]);
             app.UIFigure.UserData.CtrlPressed = false;
             app.UIFigure.UserData.ShiftPressed = false;
@@ -1014,15 +1015,29 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             set(app.UIFigure, 'WindowKeyReleaseFcn', @app.keyRelease);
             set(app.UIFigure, 'WindowScrollWheelFcn', @app.windowScrollWheel);
 
-            % init Seg component
-            app.Seg = components.SegmentationPy();
+            %% init Seg component
+            try
+
+                % python路径添加cellpose
+                folder = fullfile(app.folder,'\+components');
+                if count(py.sys.path,folder) == 0
+                    insert(py.sys.path,int32(0),folder );
+                end
+                py.importlib.import_module('pycellpose');
+
+                app.Seg = components.SegmentationPy();
+            catch ME
+                % 捕获并显示错误信息
+                errordlg(ME.message, 'Error');
+                fprintf(2,'%s\n', ME.getReport('extended'));
+            end
+                
             % app.Seg.cellpose_model_folder = fullfile(app.folder,'cellposeModels/');
             % getCellposeModels(app,app.Seg.cellpose_model_folder)
 
-            % ui
-            app.ScanimageButton.BackgroundColor = [1.00,0.00,0.00];
+            
 
-            % init config settings
+            %% init config settings
             default_json = fullfile(app.defaultConfig.configPath,'default.json');
             if exist(default_json,'file') ~= 0
                 % if default.json exist
@@ -1030,13 +1045,10 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 app.ConfigurationFileEditField.Value = 'default.json';
             end
 
-            % 导入cellpose
-            folder = fullfile(app.folder,'\+components');
-            if count(py.sys.path,folder) == 0
-                insert(py.sys.path,int32(0),folder );
-            end
-            py.importlib.import_module('pycellpose');
-            % 确认Scanimage是否启动
+
+            %% 确认Scanimage是否启动
+            % ui
+            app.ScanimageButton.BackgroundColor = [1.00,0.00,0.00];
             try
                 app.hSI = evalin('base', 'hSI');
                 app.hSICtl = evalin('base', 'hSICtl');
@@ -1505,7 +1517,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
         end
 
-        % Callback function: not associated with a component
+        % Callback function
         function ModelsDropDownValueChanged(app, event)
 
             app.Seg.auto_rerun = false;
