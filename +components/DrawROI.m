@@ -853,8 +853,8 @@ classdef DrawROI < handle
                 end
                 
                 % 确保扩展后的轮廓在图像边界内
-                dilated_contour(:,1) = max(1, min(dilated_contour(:,1), self.mask_size(2)));
-                dilated_contour(:,2) = max(1, min(dilated_contour(:,2), self.mask_size(1)));
+                % dilated_contour(:,1) = max(1, min(dilated_contour(:,1), self.mask_size(2)));
+                % dilated_contour(:,2) = max(1, min(dilated_contour(:,2), self.mask_size(1)));
                 
                 self.roi_contours{roi_idx} = dilated_contour;
             end
