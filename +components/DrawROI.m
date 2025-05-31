@@ -818,31 +818,77 @@ classdef DrawROI < handle
             if level == 0
                 self.roi_contours{roi_idx} = original_contour;
             else
-                mask = poly2mask(original_contour(:,1), original_contour(:,2), ...
-                    self.mask_size(1), self.mask_size(2));
-                se = strel('disk', abs(level));
+                % 创建二值掩膜
+                mask = false(self.mask_size);
+                x = original_contour(:,1);
+                y = original_contour(:,2);
+                
+                % 确保坐标在图像范围内
+                x = max(1, min(x, self.mask_size(2)));
+                y = max(1, min(y, self.mask_size(1)));
+                
+                % 生成多边形掩膜
+                mask = poly2mask(x, y, self.mask_size(1), self.mask_size(2));
+                
+                % 创建圆形结构元素
+                r = abs(level);
+                se = strel('disk', r, 0);  % 使用精确的圆形结构元素
+                
+                % 根据level正负进行膨胀或腐蚀
                 if level > 0
-                    dilated_mask = imdilate(mask, se);
+                    mask = imdilate(mask, se);
                 else
-                    dilated_mask = imerode(mask, se);
+                    mask = imerode(mask, se);
                 end
-                [B, ~] = bwboundaries(dilated_mask, 'noholes');
-                if ~isempty(B)
-                    boundary = B{1};
-                    contour = [boundary(:, 2), boundary(:, 1)];
-                    self.roi_contours{roi_idx} = contour;
+                
+                % 提取新边界
+                boundaries = bwboundaries(mask, 'noholes');
+                if isempty(boundaries)
+                    new_contour = [];  % ROI已消失
                 else
-                    self.roi_contours{roi_idx} = original_contour;
+                    % 找到最长的边界（主轮廓）
+                    max_length = 0;
+                    main_boundary = [];
+                    for k = 1:length(boundaries)
+                        b = boundaries{k};
+                        if size(b,1) > max_length
+                            max_length = size(b,1);
+                            main_boundary = b;
+                        end
+                    end
+                    % 转换坐标格式: [行,列] -> [x,y]
+                    new_contour = main_boundary(:, [2,1]); 
                 end
+                
+                % 应用新轮廓（确保在图像范围内）
+                if ~isempty(new_contour)
+                    new_contour(:,1) = max(1, min(new_contour(:,1), self.mask_size(2)));
+                    new_contour(:,2) = max(1, min(new_contour(:,2), self.mask_size(1)));
+                end
+                self.roi_contours{roi_idx} = new_contour;
             end
         
+            % 更新显示（包含空轮廓处理）
             for ax_idx = 1:length(self.axes_list)
                 if roi_idx <= length(self.roi_patches{ax_idx}) && isvalid(self.roi_patches{ax_idx}{roi_idx})
-                    set(self.roi_patches{ax_idx}{roi_idx}, 'XData', self.roi_contours{roi_idx}(:,1), ...
-                        'YData', self.roi_contours{roi_idx}(:,2));
-                    if length(self.roi_numbers{ax_idx}) >= roi_idx && ~isempty(self.roi_numbers{ax_idx}{roi_idx}) && isvalid(self.roi_numbers{ax_idx}{roi_idx})
-                        center = mean(self.roi_contours{roi_idx}, 1);
-                        set(self.roi_numbers{ax_idx}{roi_idx}, 'Position', [center(1), center(2), 0]);
+                    if isempty(self.roi_contours{roi_idx})
+                        % 隐藏已消失的ROI
+                        set(self.roi_patches{ax_idx}{roi_idx}, 'Visible', 'off');
+                        if length(self.roi_numbers{ax_idx}) >= roi_idx && ~isempty(self.roi_numbers{ax_idx}{roi_idx}) && isvalid(self.roi_numbers{ax_idx}{roi_idx})
+                            set(self.roi_numbers{ax_idx}{roi_idx}, 'Visible', 'off');
+                        end
+                    else
+                        % 更新可见的ROI
+                        set(self.roi_patches{ax_idx}{roi_idx}, ...
+                            'XData', self.roi_contours{roi_idx}(:,1), ...
+                            'YData', self.roi_contours{roi_idx}(:,2), ...
+                            'Visible', 'on');
+                        if length(self.roi_numbers{ax_idx}) >= roi_idx && ~isempty(self.roi_numbers{ax_idx}{roi_idx}) && isvalid(self.roi_numbers{ax_idx}{roi_idx})
+                            center = mean(self.roi_contours{roi_idx}, 1);
+                            set(self.roi_numbers{ax_idx}{roi_idx}, ...
+                                'Position', [center(1), center(2), 0], ...
+                                'Visible', 'on');
+                        end
                     end
                 end
             end
