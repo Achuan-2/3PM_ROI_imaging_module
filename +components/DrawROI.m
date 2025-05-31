@@ -818,48 +818,24 @@ classdef DrawROI < handle
             if level == 0
                 self.roi_contours{roi_idx} = original_contour;
             else
-                % 计算ROI的质心
-                centroid = mean(original_contour, 1);
-                
-                % 计算每个点到质心的距离和方向
-                vectors = original_contour - centroid;
-                distances = sqrt(sum(vectors.^2, 2));
-                
-                % 避免除零错误
-                valid_points = distances > 0;
-                
-                % 初始化新的轮廓
-                dilated_contour = original_contour;
-                
-                if any(valid_points)
-                    % 计算单位方向向量
-                    unit_vectors = zeros(size(vectors));
-                    unit_vectors(valid_points, :) = vectors(valid_points, :) ./ distances(valid_points);
-                    
-                    % 沿着方向向量扩展固定像素距离
-                    % level 为正数时向外扩展，负数时向内收缩
-                    dilated_contour = original_contour + unit_vectors * level;
-                    
-                    % 对于距离质心太近的点（收缩时可能出现问题），做特殊处理
-                    if level < 0
-                        % 收缩时，确保不会收缩到质心内部太多
-                        min_distance = abs(level);
-                        too_close = distances < min_distance;
-                        if any(too_close)
-                            % 对于太近的点，只收缩到质心附近
-                            dilated_contour(too_close, :) = centroid + unit_vectors(too_close, :) * 0.5;
-                        end
-                    end
+                mask = poly2mask(original_contour(:,1), original_contour(:,2), ...
+                    self.mask_size(1), self.mask_size(2));
+                se = strel('disk', abs(level));
+                if level > 0
+                    dilated_mask = imdilate(mask, se);
+                else
+                    dilated_mask = imerode(mask, se);
                 end
-                
-                % 确保扩展后的轮廓在图像边界内
-                % dilated_contour(:,1) = max(1, min(dilated_contour(:,1), self.mask_size(2)));
-                % dilated_contour(:,2) = max(1, min(dilated_contour(:,2), self.mask_size(1)));
-                
-                self.roi_contours{roi_idx} = dilated_contour;
+                [B, ~] = bwboundaries(dilated_mask, 'noholes');
+                if ~isempty(B)
+                    boundary = B{1};
+                    contour = [boundary(:, 2), boundary(:, 1)];
+                    self.roi_contours{roi_idx} = contour;
+                else
+                    self.roi_contours{roi_idx} = original_contour;
+                end
             end
         
-            % 更新显示
             for ax_idx = 1:length(self.axes_list)
                 if roi_idx <= length(self.roi_patches{ax_idx}) && isvalid(self.roi_patches{ax_idx}{roi_idx})
                     set(self.roi_patches{ax_idx}{roi_idx}, 'XData', self.roi_contours{roi_idx}(:,1), ...
