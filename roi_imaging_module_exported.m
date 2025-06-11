@@ -939,6 +939,23 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 if isempty(app.DrawROI.roi_contours)
                     return
                 end
+                %% roi ratio、Actual power percentage到xlsx
+                % get roiRatio
+                roiRatio = app.ROIRatioEditField.Value;
+                % caculate Actual power percentage
+                scanArea = (app.scannerConfig.scanBackLeftPixelTwice/2+app.scannerConfig.imageSize+app.scannerConfig.scanBackRightPixelTwice/2)*app.scannerConfig.imageSize;
+                acquisitionArea = app.scannerConfig.imageSize*app.scannerConfig.imageSize;
+                fillfraction = acquisitionArea/scanArea;
+                scanAreaPercentage = roiRatio*fillfraction;
+                % Create a table with the ROI information
+                roiTable = table(roiRatio, scanAreaPercentage, ...
+                    'VariableNames', {'ROI_Ratio', 'Scan_Area_Percentage'});
+
+                % Write the table to Excel file
+                writetable(roiTable, fullfile(app.last_seg_tiff_folder, ...
+                    [app.img_seg_fname, '_roiMask.xlsx']), 'Sheet', 'Sheet1');
+
+                %% save roi mask
                 % save matfile
                 data.roi_contours = app.DrawROI.roi_contours;
                 data.original_roi_contours = app.DrawROI.original_roi_contours;
@@ -954,12 +971,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
                 app.UIAxes.XLim = app.UIAxes.UserData.origin_xlim;
                 app.UIAxes.YLim = app.UIAxes.UserData.origin_ylim;
-   
-                exportgraphics(app.UIAxes, ...
-                    fullfile(app.last_seg_tiff_folder, ...
-                    [app.img_seg_fname,'_roiMask.pdf']), ...
-                    'Resolution',600);
-    
+                % 
+                % exportgraphics(app.UIAxes, ...
+                %     fullfile(app.last_seg_tiff_folder, ...
+                %     [app.img_seg_fname,'_roiMask.pdf']), ...
+                %     'Resolution',600);
+                % 
     
                 exportgraphics(app.UIAxes, ...
                     fullfile(app.last_seg_tiff_folder, ...
@@ -1611,16 +1628,19 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             end
 
             % 自动保存ROI mask
-            if ~isempty(app.img_seg_filename)
-                % Check if DrawROI object and properties exist before saving
-                if isvalid(app.DrawROI) 
-                    save_mask(app);
-                else
-                    warning('DrawROI object or its properties are not valid. Skipping mask save.');
+            % Check if DrawROI object and properties exist before saving
+            if isvalid(app.DrawROI) 
+                % 每次ROI成像，自动生成下一个文件的文件名，用来保存文件
+                if ~isempty(app.hSI) || isvalid(app.hSI)
+                    logCounter = app.hSI.hScan2D.logFileCounter;
+                    app.img_seg_fname = sprintf('file_%05d',logCounter);
+                    app.last_seg_tiff_folder = app.hSI.hScan2D.logFilePath;
                 end
+                save_mask(app);
             else
-                warning('Image segment filename is empty. Skipping mask save.');
+                warning('DrawROI object or its properties are not valid. Skipping mask save.');
             end
+
             % delete 0.1MHz listener and Rebuild
             if isvalid (app.StructureRebuilder)
                 delete(app.StructureRebuilder);
@@ -2119,7 +2139,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.StructureTypeDropDown = uidropdown(app.NeuronSegmentationPanel);
             app.StructureTypeDropDown.Items = {'normal imaging', '1/10 Imaging'};
             app.StructureTypeDropDown.Position = [179 114 79 22];
-            app.StructureTypeDropDown.Value = 'normal imaging';
+            app.StructureTypeDropDown.Value = '1/10 Imaging';
 
             % Create norm_blocksizeEditFieldLabel
             app.norm_blocksizeEditFieldLabel = uilabel(app.NeuronSegmentationPanel);
