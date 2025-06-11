@@ -48,7 +48,7 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
             imagingPower= app.ImagingPowerEditField.Value;
             powerCost = app.PowerCostEditField.Value;
             roiRatio = app.MainApp.ROIRatioEditField.Value;
-            scanArea = (app.MainApp.scannerConfig.scanBackLeftPixelTwice/2+app.MainApp.scannerConfig.imageSize+app.MainApp.scannerConfig.scanBackRightPixelTwice/2)*app.MainApp.scannerConfig.imageSize+app.MainApp.scannerConfig.scanWait;
+            scanArea = (app.MainApp.scannerConfig.scanBackLeftPixelTwice/2+app.MainApp.scannerConfig.imageSize+app.MainApp.scannerConfig.scanBackRightPixelTwice/2)*app.MainApp.scannerConfig.imageSize;
             acquisitionArea = app.MainApp.scannerConfig.imageSize*app.MainApp.scannerConfig.imageSize;
             fillfraction = acquisitionArea/scanArea;
 
