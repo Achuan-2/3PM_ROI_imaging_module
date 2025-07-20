@@ -22,7 +22,7 @@
   "scannerConfig": {
     "imageSize": 512,
     "pulsePerPixel": 1,
-    "scanWait": 55,
+    "scanWait": 46,
     "scanBackLeftPixelTwice": 28,
     "scanBackRightPixelTwice": 28,
     "clockMode": "Frame Clock"
@@ -39,6 +39,6 @@
     ]
   },
   "PowerCaculatConfig": {
-    "hBeamID": 2
+    "hBeamID": 1
   }
 }
