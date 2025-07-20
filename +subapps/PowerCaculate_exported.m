@@ -54,7 +54,7 @@ classdef PowerCaculate_exported < matlab.apps.AppBase
 
             % caculate power
             %structurePower = imagingPower *0.1* powerCost*fillfraction;
-            structurePower = imagingPower *0.1;
+            structurePower = imagingPower *0.1*fillfraction*powerCost;
             roiPower = imagingPower*roiRatio*fillfraction*powerCost;
 
             % update value in gui
