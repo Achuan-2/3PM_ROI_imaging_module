@@ -4,13 +4,14 @@ classdef DrawROI < handle
         axes_list = []; % List of UIAxes to render ROIs on
         active_axes_index = 1; % Index of currently active axes
     end
-
+    
     properties (SetObservable, SetAccess = public)
         roi_contours cell; % cell array storing ROI outlines
         roi_patches cell; % cell array storing patch handles for each UIAxes
         mask_size (1,2) double; % size of the canvas
         mask_color = [255,0,0]/255; % default ROI color
         binary_mask = [];            % 二进制掩膜
+        binary_mask2 = [];           % 二进制掩膜2:加载csv的时候用
         labeled_mask = [];           % 标记掩膜
         selected_roi_color = [199,236,238]/255; % Corrected selected ROI color
         mask_opacity double = 0.3; % alpha value for visualization
@@ -21,7 +22,7 @@ classdef DrawROI < handle
         drawing_enabled logical; % 控制每个 UIAxes 的绘制权限
         show_background logical = false; % 是否显示ROI背景色
     end
-
+    
     properties
         brush_size = 3;
         current_stroke;
@@ -35,19 +36,19 @@ classdef DrawROI < handle
         dilate_level = 0; % Current dilate level
         temp_dilate_level = 0; % Temporary dilate value
         is_drawing = false; % Whether ROI is being drawn
-
+        
         % 拖拽ROI相关属性
         drag_enabled = false;  % 是否启用拖拽ROI模式，默认禁用
         drag_start_x = 0;      % 拖拽起始X坐标
         drag_start_y = 0;      % 拖拽起始Y坐标
         is_dragging = false;   % 是否正在拖拽ROI
-
+        
         % 随机颜色相关属性
         color_map = [];        % 存储预生成的100种颜色
         color_index = 1;       % 当前使用的颜色索引
         use_random_color = false; % 是否使用随机颜色
         roi_colors = {};       % 存储每个ROI的颜色
-
+        
         % ROI编辑相关属性
         editing_roi = false;          % 是否正在编辑ROI
         editing_roi_idx = 0;          % 当前正在编辑的ROI索引
@@ -57,7 +58,7 @@ classdef DrawROI < handle
         regular_roi_type = '';       % 规则ROI类型 ('circle', 'rectangle')
         regular_roi_obj = [];        % 规则ROI对象句柄
     end
-
+    
     methods
         function self = DrawROI(app, axes_list)
             self.app = app;
@@ -75,7 +76,7 @@ classdef DrawROI < handle
                 self.roi_numbers{i} = {};
             end
         end
-
+        
         % 创建随机颜色映射
         function colors = create_colormap(self) % Change to accept instance input
             numColors = 100; % Define number of colors if not defined elsewhere
@@ -86,7 +87,7 @@ classdef DrawROI < handle
             hsvColors = [h; s; v]'; % [numColors x 3]
             colors = hsv2rgb(hsvColors); % 输出 [numColors x 3] 的RGB颜色矩阵
         end
-
+        
         % mask_color setter，处理颜色变更
         function set.mask_color(self, value)
             if ischar(value) || isstring(value)
@@ -114,11 +115,11 @@ classdef DrawROI < handle
                     self.mask_color = value;
                 end
             end
-
+            
             % 如果已有ROI，更新它们的颜色
             self.update_roi_color();
         end
-
+        
         % 获取当前ROI的颜色
         function color = get_current_roi_color(self,add_index)
             arguments
@@ -140,14 +141,14 @@ classdef DrawROI < handle
                 color = self.mask_color;
             end
         end
-
+        
         % 设置是否显示ROI背景色
         function set.show_background(self, value)
             self.show_background = value;
             % 更新所有ROI的背景色显示状态
             self.update_background_visibility();
         end
-
+        
         % 更新所有ROI背景色的显示状态
         function update_background_visibility(self)
             for ax_idx = 1:length(self.axes_list)
@@ -166,7 +167,7 @@ classdef DrawROI < handle
             end
         end
     end
-
+    
     % ROI Drawing Methods
     methods
         function handroi_start(self, x, y)
@@ -174,15 +175,15 @@ classdef DrawROI < handle
             if ~self.drawing_enabled(self.active_axes_index)
                 return;
             end
-
+            
             self.is_drawing = true;
             self.temp_dilate_level = self.dilate_level;
             if self.temp_dilate_level ~= 0
                 self.dilate_roi(0);
             end
-
+            
             self.current_stroke = [x, y];
-
+            
             % Draw on all UIAxes
             self.main_plot_handle = gobjects(1, length(self.axes_list));
             self.start_plot_handles = gobjects(1, length(self.axes_list));
@@ -196,13 +197,13 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function handroi_draw(self, x, y)
             % Check status of active axes rather than just first axes
             if self.axes_list(self.active_axes_index).UserData.status ~= "handroi_drawing"
                 return
             end
-
+            
             if ~self.is_handroi_end()
                 self.current_stroke = [self.current_stroke; [x, y]];
                 for i = 1:length(self.axes_list)
@@ -214,7 +215,7 @@ classdef DrawROI < handle
                 self.finish_drawing();
             end
         end
-
+        
         function result = is_handroi_end(self)
             if size(self.current_stroke, 1) > 3
                 dist = sqrt(sum((self.current_stroke(1,:) - self.current_stroke(2:end,:)).^2, 2));
@@ -230,7 +231,7 @@ classdef DrawROI < handle
                 result = false;
             end
         end
-
+        
         function handroi_cancel(self)
             self.current_stroke = [];
             for i = 1:length(self.axes_list)
@@ -248,14 +249,14 @@ classdef DrawROI < handle
             self.restore_dilate_level();
             self.is_drawing = false;
         end
-
+        
         function restore_dilate_level(self)
             if self.temp_dilate_level ~= 0
                 self.dilate_roi(self.temp_dilate_level);
                 self.temp_dilate_level = 0;
             end
         end
-
+        
         function finish_drawing(self)
             % Check if the active axes is in drawing mode
             if strcmp(self.axes_list(self.active_axes_index).UserData.status, "handroi_drawing")
@@ -263,7 +264,7 @@ classdef DrawROI < handle
                 for i = 1:length(self.axes_list)
                     self.axes_list(i).UserData.status = "idle";
                 end
-
+                
                 for i = 1:length(self.axes_list)
                     if ~isempty(self.start_plot_handles) && isvalid(self.start_plot_handles(i))
                         delete(self.start_plot_handles(i));
@@ -280,22 +281,22 @@ classdef DrawROI < handle
                 self.is_drawing = false;
             end
         end
-
+        
         function set_roi_visibility(self, axes_idx, visible)
             % 设置指定 axes 上 ROI 的可见性
             if axes_idx < 1 || axes_idx > length(self.axes_list)
                 return;
             end
-
+            
             self.roi_visibility(axes_idx) = visible;
             % 同时控制绘制权限
             self.drawing_enabled(axes_idx) = visible;
-
+            
             % 如果正在该轴上绘制而现在禁用了，则取消绘制
             if ~visible && strcmp(self.axes_list(axes_idx).UserData.status, "handroi_drawing") && self.active_axes_index == axes_idx
                 self.handroi_cancel();
             end
-
+            
             % 设置 ROI patches 的可见性
             for i = 1:length(self.roi_patches{axes_idx})
                 if ~isempty(self.roi_patches{axes_idx}{i}) && isvalid(self.roi_patches{axes_idx}{i})
@@ -306,7 +307,7 @@ classdef DrawROI < handle
                     end
                 end
             end
-
+            
             % 设置 ROI 编号的可见性
             for i = 1:length(self.roi_numbers{axes_idx})
                 if ~isempty(self.roi_numbers{axes_idx}{i}) && isvalid(self.roi_numbers{axes_idx}{i})
@@ -318,14 +319,14 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         % 添加规则ROI（圆形或矩形）
         function add_regular_roi(self, roi_type)
             % 检查当前活动轴是否允许绘制
             if ~self.drawing_enabled(self.active_axes_index)
                 return;
             end
-
+            
             % 如果当前有选择的ROI，取消选择状态
             if self.selected_roi_idx > 0
                 for ax_idx = 1:length(self.axes_list)
@@ -335,43 +336,43 @@ classdef DrawROI < handle
                 end
                 self.selected_roi_idx = 0;
             end
-
+            
             % 如果已经在添加ROI，先完成或取消之前的操作
             if self.adding_regular_roi && ~isempty(self.regular_roi_obj) && isvalid(self.regular_roi_obj)
                 self.finish_adding_regular_roi(true);
             end
-
+            
             % 设置标志
             self.adding_regular_roi = true;
             self.regular_roi_type = roi_type;
-
+            
             % 获取当前活动轴
             ax = self.axes_list(self.active_axes_index);
-
+            
             % 计算当前视图的中心点
             x_center = mean(ax.XLim);
             y_center = mean(ax.YLim);
-
+            
             % 计算ROI的大小（基于视图的1/4宽度）
             width = (ax.XLim(2) - ax.XLim(1)) / 4;
             height = (ax.YLim(2) - ax.YLim(1)) / 4;
-
+            
             % 根据ROI类型创建相应的对象
             switch lower(roi_type)
                 case 'circle'
                     % 创建圆形ROI
                     radius = min(width, height);
                     self.regular_roi_obj = images.roi.Circle(ax, 'Center', [x_center, y_center], 'Radius', radius);
-
+                    
                 case 'rectangle'
                     % 创建矩形ROI
                     position = [x_center-width/2, y_center-height/2, width, height];
                     self.regular_roi_obj = images.roi.Rectangle(ax, 'Position', position);
-
+                    
                 otherwise
                     error('不支持的ROI类型: %s', roi_type);
             end
-
+            
             % 设置ROI属性
             color = self.get_current_roi_color(false);
             if ischar(color)
@@ -388,7 +389,7 @@ classdef DrawROI < handle
             if ~self.drawing_enabled(self.active_axes_index)
                 return;
             end
-
+            
             % 如果当前有选择的ROI，取消选择状态
             if self.selected_roi_idx > 0
                 for ax_idx = 1:length(self.axes_list)
@@ -398,48 +399,48 @@ classdef DrawROI < handle
                 end
                 self.selected_roi_idx = 0;
             end
-
+            
             % 如果已经在添加ROI，先完成或取消之前的操作
             if self.adding_regular_roi && ~isempty(self.regular_roi_obj) && isvalid(self.regular_roi_obj)
                 self.finish_adding_regular_roi(false);
             end
-
+            
             % 设置标志
             self.adding_regular_roi = true;
             self.regular_roi_type = 'clearrect';  % 特殊类型，用于识别清除操作
-
+            
             % 获取当前活动轴
             ax = self.axes_list(self.active_axes_index);
-
+            
             % 计算当前视图的中心点
             x_center = mean(ax.XLim);
             y_center = mean(ax.YLim);
-
+            
             % 计算ROI的大小（基于视图的1/4宽度）
             width = (ax.XLim(2) - ax.XLim(1)) / 4;
             height = (ax.YLim(2) - ax.YLim(1)) / 4;
-
+            
             % 创建矩形选区
             position = [x_center-width/2, y_center-height/2, width, height];
             self.regular_roi_obj = images.roi.Rectangle(ax, 'Position', position);
-
+            
             % 设置ROI属性 - 使用红色表示删除
             self.regular_roi_obj.Color = [1, 0, 0];  % 红色
             self.regular_roi_obj.LineWidth = 2;
             self.regular_roi_obj.Deletable = false; % 不允许通过UI删除
             self.regular_roi_obj.Label = 'Prcess Enter to Delete ROIs in range';
             self.regular_roi_obj.LabelVisible = 'hover';
-
+            
             % 设置轴状态为正在添加ROI
             ax.UserData.status = "adding_regular_roi";
         end
-
+        
         function finish_adding_regular_roi(self, apply_changes)
             % 检查是否正在添加ROI
             if ~self.adding_regular_roi || isempty(self.regular_roi_obj) || ~isvalid(self.regular_roi_obj)
                 return;
             end
-
+            
             if apply_changes
                 % 根据ROI类型将ROI转换为轮廓点或执行其他操作
                 switch lower(self.regular_roi_type)
@@ -447,19 +448,19 @@ classdef DrawROI < handle
                         % 清除选区内的ROI
                         rect_pos = self.regular_roi_obj.Position;
                         self.remove_rois_in_rect(rect_pos);
-
+                        
                     case 'circle'
                         % 对于圆形，正确获取中心点和半径
                         center = self.regular_roi_obj.Center;
                         radius = self.regular_roi_obj.Radius;
-
+                        
                         % 创建圆形轮廓（用64个点表示）
                         theta = linspace(0, 2*pi, 64);
                         x = radius * cos(theta) + center(1);
                         y = radius * sin(theta) + center(2);
                         contour = [x', y'];
                         self.add_roi(contour);
-
+                        
                     case 'rectangle'
                         % 对于矩形，直接使用四个角点
                         position = self.regular_roi_obj.Position;
@@ -467,7 +468,7 @@ classdef DrawROI < handle
                         y1 = position(2);
                         x2 = position(1) + position(3);
                         y2 = position(2) + position(4);
-
+                        
                         contour = [
                             x1, y1;
                             x2, y1;
@@ -476,40 +477,40 @@ classdef DrawROI < handle
                             x1, y1
                             ];
                         self.add_roi(contour);
-
+                        
                     otherwise
                         error('不支持的ROI类型: %s', self.regular_roi_type);
                 end
             end
-
+            
             % 删除临时ROI对象
             delete(self.regular_roi_obj);
             self.regular_roi_obj = [];
-
+            
             % 重置标志
             self.adding_regular_roi = false;
             self.regular_roi_type = '';
-
+            
             % 恢复轴状态为idle
             self.axes_list(self.active_axes_index).UserData.status = "idle";
         end
-
-
+        
+        
         function cancel_adding_regular_roi(self)
             self.finish_adding_regular_roi(false);
         end
-
+        
         function is_adding = is_adding_regular_roi(self)
             is_adding = self.adding_regular_roi;
         end
-
+        
         function remove_rois_in_rect(self, rect_pos)
             % 获取矩形区域的边界
             x1 = rect_pos(1);
             y1 = rect_pos(2);
             x2 = x1 + rect_pos(3);
             y2 = y1 + rect_pos(4);
-
+            
             % 确定哪些ROI需要删除
             to_remove = [];
             for i = 1:length(self.roi_contours)
@@ -518,7 +519,7 @@ classdef DrawROI < handle
                     to_remove = [to_remove, i];
                 end
             end
-
+            
             % 从后向前删除ROI，避免索引变化问题
             to_remove = sort(to_remove, 'descend');
             for idx = to_remove
@@ -532,12 +533,12 @@ classdef DrawROI < handle
                         delete(self.roi_numbers{ax_idx}{idx});
                     end
                 end
-
+                
                 % 删除相关数据
                 self.roi_contours(idx) = [];
                 self.original_roi_contours(idx) = [];
                 self.roi_colors(idx) = [];
-
+                
                 for ax_idx = 1:length(self.axes_list)
                     self.roi_patches{ax_idx}(idx) = [];
                     if ~isempty(self.roi_numbers{ax_idx})
@@ -545,7 +546,7 @@ classdef DrawROI < handle
                     end
                 end
             end
-
+            
             % 如果删除了当前选中的ROI，重置选中状态
             if ~isempty(to_remove) && any(to_remove == self.selected_roi_idx)
                 self.selected_roi_idx = 0;
@@ -559,10 +560,10 @@ classdef DrawROI < handle
                 end
                 self.selected_roi_idx = new_idx;
             end
-
+            
             % 更新ROI编号
             self.update_roi_numbers();
-
+            
             % 更新UI显示
             labeled_mask = self.labeled_mask;
             binary_mask = labeled_mask > 0;
@@ -572,7 +573,7 @@ classdef DrawROI < handle
             if isprop(self.app, 'ROIRatioEditField')
                 self.app.ROIRatioEditField.Value = mean(binary_mask(:));
             end
-
+            
             % 提示删除的ROI数量
             if ~isempty(to_remove)
                 disp(['Removed ' num2str(length(to_remove)) ' ROIs']);
@@ -580,20 +581,20 @@ classdef DrawROI < handle
                 disp('No ROIs found within the rectangular region');
             end
         end
-
+        
         function is_in = is_roi_in_rect(self, roi_idx, x1, y1, x2, y2)
             % 检查ROI是否有任何点位于矩形区域内
             contour = self.roi_contours{roi_idx};
-
+            
             % 检查是否有任何轮廓点在矩形内
             any_point_in = any(contour(:,1) >= x1 & contour(:,1) <= x2 & ...
                 contour(:,2) >= y1 & contour(:,2) <= y2);
-
+            
             % 如果有任何点在矩形内，返回true
             is_in = any_point_in;
         end
     end
-
+    
     % ROI Management Methods
     methods
         function selecting_roi = select_roi(self, x, y)
@@ -612,7 +613,7 @@ classdef DrawROI < handle
                     end
                 end
             end
-
+            
             % 如果启用了拖拽模式且选中了ROI，则设置拖拽起始点和状态
             if selecting_roi && self.drag_enabled
                 self.is_dragging = true;
@@ -625,7 +626,7 @@ classdef DrawROI < handle
                 self.drag_start_y = y;
             end
         end
-
+        
         function delete_roi(self, x, y)
             idx = 0;
             for i = 1:length(self.roi_contours)
@@ -664,7 +665,7 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function delete_selected_roi(self)
             if self.selected_roi_idx > 0
                 for ax_idx = 1:length(self.axes_list)
@@ -696,7 +697,7 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function move_roi(self, dx, dy)
             if self.selected_roi_idx > 0
                 self.roi_contours{self.selected_roi_idx} = ...
@@ -728,7 +729,7 @@ classdef DrawROI < handle
                     end
                 end
             end
-
+            
             labeled_mask = self.labeled_mask;
             binary_mask = labeled_mask > 0;
             if isprop(self.app, 'ROIsEditField')
@@ -738,7 +739,7 @@ classdef DrawROI < handle
                 self.app.ROIRatioEditField.Value =   mean(binary_mask(:));
             end
         end
-
+        
         function move_selected_roi(self, dx, dy)
             if self.selected_roi_idx > 0
                 self.roi_contours{self.selected_roi_idx} = ...
@@ -756,7 +757,7 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function clear_all_rois(self)
             if self.is_adding_regular_roi()
                 self.cancel_adding_regular_roi()
@@ -783,26 +784,26 @@ classdef DrawROI < handle
             end
             self.color_index = 1; % 重置颜色索引
         end
-
+        
         function add_roi(self, contour)
             current_level = self.dilate_level;
-
+            
             % 添加ROI轮廓
             self.roi_contours{end+1} = contour;
             self.original_roi_contours{end+1} = contour;
-
+            
             % 为新的ROI设置颜色并存储
             roi_color = self.get_current_roi_color();
             self.roi_colors{end+1} = roi_color;
-
+            
             % 更新ROI图形对象和计数
             self.update_roi_patches();
-
+            
             % 如果启用了ROI编号显示，更新编号
             if self.showRoiNumber
                 self.update_roi_numbers();
             end
-
+            
             % 如果有膨胀/收缩设置，应用到新ROI
             if current_level ~= 0
                 self.dilate_single_roi(length(self.roi_contours), current_level);
@@ -812,9 +813,9 @@ classdef DrawROI < handle
             if roi_idx < 1 || roi_idx > length(self.original_roi_contours)
                 return;
             end
-        
+            
             original_contour = self.original_roi_contours{roi_idx};
-        
+            
             if level == 0
                 self.roi_contours{roi_idx} = original_contour;
             else
@@ -857,7 +858,7 @@ classdef DrawROI < handle
                         end
                     end
                     % 转换坐标格式: [行,列] -> [x,y]
-                    new_contour = main_boundary(:, [2,1]); 
+                    new_contour = main_boundary(:, [2,1]);
                 end
                 
                 % 应用新轮廓（确保在图像范围内）
@@ -867,7 +868,7 @@ classdef DrawROI < handle
                 end
                 self.roi_contours{roi_idx} = new_contour;
             end
-        
+            
             % 更新显示（包含空轮廓处理）
             for ax_idx = 1:length(self.axes_list)
                 if roi_idx <= length(self.roi_patches{ax_idx}) && isvalid(self.roi_patches{ax_idx}{roi_idx})
@@ -905,7 +906,7 @@ classdef DrawROI < handle
                 self.app.ROIRatioEditField.Value =   mean(self.app.DrawROI.binary_mask(:));
             end
         end
-
+        
         function reorder_rois(self)
             if isempty(self.roi_contours)
                 return
@@ -954,7 +955,7 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function set.showRoiNumber(self, value)
             self.showRoiNumber = value;
             if value
@@ -963,7 +964,7 @@ classdef DrawROI < handle
                 self.hide_roi_numbers();
             end
         end
-
+        
         function set.roi_number_fontSize(self, value)
             self.roi_number_fontSize = value;
             if self.showRoiNumber && ~isempty(self.roi_numbers{1})
@@ -976,7 +977,7 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function set.roi_number_fontColor(self, value)
             self.roi_number_fontColor = value;
             if self.showRoiNumber && ~isempty(self.roi_numbers{1})
@@ -989,7 +990,7 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function show_roi_numbers(self)
             self.hide_roi_numbers();
             for i = 1:length(self.roi_contours)
@@ -999,7 +1000,7 @@ classdef DrawROI < handle
                         'Color', self.roi_number_fontColor , 'FontWeight', 'bold', 'FontUnits','points',...
                         'FontSize', self.roi_number_fontSize, ...
                         'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle','Clipping','on');
-
+                    
                     % 根据当前可见性设置
                     if ~self.roi_visibility(ax_idx)
                         set(self.roi_numbers{ax_idx}{i}, 'Visible', 'off');
@@ -1007,13 +1008,13 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function update_roi_numbers(self)
             if self.showRoiNumber
                 self.show_roi_numbers();
             end
         end
-
+        
         function hide_roi_numbers(self)
             for ax_idx = 1:length(self.axes_list)
                 for i = 1:length(self.roi_numbers{ax_idx})
@@ -1024,7 +1025,7 @@ classdef DrawROI < handle
                 self.roi_numbers{ax_idx} = {};
             end
         end
-
+        
         % 拖拽ROI相关方法
         function start_drag(self, x, y)
             if self.drag_enabled
@@ -1033,7 +1034,7 @@ classdef DrawROI < handle
                 self.drag_start_y = y;
             end
         end
-
+        
         function drag_move(self, x, y)
             if self.is_dragging
                 dx = x - self.drag_start_x;
@@ -1045,11 +1046,11 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function stop_drag(self)
             self.is_dragging = false;
         end
-
+        
         % 设置拖拽模式
         function set_drag_mode(self, enabled)
             self.drag_enabled = enabled;
@@ -1063,12 +1064,12 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         % 获取当前拖拽状态
         function dragging = is_drag_active(self)
             dragging = self.is_dragging;
         end
-
+        
         function load_roi_file(self, filepath)
             % Load ROI mask from various file formats
             [~, ~, ext] = fileparts(filepath);
@@ -1079,8 +1080,14 @@ classdef DrawROI < handle
                     if length(unique(mask)) == 2
                         mask = logical(mask);
                     end
-                    self.load_from_mask(mask);
-
+                    self.binary_mask2 = mask;
+                    for ax_idx = 1:length(self.axes_list)
+                        
+                        imshow(self.binary_mask2, 'Parent', self.axes_list(ax_idx));
+                        
+                    end
+                    % self.load_from_mask(mask);
+                    
                 case {'.png', '.jpg', '.jpeg', '.tif', '.tiff'}
                     % Load mask from image file
                     imMask = imread(filepath);
@@ -1096,8 +1103,14 @@ classdef DrawROI < handle
                         % RGB image
                         mask = logical(rgb2gray(imMask));
                     end
-                    self.load_from_mask(mask);
-
+                    % self.load_from_mask(mask);
+                    self.binary_mask2 = mask;
+                    for ax_idx = 1:length(self.axes_list)
+                        
+                        imshow(self.binary_mask2, 'Parent', self.axes_list(ax_idx));
+                        
+                    end
+                    
                 case {'.mat'}
                     % Load variable from .mat file
                     loaded_data = load(filepath);
@@ -1135,7 +1148,7 @@ classdef DrawROI < handle
                         disp(ME.getReport('extended'));
                     end
             end
-
+            
             % 更新 ROI 数目显示
             labeled_mask = self.labeled_mask;
             binary_mask = labeled_mask > 0;
@@ -1146,12 +1159,12 @@ classdef DrawROI < handle
                 self.app.ROIRatioEditField.Value =   mean(binary_mask(:));
             end
         end
-
+        
         function load_from_mask(self, mask)
             % Convert labeled mask to ROI contours
             self.clear_all_rois();
             self.mask_size = size(mask);
-
+            
             % 如果是二值掩码，转换为标签掩码
             if islogical(mask)
                 [labeled_mask, num_regions] = bwlabel(mask);
@@ -1159,7 +1172,7 @@ classdef DrawROI < handle
                 labeled_mask = mask;
                 num_regions = max(labeled_mask(:));
             end
-
+            
             % 提取每个 ROI 的轮廓
             for i = 1:num_regions
                 roi_mask = labeled_mask == i;
@@ -1170,16 +1183,16 @@ classdef DrawROI < handle
                     self.add_roi(contour);
                 end
             end
-
+            
             % 更新 ROI 编号显示
             if self.showRoiNumber
                 self.show_roi_numbers();
             end
-
+            
             disp(['Loaded ' num2str(num_regions) ' ROIs from mask.']);
         end
     end
-
+    
     % Visualization Methods
     methods
         function update_roi_patches(self)
@@ -1189,9 +1202,9 @@ classdef DrawROI < handle
                 if isempty(self.roi_patches{ax_idx})
                     hold(self.axes_list(ax_idx), 'on');
                 end
-
-
-
+                
+                
+                
                 % 获取当前ROI的颜色
                 if idx <= length(self.roi_colors) && ~isempty(self.roi_colors{idx})
                     roi_color = self.roi_colors{idx};
@@ -1199,7 +1212,7 @@ classdef DrawROI < handle
                     roi_color = self.get_current_roi_color();
                     self.roi_colors{idx} = roi_color;
                 end
-
+                
                 % 设置背景色
                 face_color = 'none';
                 face_alpha = 0;
@@ -1207,27 +1220,27 @@ classdef DrawROI < handle
                     face_color = roi_color;
                     face_alpha = self.mask_opacity;
                 end
-
-
-
+                
+                
+                
                 % 创建新的patch对象
                 self.roi_patches{ax_idx}{idx} = patch(self.axes_list(ax_idx), ...
                     self.roi_contours{idx}(:,1), self.roi_contours{idx}(:,2), ...
                     'y', 'FaceColor', face_color, 'EdgeColor', roi_color, ...
                     'LineWidth', 1, 'FaceAlpha', face_alpha);
-
+                
                 % 避免自动变为 'auto' 模式
                 self.axes_list(ax_idx).YLimMode = 'manual';
                 self.axes_list(ax_idx).XLimMode = 'manual';
-
+                
                 % 根据当前可见性设置
                 if ~self.roi_visibility(ax_idx)
                     set(self.roi_patches{ax_idx}{idx}, 'Visible', 'off');
                 end
-
-
+                
+                
             end
-
+            
             % 更新ROI计数显示
             labeled_mask = self.labeled_mask;
             binary_mask = labeled_mask > 0;
@@ -1241,13 +1254,13 @@ classdef DrawROI < handle
             if self.showRoiNumber
                 center = mean(self.roi_contours{idx}, 1);
                 for ax_idx = 1:length(self.axes_list)
-
-
+                    
+                    
                     self.roi_numbers{ax_idx}{idx} = text(self.axes_list(ax_idx), center(1), center(2), num2str(idx), ...
                         'Color', self.roi_number_fontColor, 'FontWeight', 'bold', 'FontUnits','points',...
                         'FontSize', self.roi_number_fontSize, ...
                         'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle','Clipping','on');
-
+                    
                     % 根据当前可见性设置
                     if ~self.roi_visibility(ax_idx)
                         set(self.roi_numbers{ax_idx}{idx}, 'Visible', 'off');
@@ -1255,10 +1268,10 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function update_all_roi_patches(self)
             % 更新所有的ROI patches
-
+            
             % 先清除现有的所有ROI patches和numbers
             for ax_idx = 1:length(self.axes_list)
                 for i = 1:length(self.roi_patches{ax_idx})
@@ -1267,7 +1280,7 @@ classdef DrawROI < handle
                     end
                 end
                 self.roi_patches{ax_idx} = {};
-
+                
                 if self.showRoiNumber
                     for i = 1:length(self.roi_numbers{ax_idx})
                         if ~isempty(self.roi_numbers{ax_idx}{i}) && isvalid(self.roi_numbers{ax_idx}{i})
@@ -1276,22 +1289,22 @@ classdef DrawROI < handle
                     end
                     self.roi_numbers{ax_idx} = {};
                 end
-
+                
                 % 确保图表处于hold状态
                 hold(self.axes_list(ax_idx), 'on');
             end
-
+            
             % 重新绘制所有ROI patches
             for roi_idx = 1:length(self.roi_contours)
                 % 确保有足够的颜色记录
                 if roi_idx > length(self.roi_colors)
                     self.roi_colors{roi_idx} = self.get_current_roi_color();
                 end
-
+                
                 for ax_idx = 1:length(self.axes_list)
                     % 使用ROI的存储颜色
                     roi_color = self.roi_colors{roi_idx};
-
+                    
                     % 设置背景色
                     face_color = 'none';
                     face_alpha = 0;
@@ -1299,27 +1312,27 @@ classdef DrawROI < handle
                         face_color = roi_color;
                         face_alpha = self.mask_opacity;
                     end
-
+                    
                     self.roi_patches{ax_idx}{roi_idx} = patch(self.axes_list(ax_idx), ...
                         self.roi_contours{roi_idx}(:,1), self.roi_contours{roi_idx}(:,2), ...
                         'y', 'FaceColor', face_color, 'EdgeColor', roi_color, ...
                         'LineWidth', 1, 'FaceAlpha', face_alpha);
-
+                    
                     % 避免自动变为 'auto' 模式
                     self.axes_list(ax_idx).YLimMode = 'manual';
                     self.axes_list(ax_idx).XLimMode = 'manual';
-
+                    
                     % 根据当前可见性设置
                     if ~self.roi_visibility(ax_idx)
                         set(self.roi_patches{ax_idx}{roi_idx}, 'Visible', 'off');
                     end
-
+                    
                     % 如果是被选中的ROI，设置高亮
                     if roi_idx == self.selected_roi_idx
                         set(self.roi_patches{ax_idx}{roi_idx}, 'EdgeColor', self.selected_roi_color, 'LineWidth', 2);
                     end
                 end
-
+                
                 % 更新ROI编号显示
                 if self.showRoiNumber
                     center = mean(self.roi_contours{roi_idx}, 1);
@@ -1328,7 +1341,7 @@ classdef DrawROI < handle
                             'Color', self.roi_number_fontColor , 'FontWeight', 'bold', 'FontUnits','points',...
                             'FontSize', self.roi_number_fontSize, ...
                             'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle','Clipping','on');
-
+                        
                         % 根据当前可见性设置
                         if ~self.roi_visibility(ax_idx)
                             set(self.roi_numbers{ax_idx}{roi_idx}, 'Visible', 'off');
@@ -1336,7 +1349,7 @@ classdef DrawROI < handle
                     end
                 end
             end
-
+            
             % 更新ROI数量显示
             labeled_mask = self.labeled_mask;
             binary_mask = labeled_mask > 0;
@@ -1347,17 +1360,17 @@ classdef DrawROI < handle
                 self.app.ROIRatioEditField.Value =   mean(binary_mask(:));
             end
         end
-
+        
         function update_roi_color(self)
             % 仅更新所有ROI的颜色（边缘和编号），不改变其他属性
-
+            
             % 如果使用相同颜色且不是随机模式，确保roi_colors数组使用正确的颜色
             if ~self.use_random_color
                 for i = 1:length(self.roi_contours)
                     self.roi_colors{i} = self.mask_color;
                 end
             end
-
+            
             % 更新每个ROI的边缘颜色
             for roi_idx = 1:length(self.roi_contours)
                 for ax_idx = 1:length(self.axes_list)
@@ -1370,7 +1383,7 @@ classdef DrawROI < handle
                             edge_color = self.roi_colors{roi_idx};
                             set(self.roi_patches{ax_idx}{roi_idx}, 'EdgeColor', edge_color);
                         end
-
+                        
                         % 更新背景色
                         if self.show_background
                             set(self.roi_patches{ax_idx}{roi_idx}, 'FaceColor', edge_color, 'FaceAlpha', self.mask_opacity);
@@ -1380,7 +1393,7 @@ classdef DrawROI < handle
                     end
                 end
             end
-
+            
             % 如果启用了ROI编号显示，更新每个编号的颜色
             if self.showRoiNumber
                 for ax_idx = 1:length(self.axes_list)
@@ -1392,7 +1405,7 @@ classdef DrawROI < handle
                 end
             end
         end
-
+        
         function labeled_mask = generate_labeled_mask(self)
             labeled_mask = zeros(self.mask_size);
             for i = 1:length(self.roi_contours)
@@ -1419,7 +1432,7 @@ classdef DrawROI < handle
             end
         end
     end
-
+    
     % ROI 编辑相关方法
     methods
         function start_edit_roi(self, x, y)
@@ -1428,7 +1441,7 @@ classdef DrawROI < handle
                 self.finish_edit_roi(true);
                 return;
             end
-
+            
             % 如果当前处于拖拽模式，不允许编辑ROI
             if self.drag_enabled
                 return;
@@ -1442,49 +1455,49 @@ classdef DrawROI < handle
                 if inpolygon(x, y, self.roi_contours{i}(:,1), self.roi_contours{i}(:,2))
                     self.editing_roi_idx = i;
                     self.editing_roi = true;
-
+                    
                     % 只隐藏当前活动轴上的ROI patch对象
                     if ~isempty(self.roi_patches{self.active_axes_index}{i}) && isvalid(self.roi_patches{self.active_axes_index}{i})
                         set(self.roi_patches{self.active_axes_index}{i}, 'Visible', 'off');
                     end
-
+                    
                     % 获取当前ROI的颜色
                     roi_color = self.roi_colors{i};
-
+                    
                     % 在活动轴上创建Freehand ROI对象，使用相同的颜色设置
                     ax = self.axes_list(self.active_axes_index);
                     position = self.roi_contours{i};
                     self.freehand_roi = images.roi.Freehand(ax, 'Position', position, 'Color', roi_color, 'LineWidth', 2);
-
-
-
+                    
+                    
+                    
                     % 设置轴状态为正在编辑ROI
                     ax.UserData.status = "roi_editing";
-
+                    
                     break;
                 end
             end
-
+            
         end
-
+        
         function finish_edit_roi(self, apply_changes)
             if ~self.editing_roi || isempty(self.freehand_roi) || ~isvalid(self.freehand_roi)
                 return;
             end
-
+            
             if apply_changes
                 % 获取修改后的ROI边界
                 new_position = self.freehand_roi.Position;
-
+                
                 % 更新ROI轮廓
                 self.roi_contours{self.editing_roi_idx} = new_position;
                 self.original_roi_contours{self.editing_roi_idx} = new_position;
-
+                
                 % 如果有扩展/收缩，重新应用
                 if self.dilate_level ~= 0
                     self.dilate_single_roi(self.editing_roi_idx, self.dilate_level);
                 end
-
+                
                 % 更新所有轴上的显示
                 for ax_idx = 1:length(self.axes_list)
                     if ~isempty(self.roi_patches{ax_idx}{self.editing_roi_idx}) && isvalid(self.roi_patches{ax_idx}{self.editing_roi_idx})
@@ -1493,7 +1506,7 @@ classdef DrawROI < handle
                             'YData', self.roi_contours{self.editing_roi_idx}(:,2), ...
                             'Visible', 'on');
                     end
-
+                    
                     % 更新ROI编号位置（如果存在）
                     if length(self.roi_numbers{ax_idx}) >= self.editing_roi_idx && ...
                             ~isempty(self.roi_numbers{ax_idx}{self.editing_roi_idx}) && ...
@@ -1510,7 +1523,7 @@ classdef DrawROI < handle
                     if ~isempty(self.roi_patches{ax_idx}{self.editing_roi_idx}) && isvalid(self.roi_patches{ax_idx}{self.editing_roi_idx})
                         set(self.roi_patches{ax_idx}{self.editing_roi_idx}, 'Visible', 'on');
                     end
-
+                    
                     % 恢复ROI编号显示（如果存在）
                     if length(self.roi_numbers{ax_idx}) >= self.editing_roi_idx && ...
                             ~isempty(self.roi_numbers{ax_idx}{self.editing_roi_idx}) && ...
@@ -1520,16 +1533,16 @@ classdef DrawROI < handle
                     end
                 end
             end
-
+            
             % 删除Freehand对象
             if ~isempty(self.freehand_roi) && isvalid(self.freehand_roi)
                 delete(self.freehand_roi);
             end
             self.freehand_roi = [];
-
+            
             % 重置编辑状态
             self.editing_roi = false;
-
+            
             % 恢复轴状态为空闲
             self.axes_list(self.active_axes_index).UserData.status = "idle";
             if self.temp_dilate_level ~= 0
@@ -1537,11 +1550,11 @@ classdef DrawROI < handle
                 self.temp_dilate_level = 0;
             end
         end
-
+        
         function cancel_edit_roi(self)
             self.finish_edit_roi(false);
         end
-
+        
         function is_editing = is_roi_editing(self)
             is_editing = self.editing_roi;
         end

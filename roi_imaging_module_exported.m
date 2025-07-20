@@ -953,7 +953,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
                 % Write the table to Excel file
                 writetable(roiTable, fullfile(app.last_seg_tiff_folder, ...
-                    [app.img_seg_fname, '_roiMask.xlsx']), 'Sheet', 'Sheet1');
+                    [app.img_seg_fname, '_roiImagingMask.xlsx']), 'Sheet', 'Sheet1');
 
                 %% save roi mask
                 % save matfile
@@ -962,12 +962,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
                 data.dilate_level = app.DrawROI.dilate_level;
                 data.roi_labeled_mask = uint16(app.DrawROI.generate_labeled_mask());
     
-                save(fullfile(app.last_seg_tiff_folder,[app.img_seg_fname,'_roiMask.mat']), ...
+                save(fullfile(app.last_seg_tiff_folder,[app.img_seg_fname,'_roiImagingMask.mat']), ...
                     "-struct", ...
                     "data");
 
                 % save roi mask to imageJ
-                utils.save_roiContour_to_imagej(app.DrawROI.roi_contours,fullfile(app.last_seg_tiff_folder,strcat(app.img_seg_fname,'_roiMask.zip')));
+                utils.save_roiContour_to_imagej(app.DrawROI.roi_contours,fullfile(app.last_seg_tiff_folder,strcat(app.img_seg_fname,'_roiImagingMask.zip')));
 
                 app.UIAxes.XLim = app.UIAxes.UserData.origin_xlim;
                 app.UIAxes.YLim = app.UIAxes.UserData.origin_ylim;
@@ -980,7 +980,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
     
                 exportgraphics(app.UIAxes, ...
                     fullfile(app.last_seg_tiff_folder, ...
-                    [app.img_seg_fname,'_roiMask.png']), ...
+                    [app.img_seg_fname,'_roiImagingMask.png']), ...
                     'Resolution',600);
             catch ME
                 % 捕获并显示错误信息
@@ -1631,7 +1631,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Check if DrawROI object and properties exist before saving
             if isvalid(app.DrawROI) 
                 % 每次ROI成像，自动生成下一个文件的文件名，用来保存文件
-                if ~isempty(app.hSI) || isvalid(app.hSI)
+                if ~isempty(app.hSI) || any(isvalid(app.hSI))
                     logCounter = app.hSI.hScan2D.logFileCounter;
                     app.img_seg_fname = sprintf('file_%05d',logCounter);
                     app.last_seg_tiff_folder = app.hSI.hScan2D.logFilePath;
@@ -1656,18 +1656,23 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             reset(app.awgDevice);
             
 
+            if isempty(app.DrawROI.binary_mask2)
+                mask = app.DrawROI.binary_mask;
+            else
+                mask = app.DrawROI.binary_mask2;
+            end
             % Check clock mode and configure AWG accordingly
             if strcmpi(app.scannerConfig.clockMode, 'Line Clock')
                 % --- Line Clock Logic ---
                 awg_output_roi_lines_pulse(app);
-
+    
             elseif strcmpi(app.scannerConfig.clockMode, 'Frame Clock')
                 % --- Frame Clock Logic (Original) ---
                 % Determine ROI mask based on pulse logic
                 if ~app.waveformConfig.pulseOn
-                    app.roiMask = utils.active_low_logic(app.DrawROI.binary_mask);
+                    app.roiMask = utils.active_low_logic(mask);
                 else
-                    app.roiMask = app.DrawROI.binary_mask;
+                    app.roiMask = mask;
                 end
 
                 % generate ROI pulse for the entire frame
@@ -1762,7 +1767,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             roiData.onlyKeepZs(z);
             roiData.onlyKeepChannels(channel);
 
-            img = app.refImg;
+            img = app.img_seg_data;
             % roiData的imageDate替换为指定的图像，图像需要先进行根据lut，避免看不到图像
             lut = single(app.hSI.hChannels.channelLUT{channel});
             black = lut(1);
@@ -2012,7 +2017,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create UIFigure and hide until all components are created
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.AutoResizeChildren = 'off';
-            app.UIFigure.Position = [99.8571428571428 99.8571428571428 864 670];
+            app.UIFigure.Position = [92.3333333333333 92.3333333333333 864 670];
             app.UIFigure.Name = 'ROI Imaging Module';
             app.UIFigure.Resize = 'off';
             app.UIFigure.CloseRequestFcn = createCallbackFcn(app, @UIFigureCloseRequest, true);
@@ -2139,7 +2144,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.StructureTypeDropDown = uidropdown(app.NeuronSegmentationPanel);
             app.StructureTypeDropDown.Items = {'normal imaging', '1/10 Imaging'};
             app.StructureTypeDropDown.Position = [179 114 79 22];
-            app.StructureTypeDropDown.Value = '1/10 Imaging';
+            app.StructureTypeDropDown.Value = 'normal imaging';
 
             % Create norm_blocksizeEditFieldLabel
             app.norm_blocksizeEditFieldLabel = uilabel(app.NeuronSegmentationPanel);
@@ -2338,8 +2343,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.UIAxes.XLimitMethod = 'tight';
             app.UIAxes.YLimitMethod = 'tight';
             app.UIAxes.ZLimitMethod = 'tight';
-            app.UIAxes.XTick = [];
-            app.UIAxes.YTick = [];
+            app.UIAxes.GridLineWidth = 1;
+            app.UIAxes.MinorGridLineWidth = 1;
             app.UIAxes.BoxStyle = 'full';
             app.UIAxes.LineWidth = 1;
             app.UIAxes.Box = 'on';
