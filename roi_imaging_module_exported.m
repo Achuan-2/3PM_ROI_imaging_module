@@ -7,12 +7,12 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         SaveConfigMenu                matlab.ui.container.Menu
         LoadConfigMenu                matlab.ui.container.Menu
         ViewMenu                      matlab.ui.container.Menu
-        AWGSimulateModeMenu           matlab.ui.container.Menu
         AWGSettingsMenu               matlab.ui.container.Menu
         ScannerSettingsMenu           matlab.ui.container.Menu
         ROIMaskSettingsMenu           matlab.ui.container.Menu
         PowerCaculateMenu             matlab.ui.container.Menu
         AddonsMenu                    matlab.ui.container.Menu
+        AWGSimulateModeMenu           matlab.ui.container.Menu
         AWGControlMenu                matlab.ui.container.Menu
         ROIImagingSimulationMenu      matlab.ui.container.Menu
         HelpMenu                      matlab.ui.container.Menu
@@ -2042,11 +2042,6 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             app.ViewMenu = uimenu(app.UIFigure);
             app.ViewMenu.Text = 'View';
 
-            % Create AWGSimulateModeMenu
-            app.AWGSimulateModeMenu = uimenu(app.ViewMenu);
-            app.AWGSimulateModeMenu.MenuSelectedFcn = createCallbackFcn(app, @AWGSimulateModeMenuSelected, true);
-            app.AWGSimulateModeMenu.Text = 'AWG Simulate Mode';
-
             % Create AWGSettingsMenu
             app.AWGSettingsMenu = uimenu(app.ViewMenu);
             app.AWGSettingsMenu.MenuSelectedFcn = createCallbackFcn(app, @AWGSettingsMenuSelected, true);
@@ -2070,6 +2065,11 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             % Create AddonsMenu
             app.AddonsMenu = uimenu(app.UIFigure);
             app.AddonsMenu.Text = ' Add-ons ';
+
+            % Create AWGSimulateModeMenu
+            app.AWGSimulateModeMenu = uimenu(app.AddonsMenu);
+            app.AWGSimulateModeMenu.MenuSelectedFcn = createCallbackFcn(app, @AWGSimulateModeMenuSelected, true);
+            app.AWGSimulateModeMenu.Text = 'AWG Simulate Mode';
 
             % Create AWGControlMenu
             app.AWGControlMenu = uimenu(app.AddonsMenu);
