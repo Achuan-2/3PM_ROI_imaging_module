@@ -1,4 +1,4 @@
 /test/
-/cellposeModels/
+cellposeModels/
 *.pyc
 /config.json
