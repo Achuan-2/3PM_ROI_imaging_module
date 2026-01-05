@@ -9,14 +9,12 @@
 - **Imaging System**
 
   - Uses ScanImage as the three-photon imaging system.
-- **Software**
+- **Matlab** >= R2022b (we use Matlab R2023b)
+  The following toolboxes are required:
 
-  - Matlab >= R2022b (we use Matlab R2023b)  
-    The following toolboxes are required:
-
-    - Instrument Control Toolbox
-    - [IVI and VXIplug&play Driver Support from Instrument Control Toolbox](https://www.mathworks.com/hardware-support/ivi-vxiplug-play-instrument-driver.html)
-  - Python v3.10
+  - Instrument Control Toolbox
+  - [IVI and VXIplug&play Driver Support from Instrument Control Toolbox](https://www.mathworks.com/hardware-support/ivi-vxiplug-play-instrument-driver.html)
+- **Python** v3.10
 
 ### Install Cellpose-SAM
 
