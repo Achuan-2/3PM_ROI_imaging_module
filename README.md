@@ -7,7 +7,7 @@ Three-photon microscopy (3PM) has extended optical imaging beyond the reach of t
 ## Configuration and usage guides
 
 1. **Hardware configuration**: [ROI imaging module hardware setup guide](ROI_imaging_module_hardware/README.md)
-2. **Software installation and usage**: [ROI imaging control software installation and user manual](ROI_imaging_module_software/README.md)
+2. **Software installation and usage**: [ROI imaging module software installation and user manual](ROI_imaging_module_software/README.md)
 
 ## Citation
 
