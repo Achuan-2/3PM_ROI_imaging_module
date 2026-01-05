@@ -248,10 +248,3 @@ Click <kbd>Select Estimator</kbd>​ and choose `RIMAMotionEstimator.m`.
 
 <img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105225453-yjqb397.png" />
 
-## Post-imaging data processing
-
-### Channel separation, periodic noise removal, and registration
-
-### Calcium signal extraction
-
-
