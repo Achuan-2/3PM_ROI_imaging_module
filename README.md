@@ -13,4 +13,4 @@ Three-photon microscopy (3PM) has extended optical imaging beyond the reach of t
 
 If you use the ROI imaging module or any code in your research, please cite the [paper](https://www.biorxiv.org/content/10.64898/2026.01.02.697343v1):
 
-> Su, J., Liu, S., Yang, S., Zhu, Y., Gu, X., Zhao, Y., Li, C., Zhang, M., Chen, A., Yu, H., & Li, B. (2026). A plug-and-play ROI imaging module and deep-learning denoising framework extend three-photon microscopy to 1.7 mm depth. https://doi.org/10.64898/2026.01.02.697343
+> Su, J., Liu, S., Yang, S., Zhu, Y., Gu, X., Zhao, Y., Li, C., Zhang, M., Chen, A., Yu, H., & Li, B. (2026). A plug-and-play ROI imaging module and deep-learning denoising framework extend three-photon microscopy to 1.7 mm depth. [https://doi.org/10.64898/2026.01.02.697343](https://doi.org/10.64898/2026.01.02.697343)
