@@ -53,7 +53,7 @@ python -m visdom.server -port 10000
 **Project Structure**
 
 ```
-OptiCal_denoising_model/
+
 ├── datasets/
 │   ├── sample_raw.tif             # Noisy input (multi-page TIFF)
 │   └── sample_ripple.tif          # Corresponding periodic noise (aligned)
