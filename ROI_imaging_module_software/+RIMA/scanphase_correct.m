@@ -4,6 +4,4 @@ function imgStack = scanphase_correct(imgStack,offset)
     else
         imgStack(2:2:end,1:end+offset,:)  = imgStack(2:2:end, 1-offset:end,:);
     end
-    % 注意不能是imgStack(2:2:end, :,:) =  circshift(imgStack(2:2:end,
-    % :,:),offset,2);会导致一侧有交错条纹
 end
