@@ -50,7 +50,7 @@ python -m visdom.server -port 10000
 ```
 
 
-**Project Structure**
+## Project Structure
 
 ```
 
