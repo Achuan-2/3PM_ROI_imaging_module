@@ -46,6 +46,7 @@ classdef ManualImageRegistrationApp < matlab.apps.AppBase
         ResetAllTransformationsButton   matlab.ui.control.Button
         AutoSaveCheckBox                matlab.ui.control.CheckBox
         SetCurrentasReferenceButton     matlab.ui.control.Button
+        UseZProjectionButton            matlab.ui.control.Button
     end
     
     % Internal properties (corresponding to original class properties)
@@ -108,6 +109,11 @@ classdef ManualImageRegistrationApp < matlab.apps.AppBase
         
         % 新增属性：显示参考图层的复选框
         showReference = true % 默认显示参考图层
+        
+        % 新增属性：Z投影图像
+        tiff_mean_img
+        tiff_max_img
+        tiff_std_img
     end
     
     % Callbacks that handle component events
@@ -255,80 +261,6 @@ classdef ManualImageRegistrationApp < matlab.apps.AppBase
             app.RotationSlider.Enable = 'off';
             app.ShearXSlider.Enable = 'off';
             app.ShearYSlider.Enable = 'off';
-        end
-        
-        % Startup dialog
-        function [fixedPath, movingPath] = showStartupDialog(~)
-            dlg = uifigure('Name', '图像配准参数', 'Position', [300, 300, 400, 200]);
-            
-            % 参考图像路径输入
-            uilabel(dlg, 'Text', '参考图像路径(可选):', 'Position', [20, 150, 120, 20]);
-            refPathEdit = uieditfield(dlg, 'Position', [140, 150, 180, 20]);
-            refBrowseBtn = uibutton(dlg, 'Text', '浏览...', 'Position', [330, 150, 50, 20], ...
-                'ButtonPushedFcn', @(btn,event) browseFile(refPathEdit));
-            
-            % 运动图像路径输入(必选)
-            uilabel(dlg, 'Text', '运动图像路径(必选):', 'Position', [20, 110, 120, 20]);
-            movPathEdit = uieditfield(dlg, 'Position', [140, 110, 180, 20]);
-            movBrowseBtn = uibutton(dlg, 'Text', '浏览...', 'Position', [330, 110, 50, 20], ...
-                'ButtonPushedFcn', @(btn,event) browseFile(movPathEdit));
-            
-            % 提示信息
-            uilabel(dlg, 'Text', '如不提供参考图像路径，将使用运动图像的第一帧作为参考', ...
-                'Position', [20, 70, 360, 20]);
-            
-            % 确定和取消按钮
-            confirmBtn = uibutton(dlg, 'Text', '确定', 'Position', [100, 30, 80, 30], ...
-                'ButtonPushedFcn', @confirmSelection);
-            cancelBtn = uibutton(dlg, 'Text', '取消', 'Position', [220, 30, 80, 30], ...
-                'ButtonPushedFcn', @cancelSelection);
-            
-            % 初始化返回值
-            fixedPath = '';
-            movingPath = '';
-            
-            % 等待用户做出选择
-            uiwait(dlg);
-            
-            % 嵌套函数：浏览文件
-            function browseFile(editField)
-                [filename, pathname] = uigetfile({'*.tif;*.tiff', 'TIFF Files (*.tif, *.tiff)'; ...
-                    '*.*', 'All Files (*.*)'});
-                if filename ~= 0
-                    fullpath = fullfile(pathname, filename);
-                    editField.Value = fullpath;
-                end
-            end
-            
-            % 嵌套函数：确认选择
-            function confirmSelection(~,~)
-                fixedPath = refPathEdit.Value;
-                movingPath = movPathEdit.Value;
-                
-                if isempty(movingPath)
-                    errordlg('请提供运动图像路径！', '错误');
-                    return;
-                end
-                
-                if ~isempty(fixedPath) && ~exist(fixedPath, 'file')
-                    errordlg('参考图像路径不存在！', '错误');
-                    return;
-                end
-                
-                if ~exist(movingPath, 'file')
-                    errordlg('运动图像路径不存在！', '错误');
-                    return;
-                end
-                
-                close(dlg);
-            end
-            
-            % 嵌套函数：取消选择
-            function cancelSelection(~,~)
-                fixedPath = '';
-                movingPath = '';
-                close(dlg);
-            end
         end
         
         % Toggle affine mode
@@ -794,6 +726,48 @@ classdef ManualImageRegistrationApp < matlab.apps.AppBase
                 app.fixed_layer.Visible = 'off';
             end
         end
+        
+        function useZProjection(app, ~)
+            if isempty(app.tiff_memmap)
+                errordlg('请先加载图像！', '错误');
+                return;
+            end
+            
+            % 计算Z投影
+            frameRange = ['1:' num2str(app.maxFrames)];
+            [app.tiff_mean_img, app.tiff_max_img, app.tiff_std_img] = calculateProjections(app.tiff_memmap, frameRange, false);
+            
+            % 让用户选择使用哪种投影
+            choice = questdlg('选择使用哪种投影作为参考图像:', ...
+                '选择投影类型', ...
+                'Mean (平均)', 'Max (最大)', 'STD (标准差)', 'Max (最大)');
+            
+            if isempty(choice)
+                return;
+            end
+            
+            switch choice
+                case 'Mean (平均)'
+                    app.fixedImage = app.tiff_mean_img;
+                case 'Max (最大)'
+                    app.fixedImage = app.tiff_max_img;
+                case 'STD (标准差)'
+                    app.fixedImage = app.tiff_std_img;
+            end
+            
+            % 更新显示
+            fixedImageAdjusted = imadjust(app.fixedImage);
+            fixedImageRGB = cat(3, zeros(size(app.fixedImage)), fixedImageAdjusted, zeros(size(app.fixedImage)));
+            
+            app.fixed_layer.CData = fixedImageRGB;
+            app.fixed_layer.AlphaData = fixedImageAdjusted * app.refAlpha;
+            
+            if ~app.showReference
+                app.fixed_layer.Visible = 'off';
+            end
+            
+            msgbox(['已使用 ' choice ' 投影作为参考图像'], '成功');
+        end
     end
     
     % Component initialization
@@ -803,13 +777,50 @@ classdef ManualImageRegistrationApp < matlab.apps.AppBase
         function createComponents(app)
             % Create UIFigure and hide until all components are created
             app.UIFigure = uifigure('Visible', 'off');
-            app.UIFigure.Position = [100 100 926 802];
+            app.UIFigure.Position = [100 100 926 880];
             app.UIFigure.Name = 'Manual Image Registration';
             app.UIFigure.KeyPressFcn = createCallbackFcn(app, @keyPressCallback, true);
             
+            % Create FixedImagePathLabel
+            app.FixedImagePathLabel = uilabel(app.UIFigure);
+            app.FixedImagePathLabel.Position = [20 840 120 20];
+            app.FixedImagePathLabel.Text = '参考图像路径(可选):';
+            
+            % Create FixedImagePathEdit
+            app.FixedImagePathEdit = uieditfield(app.UIFigure, 'text');
+            app.FixedImagePathEdit.Position = [140 840 450 20];
+            
+            % Create FixedImageBrowseButton
+            app.FixedImageBrowseButton = uibutton(app.UIFigure, 'push');
+            app.FixedImageBrowseButton.ButtonPushedFcn = createCallbackFcn(app, @browseFixedImage, true);
+            app.FixedImageBrowseButton.Position = [600 840 80 22];
+            app.FixedImageBrowseButton.Text = '浏览...';
+            
+            % Create MovingImagePathLabel
+            app.MovingImagePathLabel = uilabel(app.UIFigure);
+            app.MovingImagePathLabel.Position = [20 810 120 20];
+            app.MovingImagePathLabel.Text = '运动图像路径(必选):';
+            
+            % Create MovingImagePathEdit
+            app.MovingImagePathEdit = uieditfield(app.UIFigure, 'text');
+            app.MovingImagePathEdit.Position = [140 810 450 20];
+            
+            % Create MovingImageBrowseButton
+            app.MovingImageBrowseButton = uibutton(app.UIFigure, 'push');
+            app.MovingImageBrowseButton.ButtonPushedFcn = createCallbackFcn(app, @browseMovingImage, true);
+            app.MovingImageBrowseButton.Position = [600 810 80 22];
+            app.MovingImageBrowseButton.Text = '浏览...';
+            
+            % Create LoadImagesButton
+            app.LoadImagesButton = uibutton(app.UIFigure, 'push');
+            app.LoadImagesButton.ButtonPushedFcn = createCallbackFcn(app, @loadImages, true);
+            app.LoadImagesButton.Position = [690 825 100 30];
+            app.LoadImagesButton.Text = '加载图像';
+            app.LoadImagesButton.FontWeight = 'bold';
+            
             % Create ImageAxes
             app.ImageAxes = uiaxes(app.UIFigure);
-            app.ImageAxes.Position = [46 121 648 601];
+            app.ImageAxes.Position = [46 121 648 670];
             
             % Create FrameLabel
             app.FrameLabel = uilabel(app.UIFigure);
@@ -875,7 +886,7 @@ classdef ManualImageRegistrationApp < matlab.apps.AppBase
             % Create AffinePanel
             app.AffinePanel = uipanel(app.UIFigure);
             app.AffinePanel.Title = 'Affine Transformation Controls';
-            app.AffinePanel.Position = [720 121 185 601];
+            app.AffinePanel.Position = [720 121 185 670];
             
             % Create EnableAffineModeButton
             app.EnableAffineModeButton = uibutton(app.AffinePanel, 'state');
@@ -1007,6 +1018,12 @@ classdef ManualImageRegistrationApp < matlab.apps.AppBase
             app.SetCurrentasReferenceButton.ButtonPushedFcn = createCallbackFcn(app, @setCurrentAsReference, true);
             app.SetCurrentasReferenceButton.Position = [10 -50 150 30]; % Adjust if needed
             app.SetCurrentasReferenceButton.Text = 'Set Current as Reference';
+            
+            % Create UseZProjectionButton
+            app.UseZProjectionButton = uibutton(app.AffinePanel, 'push');
+            app.UseZProjectionButton.ButtonPushedFcn = createCallbackFcn(app, @useZProjection, true);
+            app.UseZProjectionButton.Position = [10 -90 150 30];
+            app.UseZProjectionButton.Text = 'Use Z Projection';
             
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';

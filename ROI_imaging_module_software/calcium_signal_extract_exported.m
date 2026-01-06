@@ -3,11 +3,8 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
     % Properties that correspond to app components
     properties (Access = public)
         UIFigure                      matlab.ui.Figure
-        FileMenu                      matlab.ui.container.Menu
-        LoadConfigMenu                matlab.ui.container.Menu
-        SaveConfigMenu                matlab.ui.container.Menu
-        SettingMenu                   matlab.ui.container.Menu
-        MaskSettingsMenu              matlab.ui.container.Menu
+        norm_blocksizeSpinner         matlab.ui.control.Spinner
+        norm_blocksizeSpinnerLabel    matlab.ui.control.Label
         ContrastSlider                matlab.ui.control.RangeSlider
         ContrastSlider_2Label         matlab.ui.control.Label
         ContrastSlider_2              matlab.ui.control.RangeSlider
@@ -15,7 +12,7 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
         neddrewriteCheckBox           matlab.ui.control.CheckBox
         SyncUIaxes1                   matlab.ui.control.Button
         SyncUIaxes2                   matlab.ui.control.Button
-        MaskSettingsButton            matlab.ui.control.Button
+        MasksettingsButton            matlab.ui.control.Button
         ROIIDLabel_2                  matlab.ui.control.Label
         SaveButton                    matlab.ui.control.Button
         windowsEditField              matlab.ui.control.NumericEditField
@@ -25,9 +22,6 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
         ShowROINumbersCheckBox        matlab.ui.control.CheckBox
         DragROIsButton                matlab.ui.control.StateButton
         UIAxesHomeButton_2            matlab.ui.control.Button
-        MeasureButton                 matlab.ui.control.Button
-        DiameterSpinner               matlab.ui.control.Spinner
-        DiameterSpinnerLabel          matlab.ui.control.Label
         ManualRegButton               matlab.ui.control.Button
         Spinner                       matlab.ui.control.Spinner
         Button_2                      matlab.ui.control.Button
@@ -99,12 +93,10 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
         Slider                        matlab.ui.control.Slider
         SaveAllButton                 matlab.ui.control.Button
         LoadTiffStackButton           matlab.ui.control.Button
-        RunSegButton                  matlab.ui.control.Button
-        ThresholdSpinner              matlab.ui.control.Spinner
-        ThresholdSpinnerLabel         matlab.ui.control.Label
-        ModelsDropDown                matlab.ui.control.DropDown
+        RunsegButton                  matlab.ui.control.Button
+        thresholdSpinner              matlab.ui.control.Spinner
+        thresholdSpinnerLabel         matlab.ui.control.Label
         ROIsEditFieldLabel            matlab.ui.control.Label
-        ModelsDropDownLabel           matlab.ui.control.Label
         ROIsEditField                 matlab.ui.control.NumericEditField
         SaveROIsButton                matlab.ui.control.Button
         LoadROIsButton                matlab.ui.control.Button
@@ -164,13 +156,12 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
         seg_adjust_enable;
         drawroi_enable logical = false;
 
-
-        Segmentation = components.Segmentation.empty;
+        Segmentation = components.SegmentationPy.empty;
     end
 
     methods
         function config_read(app)
-            text = fileread(fullfile(app.dir,'config.json'));
+            text = fileread(fullfile(app.dir,'config','config_signal_extract.json'));
             config = jsondecode(text);
 
             if isfield(config, 'last_tiff_path')
@@ -182,7 +173,7 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             config.last_tiff_path = app.last_selected_folder;
             json_data = jsonencode(config,'PrettyPrint',true);
             % disp(fullfile(app.dir,'config.json'));
-            fileID = fopen(fullfile(app.dir,'config.json'), 'w');
+            fileID = fopen(fullfile(app.dir,'config','config_signal_extract.json'), 'w');
             fprintf(fileID, "%s",json_data);
             fclose(fileID);
         end
@@ -603,32 +594,41 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
     methods (Access = private)
 
         function save_mask(app)
+
             try
+                % 构造导出文件夹，并确保存在
+                exportFolder = fullfile(app.last_selected_folder, app.tiff_filename);
+                if ~isfolder(exportFolder)
+                    [ok,msg] = mkdir(exportFolder);
+                    if ~ok
+                        error('Failed to create export folder: %s', msg);
+                    end
+                end
                 % save matfile
                 data.roi_contours = app.DrawROI.roi_contours;
                 data.original_roi_contours = app.DrawROI.original_roi_contours;
                 data.dilate_level = app.DrawROI.dilate_level;
                 data.roi_labeled_mask = uint16(app.DrawROI.generate_labeled_mask());
     
-                save(fullfile(app.last_selected_folder,[app.tiff_filename,'_roiMask.mat']), ...
+                save(fullfile(exportFolder,[app.tiff_filename,'_roiMask.mat']), ...
                     "-struct", ...
                     "data");
                 % imwrite(data.roi_labeled_mask,fullfile(app.last_selected_folder,[app.tiff_filename,'_roiMask.png']));
                 % save roi mask to imageJ
-                utils.save_roiContour_to_imagej(app.DrawROI.roi_contours,fullfile(app.last_selected_folder,strcat(app.tiff_filename,'_roiMask.zip')));
+                utils.save_roiContour_to_imagej(app.DrawROI.roi_contours,fullfile(exportFolder,strcat(app.tiff_filename,'_roiMask.zip')));
 
                 app.ImageUIAxes2.XLim = app.ImageUIAxes2.UserData.origin_xlim;
                 app.ImageUIAxes2.YLim = app.ImageUIAxes2.UserData.origin_ylim;
     
     
                 exportgraphics(app.ImageUIAxes2, ...
-                    fullfile(app.last_selected_folder, ...
+                    fullfile(exportFolder, ...
                     [app.tiff_filename,'_roiMask.pdf']), ...
                     'Resolution',600);
     
     
                 exportgraphics(app.ImageUIAxes2, ...
-                    fullfile(app.last_selected_folder, ...
+                    fullfile(exportFolder, ...
                     [app.tiff_filename,'_roiMask.png']), ...
                     'Resolution',600);
             catch ME
@@ -688,7 +688,21 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             set(app.UIFigure, 'WindowKeyReleaseFcn', @app.keyRelease);
             set(app.UIFigure, 'WindowScrollWheelFcn', @app.windowScrollWheel);
 
+            %% init Seg component
+            try
+                % python路径添加cellpose
+                folder = fullfile(app.dir,'\+components');
+                if count(py.sys.path,folder) == 0
+                    insert(py.sys.path,int32(0),folder );
+                end
+                py.importlib.import_module('pycellpose');
 
+                app.Segmentation = components.SegmentationPy();
+            catch ME
+                % 捕获并显示错误信息
+                errordlg(ME.message, 'Error');
+                fprintf(2,'%s\n', ME.getReport('extended'));
+            end
         end
 
         % Value changed function: Slider
@@ -897,8 +911,8 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             end
         end
 
-        % Button pushed function: RunSegButton
-        function RunSegButtonPushed(app, event)
+        % Button pushed function: RunsegButton
+        function RunsegButtonPushed(app, event)
 
             if ~app.seg_enable
                 return
@@ -910,10 +924,9 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             drawnow
 
 
-            model_type = app.ModelsDropDown.Value;
-            flow_threshold = app.ThresholdSpinner.Value;
-            cp = cellpose(Model=model_type);
-            labeled_mask = segmentCells2D(cp,app.tiff_seg_data,ImageCellDiameter=app.DiameterSpinner.Value,CellThreshold=0,FlowErrorThreshold=flow_threshold); %ImageCellDiameter=56
+            flow_threshold = app.thresholdSpinner.Value;
+            norm_blocksize = app.norm_blocksizeSpinner.Value; % 可以根据需要调整或添加 UI 控件
+            labeled_mask = app.Segmentation.run(app.tiff_seg_data, flow_threshold, norm_blocksize);
 
 
             app.MaskOnCheckBox.Value = true;
@@ -1069,16 +1082,23 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
                 if isempty(app.fig_trace) || ~isvalid(app.fig_trace) || isempty(app.fig_heatmap) || ~isvalid(app.fig_heatmap)
                     app.ExtractsignalButtonPushed();
                 end
-                
+                % 构造导出文件夹，并确保存在
+                exportFolder = fullfile(app.last_selected_folder, app.tiff_filename);
+                if ~isfolder(exportFolder)
+                    [ok,msg] = mkdir(exportFolder);
+                    if ~ok
+                        error('Failed to create export folder: %s', msg);
+                    end
+                end
 
                 exportgraphics(app.fig_trace, ...
-                    fullfile(app.last_selected_folder,[app.tiff_filename,'_PlotTraces.pdf']),'ContentType','vector');
+                    fullfile(app.last_selected_folder,app.tiff_filename,[app.tiff_filename,'_PlotTraces.pdf']),'ContentType','vector');
                 saveas(app.fig_trace, ...
-                    fullfile(app.last_selected_folder,[app.tiff_filename,'_PlotTrace.fig']));
+                    fullfile(app.last_selected_folder,app.tiff_filename,[app.tiff_filename,'_PlotTrace.fig']));
                 exportgraphics(app.fig_heatmap, ...
-                    fullfile(app.last_selected_folder,[app.tiff_filename,'_PlotHeatmap.pdf']),'ContentType','vector');
+                    fullfile(app.last_selected_folder,app.tiff_filename,[app.tiff_filename,'_PlotHeatmap.pdf']),'ContentType','vector');
                 saveas(app.fig_heatmap, ...
-                    fullfile(app.last_selected_folder,[app.tiff_filename,'_PlotHeatmap.fig']));
+                    fullfile(app.last_selected_folder,app.tiff_filename,[app.tiff_filename,'_PlotHeatmap.fig']));
 
                 % save data to mat
                 % data.roi_contours = app.DrawROI.roi_contours;
@@ -1089,13 +1109,13 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
                 data.dff_sig = app.signal_delta;
                 data.raw_corrected_sig = app.signal_raw_corrected;
                 data.zscore_sig = app.signal_zscore_delta;
-                save(fullfile(app.last_selected_folder,[app.tiff_filename,'_signalData.mat']), ...
+                save(fullfile(app.last_selected_folder,app.tiff_filename,[app.tiff_filename,'_signalData.mat']), ...
                     "-struct", ...
                     "data");
 
                 %% Save the extracted calcium signal as Excel
                 % extract filename
-                filename_excel = fullfile(app.last_selected_folder, [app.tiff_filename,'_signalData.xlsx']);
+                filename_excel = fullfile(app.last_selected_folder, app.tiff_filename,[app.tiff_filename,'_signalData.xlsx']);
                 % matrix to table
                 header = strcat('ROI_',  string(1:size(data.dff_sig,1)));
                 dff_table = array2table(data.dff_sig', 'VariableNames', header);
@@ -1493,11 +1513,11 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
         % Button pushed function: ManualRegButton
         function ManualRegButtonPushed(app, event)
             if isfile(app.tiff_path)
-                ManualImageRegistration(app.tiff_path);
+                ManualImageRegistrationApp([],app.tiff_path);
             end
         end
 
-        % Button pushed function: MeasureButton
+        % Callback function: not associated with a component
         function MeasureButtonPushed(app, event)
             imageViewer(app.tiff_seg_data);
         end
@@ -1542,12 +1562,6 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
                 errordlg(['Reorder ROIs error: ' ME.message], 'Error');
                 disp(ME.getReport('extended'));
             end
-        end
-
-        % Value changed function: ModelsDropDown
-        function ModelsDropDownValueChanged(app, event)
-            value = app.ModelsDropDown.Value;
-            
         end
 
         % Callback function
@@ -1628,12 +1642,12 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             end
         end
 
-        % Button pushed function: MaskSettingsButton
-        function MaskSettingsButtonPushed(app, event)
+        % Button pushed function: MasksettingsButton
+        function MasksettingsButtonPushed(app, event)
             app.ROIMaskSettingsApp=subapp.ROIMaskSettings(app);
         end
 
-        % Menu selected function: MaskSettingsMenu
+        % Callback function
         function MaskSettingsMenuSelected(app, event)
             app.ROIMaskSettingsApp=subapp.ROIMaskSettings(app);
         end
@@ -1651,9 +1665,9 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             app.ImageUIAxes1.YLim = app.ImageUIAxes2.YLim;
         end
 
-        % Value changed function: ThresholdSpinner
-        function ThresholdSpinnerValueChanged(app, event)
-            value = app.ThresholdSpinner.Value;
+        % Value changed function: thresholdSpinner
+        function thresholdSpinnerValueChanged(app, event)
+            value = app.thresholdSpinner.Value;
             
         end
 
@@ -1712,27 +1726,6 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             app.UIFigure.Name = 'Calcium Signal Extract';
             app.UIFigure.Resize = 'off';
             app.UIFigure.CloseRequestFcn = createCallbackFcn(app, @UIFigureCloseRequest, true);
-
-            % Create FileMenu
-            app.FileMenu = uimenu(app.UIFigure);
-            app.FileMenu.Text = 'File';
-
-            % Create LoadConfigMenu
-            app.LoadConfigMenu = uimenu(app.FileMenu);
-            app.LoadConfigMenu.Text = 'Load Config';
-
-            % Create SaveConfigMenu
-            app.SaveConfigMenu = uimenu(app.FileMenu);
-            app.SaveConfigMenu.Text = 'Save Config';
-
-            % Create SettingMenu
-            app.SettingMenu = uimenu(app.UIFigure);
-            app.SettingMenu.Text = 'Setting';
-
-            % Create MaskSettingsMenu
-            app.MaskSettingsMenu = uimenu(app.SettingMenu);
-            app.MaskSettingsMenu.MenuSelectedFcn = createCallbackFcn(app, @MaskSettingsMenuSelected, true);
-            app.MaskSettingsMenu.Text = 'Mask Settings';
 
             % Create ImageUIAxes2
             app.ImageUIAxes2 = uiaxes(app.UIFigure);
@@ -1821,12 +1814,6 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             app.ROIsEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ROIsEditField.Position = [693 676 51 22];
 
-            % Create ModelsDropDownLabel
-            app.ModelsDropDownLabel = uilabel(app.UIFigure);
-            app.ModelsDropDownLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ModelsDropDownLabel.Position = [677 46 44 22];
-            app.ModelsDropDownLabel.Text = 'Models';
-
             % Create ROIsEditFieldLabel
             app.ROIsEditFieldLabel = uilabel(app.UIFigure);
             app.ROIsEditFieldLabel.HorizontalAlignment = 'right';
@@ -1834,40 +1821,30 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             app.ROIsEditFieldLabel.Position = [656 676 28 22];
             app.ROIsEditFieldLabel.Text = 'ROIs';
 
-            % Create ModelsDropDown
-            app.ModelsDropDown = uidropdown(app.UIFigure);
-            app.ModelsDropDown.Items = {'cyto2', 'cyto'};
-            app.ModelsDropDown.ValueChangedFcn = createCallbackFcn(app, @ModelsDropDownValueChanged, true);
-            app.ModelsDropDown.Tooltip = {'segmentation model'};
-            app.ModelsDropDown.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ModelsDropDown.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
-            app.ModelsDropDown.Position = [732 46 81 22];
-            app.ModelsDropDown.Value = 'cyto2';
+            % Create thresholdSpinnerLabel
+            app.thresholdSpinnerLabel = uilabel(app.UIFigure);
+            app.thresholdSpinnerLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.thresholdSpinnerLabel.Position = [685 46 54 22];
+            app.thresholdSpinnerLabel.Text = 'threshold';
 
-            % Create ThresholdSpinnerLabel
-            app.ThresholdSpinnerLabel = uilabel(app.UIFigure);
-            app.ThresholdSpinnerLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ThresholdSpinnerLabel.Position = [826 46 58 22];
-            app.ThresholdSpinnerLabel.Text = 'Threshold';
+            % Create thresholdSpinner
+            app.thresholdSpinner = uispinner(app.UIFigure);
+            app.thresholdSpinner.Step = 0.05;
+            app.thresholdSpinner.LowerLimitInclusive = 'off';
+            app.thresholdSpinner.Limits = [0 3];
+            app.thresholdSpinner.ValueChangedFcn = createCallbackFcn(app, @thresholdSpinnerValueChanged, true);
+            app.thresholdSpinner.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.thresholdSpinner.Tooltip = {'set  higher to get more cells, in range from (0,3]'};
+            app.thresholdSpinner.Position = [757 46 55 22];
+            app.thresholdSpinner.Value = 0.4;
 
-            % Create ThresholdSpinner
-            app.ThresholdSpinner = uispinner(app.UIFigure);
-            app.ThresholdSpinner.Step = 0.05;
-            app.ThresholdSpinner.LowerLimitInclusive = 'off';
-            app.ThresholdSpinner.Limits = [0 3];
-            app.ThresholdSpinner.ValueChangedFcn = createCallbackFcn(app, @ThresholdSpinnerValueChanged, true);
-            app.ThresholdSpinner.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ThresholdSpinner.Tooltip = {'set  higher to get more cells, in range from (0,3]'};
-            app.ThresholdSpinner.Position = [898 46 55 22];
-            app.ThresholdSpinner.Value = 0.1;
-
-            % Create RunSegButton
-            app.RunSegButton = uibutton(app.UIFigure, 'push');
-            app.RunSegButton.ButtonPushedFcn = createCallbackFcn(app, @RunSegButtonPushed, true);
-            app.RunSegButton.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
-            app.RunSegButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.RunSegButton.Position = [578 45 88 23];
-            app.RunSegButton.Text = 'Run Seg';
+            % Create RunsegButton
+            app.RunsegButton = uibutton(app.UIFigure, 'push');
+            app.RunsegButton.ButtonPushedFcn = createCallbackFcn(app, @RunsegButtonPushed, true);
+            app.RunsegButton.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
+            app.RunsegButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.RunsegButton.Position = [578 45 88 23];
+            app.RunsegButton.Text = 'Run seg';
 
             % Create LoadTiffStackButton
             app.LoadTiffStackButton = uibutton(app.UIFigure, 'push');
@@ -1953,7 +1930,7 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             app.FrameRateEditField.ValueChangedFcn = createCallbackFcn(app, @FrameRateEditFieldValueChanged, true);
             app.FrameRateEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.FrameRateEditField.Position = [1182 688 62 22];
-            app.FrameRateEditField.Value = 3.61;
+            app.FrameRateEditField.Value = 3.6039;
 
             % Create ClearROIsButton
             app.ClearROIsButton = uibutton(app.UIFigure, 'push');
@@ -2350,23 +2327,6 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             app.ManualRegButton.Position = [66 36 100 23];
             app.ManualRegButton.Text = 'Manual Reg';
 
-            % Create DiameterSpinnerLabel
-            app.DiameterSpinnerLabel = uilabel(app.UIFigure);
-            app.DiameterSpinnerLabel.HorizontalAlignment = 'right';
-            app.DiameterSpinnerLabel.Position = [578 13 54 22];
-            app.DiameterSpinnerLabel.Text = 'Diameter';
-
-            % Create DiameterSpinner
-            app.DiameterSpinner = uispinner(app.UIFigure);
-            app.DiameterSpinner.Position = [647 13 56 22];
-            app.DiameterSpinner.Value = 10;
-
-            % Create MeasureButton
-            app.MeasureButton = uibutton(app.UIFigure, 'push');
-            app.MeasureButton.ButtonPushedFcn = createCallbackFcn(app, @MeasureButtonPushed, true);
-            app.MeasureButton.Position = [719 13 66 23];
-            app.MeasureButton.Text = 'Measure';
-
             % Create UIAxesHomeButton_2
             app.UIAxesHomeButton_2 = uibutton(app.UIFigure, 'push');
             app.UIAxesHomeButton_2.ButtonPushedFcn = createCallbackFcn(app, @UIAxesHomeButton_2Pushed, true);
@@ -2424,12 +2384,12 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             app.ROIIDLabel_2.Position = [762 676 45 22];
             app.ROIIDLabel_2.Text = 'ROI ID ';
 
-            % Create MaskSettingsButton
-            app.MaskSettingsButton = uibutton(app.UIFigure, 'push');
-            app.MaskSettingsButton.ButtonPushedFcn = createCallbackFcn(app, @MaskSettingsButtonPushed, true);
-            app.MaskSettingsButton.Icon = fullfile(pathToMLAPP, '+assets', '', 'setting.svg');
-            app.MaskSettingsButton.Position = [842 675 111 23];
-            app.MaskSettingsButton.Text = 'Mask Settings';
+            % Create MasksettingsButton
+            app.MasksettingsButton = uibutton(app.UIFigure, 'push');
+            app.MasksettingsButton.ButtonPushedFcn = createCallbackFcn(app, @MasksettingsButtonPushed, true);
+            app.MasksettingsButton.Icon = fullfile(pathToMLAPP, '+assets', '', 'setting.svg');
+            app.MasksettingsButton.Position = [843 675 109 23];
+            app.MasksettingsButton.Text = 'Mask settings';
 
             % Create SyncUIaxes2
             app.SyncUIaxes2 = uibutton(app.UIFigure, 'push');
@@ -2481,6 +2441,21 @@ classdef calcium_signal_extract_exported < matlab.apps.AppBase
             app.ContrastSlider.ValueChangingFcn = createCallbackFcn(app, @ContrastSliderValueChanging2, true);
             app.ContrastSlider.Position = [133 103 413 3];
             app.ContrastSlider.Value = [0 400];
+
+            % Create norm_blocksizeSpinnerLabel
+            app.norm_blocksizeSpinnerLabel = uilabel(app.UIFigure);
+            app.norm_blocksizeSpinnerLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.norm_blocksizeSpinnerLabel.Position = [825 45 88 22];
+            app.norm_blocksizeSpinnerLabel.Text = 'norm_blocksize';
+
+            % Create norm_blocksizeSpinner
+            app.norm_blocksizeSpinner = uispinner(app.UIFigure);
+            app.norm_blocksizeSpinner.LowerLimitInclusive = 'off';
+            app.norm_blocksizeSpinner.Limits = [0 Inf];
+            app.norm_blocksizeSpinner.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.norm_blocksizeSpinner.Tooltip = {'set  higher to get more cells, in range from (0,3]'};
+            app.norm_blocksizeSpinner.Position = [911 47 55 22];
+            app.norm_blocksizeSpinner.Value = 64;
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
