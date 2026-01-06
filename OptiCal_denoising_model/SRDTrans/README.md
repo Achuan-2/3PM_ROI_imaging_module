@@ -17,22 +17,14 @@ This repository is for SRDTrans introduced in the following paper:
     
 ### Install
 
-1. Clone the repository and delete placeholder files.
+Create a virtual environment and install PyTorch and other dependencies. **In the 3rd step**, please select the correct Pytorch version that matches your CUDA version from [https://pytorch.org/get-started/previous-versions/](https://pytorch.org/get-started/previous-versions/). 
 
-    ```bash
-    git clone https://github.com/cabooster/SRDTrans.git
-    cd SRDTrans
-    rm datasets/noisy/__init__.py pth/__init__.py results/__init__.py
-    ```
-
-2. Create a virtual environment and install PyTorch and other dependencies. **In the 3rd step**, please select the correct Pytorch version that matches your CUDA version from [https://pytorch.org/get-started/previous-versions/](https://pytorch.org/get-started/previous-versions/). 
-
-    ```bash
-    $ conda create -n srdtrans python=3.6
-    $ conda activate srdtrans
-    $ pip install torch==1.8.0+cu111 torchvision==0.9.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
-    $ pip install tifffile einops timm tqdm scikit-image
-    ```
+```bash
+conda create -n srdtrans python=3.6
+conda activate srdtrans
+pip install torch==1.8.0+cu111 torchvision==0.9.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
+pip install tifffile einops timm tqdm scikit-image
+```
 
 
 ## 💻 Training 
@@ -53,17 +45,17 @@ You can use your own data or download one of the demo data below (*.tif file). T
 
 ### 2. Start training
 
-  ```bash
-    # Simulated SMLM & Simulated Calcium imaging data at 30hz
-    python train.py --datasets_folder noisy --n_epochs 20 --GPU 0,1 --train_datasets_size 6000  --patch_x 160 --patch_t 160
-    
-    # Key parameters:
-    --datasets_folder: the folder containing your training data (one or more *.tif stacks)
-    --n_epochs: the number of training epochs
-    --GPU: specify the GPU(s) used for training. (e.g., '0', '0,1', '0,1,2')
-    --train_datasets_size: how many patches will be extracted for training
-    --patch_x, --patch_t: patch size in three dimensions (xy and t), should be divisible by 8.
-  ```
+```bash
+# Simulated SMLM & Simulated Calcium imaging data at 30hz
+python train.py --datasets_folder noisy --n_epochs 20 --GPU 0,1 --train_datasets_size 6000  --patch_x 160 --patch_t 160
+
+# Key parameters:
+--datasets_folder: the folder containing your training data (one or more *.tif stacks)
+--n_epochs: the number of training epochs
+--GPU: specify the GPU(s) used for training. (e.g., '0', '0,1', '0,1,2')
+--train_datasets_size: how many patches will be extracted for training
+--patch_x, --patch_t: patch size in three dimensions (xy and t), should be divisible by 8.
+```
 
 * In the vast majority of cases, good denoising models can be trained with these default parameters. **If not necessary, you do not need to modify these parameters**. You just need to change `--datasets_folder` or `--GPU`. 
 
@@ -86,16 +78,16 @@ Before inference, you should have trained your own model or downloaded our pre-t
 
 ### 2. Test models
 
-  ```bash
-    # Simulated calcium imaging data sampled at 0.3 Hz
-    python test.py --datasets_folder noisy --denoise_model cad_03hz --GPU 0,1 --patch_x 160 --patch_t 160
+```bash
+# Simulated calcium imaging data sampled at 0.3 Hz
+python test.py --datasets_folder noisy --denoise_model cad_03hz --GPU 0,1 --patch_x 160 --patch_t 160
 
-    # Key parameters:
-    --datasets_folder: the folder containing the data to be processed (one or more *.tif stacks)
-    --denoise_model: the subfolder (under pth/) containing pre-trained models (e.g., ad_03hz).
-    --GPU: specify the GPU(s) used for inference. (e.g., '0', '0,1', '0,1,2')
-    --patch_x, --patch_t: patch size in three dimensions (xy and t), should be divisible by 8.
-  ```
+# Key parameters:
+--datasets_folder: the folder containing the data to be processed (one or more *.tif stacks)
+--denoise_model: the subfolder (under pth/) containing pre-trained models (e.g., ad_03hz).
+--GPU: specify the GPU(s) used for inference. (e.g., '0', '0,1', '0,1,2')
+--patch_x, --patch_t: patch size in three dimensions (xy and t), should be divisible by 8.
+```
 
 * In the vast majority of cases, good denoising results can be obtained with these default parameters. **If not necessary, you do not need to modify these parameters**. You just need to change `--datasets_folder`, `--denoise_model` or `--GPU`. 
 
