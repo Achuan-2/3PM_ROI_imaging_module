@@ -3,6 +3,9 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
     % Properties that correspond to app components
     properties (Access = public)
         UIFigure                      matlab.ui.Figure
+        ConfigMenu                    matlab.ui.container.Menu
+        LoadConfigMenu                matlab.ui.container.Menu
+        SaveConfigMenu                matlab.ui.container.Menu
         DataprocessMenu               matlab.ui.container.Menu
         ManualRegMenu                 matlab.ui.container.Menu
         norm_blocksizeSpinner         matlab.ui.control.Spinner
@@ -18,7 +21,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
         SaveButton                    matlab.ui.control.Button
         windowsEditField              matlab.ui.control.NumericEditField
         windowsEditFieldLabel         matlab.ui.control.Label
-        smoothCheckBox                matlab.ui.control.CheckBox
+        SmoothCheckBox                matlab.ui.control.CheckBox
         LoadButton                    matlab.ui.control.Button
         ShowROINumbersCheckBox        matlab.ui.control.CheckBox
         DragROIsButton                matlab.ui.control.StateButton
@@ -26,11 +29,11 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
         Spinner                       matlab.ui.control.Spinner
         Button_2                      matlab.ui.control.Button
         Button                        matlab.ui.control.Button
-        OnlyPlotButton                matlab.ui.control.Button
+        OnlyplotButton                matlab.ui.control.Button
         XLimsEditField_2              matlab.ui.control.EditField
         XLimsEditField_2Label         matlab.ui.control.Label
-        EventRangesEditField          matlab.ui.control.EditField
-        EventRangesEditFieldLabel     matlab.ui.control.Label
+        EventrangesEditField          matlab.ui.control.EditField
+        EventrangesEditFieldLabel     matlab.ui.control.Label
         sortCheckBox                  matlab.ui.control.CheckBox
         ROIintervalSpinner            matlab.ui.control.Spinner
         ROIintervalSpinnerLabel       matlab.ui.control.Label
@@ -51,18 +54,18 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
         FramesEditField               matlab.ui.control.EditField
         FramesEditFieldLabel          matlab.ui.control.Label
         ZProjectionButton             matlab.ui.control.Button
-        ROIPrefixLabelEditField       matlab.ui.control.EditField
+        ROIprefixlabelEditField       matlab.ui.control.EditField
         ROILabelEditFieldLabel        matlab.ui.control.Label
-        EventColorEditField           matlab.ui.control.EditField
-        EventColorEditFieldLabel      matlab.ui.control.Label
-        EventNameEditField            matlab.ui.control.EditField
-        EventNameEditFieldLabel       matlab.ui.control.Label
-        XTickIntervalsEditField       matlab.ui.control.NumericEditField
-        SignalTypeDropDownLabel       matlab.ui.control.Label
-        XTickIntervalsEditFieldLabel  matlab.ui.control.Label
-        SignalTypeDropDown            matlab.ui.control.DropDown
-        ScabarTypeDropDown            matlab.ui.control.DropDown
-        ScabarTypeDropDownLabel       matlab.ui.control.Label
+        EventcolorEditField           matlab.ui.control.EditField
+        EventcolorEditFieldLabel      matlab.ui.control.Label
+        EventnameEditField            matlab.ui.control.EditField
+        EventnameEditFieldLabel       matlab.ui.control.Label
+        XTickintervalsEditField       matlab.ui.control.NumericEditField
+        SignaltypeDropDownLabel       matlab.ui.control.Label
+        XTickintervalsEditFieldLabel  matlab.ui.control.Label
+        SignaltypeDropDown            matlab.ui.control.DropDown
+        ScabartypeDropDown            matlab.ui.control.DropDown
+        ScabartypeDropDownLabel       matlab.ui.control.Label
         ReorderROIsButton             matlab.ui.control.Button
         Label_3                       matlab.ui.control.Label
         Label_2                       matlab.ui.control.Label
@@ -79,8 +82,8 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
         SelectedROIEditFieldLabel     matlab.ui.control.Label
         ScalebarLabel                 matlab.ui.control.Label
         ClearROIsButton               matlab.ui.control.Button
-        FrameRateEditField            matlab.ui.control.NumericEditField
-        FrameRateEditFieldLabel       matlab.ui.control.Label
+        FramerateEditField            matlab.ui.control.NumericEditField
+        FramerateEditFieldLabel       matlab.ui.control.Label
         TimeScalebarSpinner           matlab.ui.control.Spinner
         FF_0Label_2                   matlab.ui.control.Label
         FScalebarSpinner              matlab.ui.control.Spinner
@@ -482,7 +485,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
 
 
         function plot_signal(app)
-            switch app.SignalTypeDropDown.Value
+            switch app.SignaltypeDropDown.Value
                 case 'ΔF/F'
                     data = app.signal_delta;
                 case 'zscore'
@@ -496,11 +499,11 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             end
 
             % Parse even data
-            eventRange = app.EventRangesEditField.Value;
+            eventRange = app.EventrangesEditField.Value;
             if ~strcmp(eventRange,'0')
                 if contains(eventRange, ':')
                     % 处理包含"end"的情况
-                    eventRange = strrep(eventRange, 'end', num2str(app.tiff_all_frames/app.FrameRateEditField.Value));
+                    eventRange = strrep(eventRange, 'end', num2str(app.tiff_all_frames/app.FramerateEditField.Value));
 
                     % 格式为 'start:end'
                     parts = split(eventRange, ':');
@@ -520,8 +523,8 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 expri_event.end=0;
             end
 
-            expri_event.color=app.EventColorEditField.Value;
-            expri_event.name = app.EventNameEditField.Value;
+            expri_event.color=app.EventcolorEditField.Value;
+            expri_event.name = app.EventnameEditField.Value;
 
             % parse
             % get roi color: random color or fixed color
@@ -533,7 +536,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             % 绘制信号
 
 
-            switch app.ScabarTypeDropDown.Value
+            switch app.ScabartypeDropDown.Value
                 case 'time and signal'
                     plot_scale_bar_time  = true;
                 case 'only signal'
@@ -559,15 +562,15 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
 
             % 绘制信号图
             plot.plot_signal(data, ...
-                'frame_rate', app.FrameRateEditField.Value,...
+                'frame_rate', app.FramerateEditField.Value,...
                 "scalebar_signal",app.FScalebarSpinner.Value,...
                 "scalebar_time",app.TimeScalebarSpinner.Value,...
                 "color_map",trace_colormap,...
                 "plot_scale_bar_time", plot_scale_bar_time,...
-                "signal_type",app.SignalTypeDropDown.Value,...
+                "signal_type",app.SignaltypeDropDown.Value,...
                 "selected_roi_str", app.SelectedROIEditField.Value,...
-                "roi_prefix",app.ROIPrefixLabelEditField.Value,...
-                "xlim", app.XLimsEditField_2.Value,'xtick_interval',app.XTickIntervalsEditField.Value,...
+                "roi_prefix",app.ROIprefixlabelEditField.Value,...
+                "xlim", app.XLimsEditField_2.Value,'xtick_interval',app.XTickintervalsEditField.Value,...
                 "event", expri_event,...
                 "roi_interval", app.ROIintervalSpinner.Value, ...
                 "sort",app.sortCheckBox.Value,...
@@ -576,9 +579,9 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             % % 绘制热图
             plot.plotHeatmap(data, ...
                 "selected_roi_str",app.SelectedROIEditField.Value, ...
-                'frame_rate',app.FrameRateEditField.Value, ...
-                "signal_type",app.SignalTypeDropDown.Value,...
-                "xlim", app.XLimsEditField_2.Value,'xtick_interval',app.XTickIntervalsEditField.Value,...
+                'frame_rate',app.FramerateEditField.Value, ...
+                "signal_type",app.SignaltypeDropDown.Value,...
+                "xlim", app.XLimsEditField_2.Value,'xtick_interval',app.XTickintervalsEditField.Value,...
                 "colormap",app.ColormapColorDropDown.Value,...
                 "event", expri_event,...,
                 "sort",app.sortCheckBox.Value,...
@@ -819,7 +822,6 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     end
                 end
 
-
                 % update tiff info
                 app.Slider.Value =1;
                 app.Slider.Enable = 'on';
@@ -1048,14 +1050,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
 
             end
 
-            if app.smoothCheckBox.Value
+            if app.SmoothCheckBox.Value
                 app.signal_delta = smoothdata(app.signal_delta,2, 'gaussian', app.windowsEditField.Value); % 计算高斯平滑，窗口大小为3
             end
             % zscore 计算每个ROI的信号
             app.signal_zscore_delta = zscore(app.signal_delta,0,2);
             
 
-            app.OnlyPlotButtonPushed();
+            app.OnlyplotButtonPushed();
             close(d);
         end
 
@@ -1239,17 +1241,17 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
 
         % Value changed function: FScalebarSpinner
         function FScalebarSpinnerValueChanged(app, event)
-            % app.OnlyPlotButtonPushed();
+            % app.OnlyplotButtonPushed();
         end
 
         % Value changed function: TimeScalebarSpinner
         function TimeScalebarSpinnerValueChanged(app, event)
-            % app.OnlyPlotButtonPushed();
+            % app.OnlyplotButtonPushed();
         end
 
-        % Value changed function: FrameRateEditField
-        function FrameRateEditFieldValueChanged(app, event)
-            % app.OnlyPlotButtonPushed();
+        % Value changed function: FramerateEditField
+        function FramerateEditFieldValueChanged(app, event)
+            % app.OnlyplotButtonPushed();
         end
 
         % Value changed function: DropDown
@@ -1307,7 +1309,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             else
                 app.TraceFixedColor.Visible = 'off';
             end
-            app.OnlyPlotButtonPushed();
+            app.OnlyplotButtonPushed();
 
         end
 
@@ -1319,38 +1321,38 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
 
         % Callback function
         function spacingEditFieldValueChanged(app, event)
-            app.OnlyPlotButtonPushed();
+            app.OnlyplotButtonPushed();
         end
 
-        % Value changed function: ScabarTypeDropDown
-        function ScabarTypeDropDownValueChanged(app, event)
-            switch app.ScabarTypeDropDown.Value
+        % Value changed function: ScabartypeDropDown
+        function ScabartypeDropDownValueChanged(app, event)
+            switch app.ScabartypeDropDown.Value
                 case 'time and signal'
-                    app.XTickIntervalsEditField.Enable = 'on';
+                    app.XTickintervalsEditField.Enable = 'on';
                 case 'only signal'
-                    app.XTickIntervalsEditField.Enable = 'off';
+                    app.XTickintervalsEditField.Enable = 'off';
             end
-            app.OnlyPlotButtonPushed();
+            app.OnlyplotButtonPushed();
         end
 
-        % Value changed function: XTickIntervalsEditField
-        function XTickIntervalsEditFieldValueChanged(app, event)
-            app.OnlyPlotButtonPushed();
+        % Value changed function: XTickintervalsEditField
+        function XTickintervalsEditFieldValueChanged(app, event)
+            app.OnlyplotButtonPushed();
         end
 
-        % Value changed function: SignalTypeDropDown
-        function SignalTypeDropDownValueChanged(app, event)
-            app.OnlyPlotButtonPushed();
+        % Value changed function: SignaltypeDropDown
+        function SignaltypeDropDownValueChanged(app, event)
+            app.OnlyplotButtonPushed();
         end
 
-        % Value changed function: EventNameEditField
-        function EventNameEditFieldValueChanged(app, event)
-            app.OnlyPlotButtonPushed();
+        % Value changed function: EventnameEditField
+        function EventnameEditFieldValueChanged(app, event)
+            app.OnlyplotButtonPushed();
         end
 
-        % Value changed function: EventColorEditField
-        function EventColorEditFieldValueChanged(app, event)
-            app.OnlyPlotButtonPushed();
+        % Value changed function: EventcolorEditField
+        function EventcolorEditFieldValueChanged(app, event)
+            app.OnlyplotButtonPushed();
         end
 
         % Button down function: ImageUIAxes1
@@ -1412,7 +1414,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             close(d)
         end
 
-        % Callback function: not associated with a component
+        % Callback function
         function showrefImageCheckBoxValueChanged(app, event)
             value = app.showrefImageCheckBox.Value;
             if value
@@ -1423,7 +1425,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             end
         end
 
-        % Callback function: not associated with a component
+        % Callback function
         function AlphaSpinnerValueChanged(app, event)
 
             if app.showrefImageCheckBox.Value
@@ -1431,7 +1433,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             end
         end
 
-        % Callback function: not associated with a component
+        % Callback function
         function UseZProjectionButtonPushed(app, event)
             if isempty(app.tiff_seg_data)
                 ZProjectionButtonPushed(app)
@@ -1444,8 +1446,8 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ImageUIAxes1_refImg_layer.AlphaData = app.ImageUIAxes1_refImg_layer_alphaData *app.AlphaSpinner.Value ;
         end
 
-        % Button pushed function: OnlyPlotButton
-        function OnlyPlotButtonPushed(app, event)
+        % Button pushed function: OnlyplotButton
+        function OnlyplotButtonPushed(app, event)
             plot_signal(app);
         end
 
@@ -1501,7 +1503,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
 
         end
 
-        % Callback function: not associated with a component
+        % Callback function
         function ManualRegButtonPushed(app, event)
             if isfile(app.tiff_path)
                 ManualImageRegistration(app.tiff_path);
@@ -1727,6 +1729,18 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.UIFigure.Resize = 'off';
             app.UIFigure.CloseRequestFcn = createCallbackFcn(app, @UIFigureCloseRequest, true);
 
+            % Create ConfigMenu
+            app.ConfigMenu = uimenu(app.UIFigure);
+            app.ConfigMenu.Text = 'Config';
+
+            % Create LoadConfigMenu
+            app.LoadConfigMenu = uimenu(app.ConfigMenu);
+            app.LoadConfigMenu.Text = 'Load Config';
+
+            % Create SaveConfigMenu
+            app.SaveConfigMenu = uimenu(app.ConfigMenu);
+            app.SaveConfigMenu.Text = 'Save Config';
+
             % Create DataprocessMenu
             app.DataprocessMenu = uimenu(app.UIFigure);
             app.DataprocessMenu.Text = 'Data process';
@@ -1785,7 +1799,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.MaskDropDownLabel = uilabel(app.UIFigure);
             app.MaskDropDownLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.MaskDropDownLabel.Position = [565 676 58 22];
-            app.MaskDropDownLabel.Text = 'ROI Mask';
+            app.MaskDropDownLabel.Text = 'ROI mask';
 
             % Create MaskOnCheckBox
             app.MaskOnCheckBox = uicheckbox(app.UIFigure);
@@ -1927,19 +1941,19 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.TimeScalebarSpinner.Position = [1274 634 55 22];
             app.TimeScalebarSpinner.Value = 100;
 
-            % Create FrameRateEditFieldLabel
-            app.FrameRateEditFieldLabel = uilabel(app.UIFigure);
-            app.FrameRateEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.FrameRateEditFieldLabel.Position = [1099 688 68 22];
-            app.FrameRateEditFieldLabel.Text = 'Frame Rate';
+            % Create FramerateEditFieldLabel
+            app.FramerateEditFieldLabel = uilabel(app.UIFigure);
+            app.FramerateEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.FramerateEditFieldLabel.Position = [1099 688 64 22];
+            app.FramerateEditFieldLabel.Text = 'Frame rate';
 
-            % Create FrameRateEditField
-            app.FrameRateEditField = uieditfield(app.UIFigure, 'numeric');
-            app.FrameRateEditField.ValueDisplayFormat = '%.4f';
-            app.FrameRateEditField.ValueChangedFcn = createCallbackFcn(app, @FrameRateEditFieldValueChanged, true);
-            app.FrameRateEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.FrameRateEditField.Position = [1182 688 62 22];
-            app.FrameRateEditField.Value = 3.6039;
+            % Create FramerateEditField
+            app.FramerateEditField = uieditfield(app.UIFigure, 'numeric');
+            app.FramerateEditField.ValueDisplayFormat = '%.4f';
+            app.FramerateEditField.ValueChangedFcn = createCallbackFcn(app, @FramerateEditFieldValueChanged, true);
+            app.FramerateEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.FramerateEditField.Position = [1182 688 62 22];
+            app.FramerateEditField.Value = 3.6;
 
             % Create ClearROIsButton
             app.ClearROIsButton = uibutton(app.UIFigure, 'push');
@@ -2058,84 +2072,84 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ReorderROIsButton.Position = [879 84 103 23];
             app.ReorderROIsButton.Text = 'Reorder ROIs';
 
-            % Create ScabarTypeDropDownLabel
-            app.ScabarTypeDropDownLabel = uilabel(app.UIFigure);
-            app.ScabarTypeDropDownLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ScabarTypeDropDownLabel.Position = [1099 661 72 22];
-            app.ScabarTypeDropDownLabel.Text = 'Scabar Type';
+            % Create ScabartypeDropDownLabel
+            app.ScabartypeDropDownLabel = uilabel(app.UIFigure);
+            app.ScabartypeDropDownLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.ScabartypeDropDownLabel.Position = [1099 661 69 22];
+            app.ScabartypeDropDownLabel.Text = 'Scabar type';
 
-            % Create ScabarTypeDropDown
-            app.ScabarTypeDropDown = uidropdown(app.UIFigure);
-            app.ScabarTypeDropDown.Items = {'time and signal', 'only signal'};
-            app.ScabarTypeDropDown.ValueChangedFcn = createCallbackFcn(app, @ScabarTypeDropDownValueChanged, true);
-            app.ScabarTypeDropDown.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ScabarTypeDropDown.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
-            app.ScabarTypeDropDown.Position = [1185 661 100 22];
-            app.ScabarTypeDropDown.Value = 'only signal';
+            % Create ScabartypeDropDown
+            app.ScabartypeDropDown = uidropdown(app.UIFigure);
+            app.ScabartypeDropDown.Items = {'time and signal', 'only signal'};
+            app.ScabartypeDropDown.ValueChangedFcn = createCallbackFcn(app, @ScabartypeDropDownValueChanged, true);
+            app.ScabartypeDropDown.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.ScabartypeDropDown.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
+            app.ScabartypeDropDown.Position = [1185 661 100 22];
+            app.ScabartypeDropDown.Value = 'only signal';
 
-            % Create SignalTypeDropDown
-            app.SignalTypeDropDown = uidropdown(app.UIFigure);
-            app.SignalTypeDropDown.Items = {'ΔF/F', 'zscore', 'raw'};
-            app.SignalTypeDropDown.ValueChangedFcn = createCallbackFcn(app, @SignalTypeDropDownValueChanged, true);
-            app.SignalTypeDropDown.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.SignalTypeDropDown.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
-            app.SignalTypeDropDown.Position = [1180 535 59 22];
-            app.SignalTypeDropDown.Value = 'ΔF/F';
+            % Create SignaltypeDropDown
+            app.SignaltypeDropDown = uidropdown(app.UIFigure);
+            app.SignaltypeDropDown.Items = {'ΔF/F', 'zscore', 'raw'};
+            app.SignaltypeDropDown.ValueChangedFcn = createCallbackFcn(app, @SignaltypeDropDownValueChanged, true);
+            app.SignaltypeDropDown.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.SignaltypeDropDown.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
+            app.SignaltypeDropDown.Position = [1180 535 59 22];
+            app.SignaltypeDropDown.Value = 'ΔF/F';
 
-            % Create XTickIntervalsEditFieldLabel
-            app.XTickIntervalsEditFieldLabel = uilabel(app.UIFigure);
-            app.XTickIntervalsEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.XTickIntervalsEditFieldLabel.Position = [1099 608 91 22];
-            app.XTickIntervalsEditFieldLabel.Text = 'XTick Interval(s)';
+            % Create XTickintervalsEditFieldLabel
+            app.XTickintervalsEditFieldLabel = uilabel(app.UIFigure);
+            app.XTickintervalsEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.XTickintervalsEditFieldLabel.Position = [1099 608 91 22];
+            app.XTickintervalsEditFieldLabel.Text = 'XTick interval(s)';
 
-            % Create SignalTypeDropDownLabel
-            app.SignalTypeDropDownLabel = uilabel(app.UIFigure);
-            app.SignalTypeDropDownLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.SignalTypeDropDownLabel.Position = [1099 535 68 22];
-            app.SignalTypeDropDownLabel.Text = 'Signal Type';
+            % Create SignaltypeDropDownLabel
+            app.SignaltypeDropDownLabel = uilabel(app.UIFigure);
+            app.SignaltypeDropDownLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.SignaltypeDropDownLabel.Position = [1099 535 64 22];
+            app.SignaltypeDropDownLabel.Text = 'Signal type';
 
-            % Create XTickIntervalsEditField
-            app.XTickIntervalsEditField = uieditfield(app.UIFigure, 'numeric');
-            app.XTickIntervalsEditField.ValueDisplayFormat = '%g';
-            app.XTickIntervalsEditField.ValueChangedFcn = createCallbackFcn(app, @XTickIntervalsEditFieldValueChanged, true);
-            app.XTickIntervalsEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.XTickIntervalsEditField.Position = [1195 608 50 22];
-            app.XTickIntervalsEditField.Value = 100;
+            % Create XTickintervalsEditField
+            app.XTickintervalsEditField = uieditfield(app.UIFigure, 'numeric');
+            app.XTickintervalsEditField.ValueDisplayFormat = '%g';
+            app.XTickintervalsEditField.ValueChangedFcn = createCallbackFcn(app, @XTickintervalsEditFieldValueChanged, true);
+            app.XTickintervalsEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.XTickintervalsEditField.Position = [1195 608 50 22];
+            app.XTickintervalsEditField.Value = 100;
 
-            % Create EventNameEditFieldLabel
-            app.EventNameEditFieldLabel = uilabel(app.UIFigure);
-            app.EventNameEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.EventNameEditFieldLabel.Position = [1099 272 71 22];
-            app.EventNameEditFieldLabel.Text = 'Event Name';
+            % Create EventnameEditFieldLabel
+            app.EventnameEditFieldLabel = uilabel(app.UIFigure);
+            app.EventnameEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.EventnameEditFieldLabel.Position = [1099 272 69 22];
+            app.EventnameEditFieldLabel.Text = 'Event name';
 
-            % Create EventNameEditField
-            app.EventNameEditField = uieditfield(app.UIFigure, 'text');
-            app.EventNameEditField.ValueChangedFcn = createCallbackFcn(app, @EventNameEditFieldValueChanged, true);
-            app.EventNameEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.EventNameEditField.Position = [1201 272 46 22];
+            % Create EventnameEditField
+            app.EventnameEditField = uieditfield(app.UIFigure, 'text');
+            app.EventnameEditField.ValueChangedFcn = createCallbackFcn(app, @EventnameEditFieldValueChanged, true);
+            app.EventnameEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.EventnameEditField.Position = [1201 272 46 22];
 
-            % Create EventColorEditFieldLabel
-            app.EventColorEditFieldLabel = uilabel(app.UIFigure);
-            app.EventColorEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.EventColorEditFieldLabel.Position = [1099 248 68 22];
-            app.EventColorEditFieldLabel.Text = 'Event Color';
+            % Create EventcolorEditFieldLabel
+            app.EventcolorEditFieldLabel = uilabel(app.UIFigure);
+            app.EventcolorEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.EventcolorEditFieldLabel.Position = [1099 248 65 22];
+            app.EventcolorEditFieldLabel.Text = 'Event color';
 
-            % Create EventColorEditField
-            app.EventColorEditField = uieditfield(app.UIFigure, 'text');
-            app.EventColorEditField.ValueChangedFcn = createCallbackFcn(app, @EventColorEditFieldValueChanged, true);
-            app.EventColorEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.EventColorEditField.Position = [1201 248 63 22];
-            app.EventColorEditField.Value = '#808083';
+            % Create EventcolorEditField
+            app.EventcolorEditField = uieditfield(app.UIFigure, 'text');
+            app.EventcolorEditField.ValueChangedFcn = createCallbackFcn(app, @EventcolorEditFieldValueChanged, true);
+            app.EventcolorEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.EventcolorEditField.Position = [1201 248 63 22];
+            app.EventcolorEditField.Value = '#808083';
 
             % Create ROILabelEditFieldLabel
             app.ROILabelEditFieldLabel = uilabel(app.UIFigure);
-            app.ROILabelEditFieldLabel.Position = [1099 343 93 22];
-            app.ROILabelEditFieldLabel.Text = 'ROI Prefix Label';
+            app.ROILabelEditFieldLabel.Position = [1099 343 88 22];
+            app.ROILabelEditFieldLabel.Text = 'ROI prefix label';
 
-            % Create ROIPrefixLabelEditField
-            app.ROIPrefixLabelEditField = uieditfield(app.UIFigure, 'text');
-            app.ROIPrefixLabelEditField.Position = [1202 343 78 22];
-            app.ROIPrefixLabelEditField.Value = 'c';
+            % Create ROIprefixlabelEditField
+            app.ROIprefixlabelEditField = uieditfield(app.UIFigure, 'text');
+            app.ROIprefixlabelEditField.Position = [1202 343 78 22];
+            app.ROIprefixlabelEditField.Value = 'c';
 
             % Create ZProjectionButton
             app.ZProjectionButton = uibutton(app.UIFigure, 'push');
@@ -2230,8 +2244,8 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
 
             % Create BeforeeventEditFieldLabel_2
             app.BeforeeventEditFieldLabel_2 = uilabel(app.UIFigure);
-            app.BeforeeventEditFieldLabel_2.Position = [1236 442 46 22];
-            app.BeforeeventEditFieldLabel_2.Text = 'Frames';
+            app.BeforeeventEditFieldLabel_2.Position = [1236 442 42 22];
+            app.BeforeeventEditFieldLabel_2.Text = 'frames';
 
             % Create F0Label
             app.F0Label = uilabel(app.UIFigure);
@@ -2260,14 +2274,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.sortCheckBox.Text = 'sort';
             app.sortCheckBox.Position = [1100 82 42 22];
 
-            % Create EventRangesEditFieldLabel
-            app.EventRangesEditFieldLabel = uilabel(app.UIFigure);
-            app.EventRangesEditFieldLabel.Position = [1099 295 88 22];
-            app.EventRangesEditFieldLabel.Text = 'Event Range(s)';
+            % Create EventrangesEditFieldLabel
+            app.EventrangesEditFieldLabel = uilabel(app.UIFigure);
+            app.EventrangesEditFieldLabel.Position = [1099 295 84 22];
+            app.EventrangesEditFieldLabel.Text = 'Event range(s)';
 
-            % Create EventRangesEditField
-            app.EventRangesEditField = uieditfield(app.UIFigure, 'text');
-            app.EventRangesEditField.Position = [1201 295 87 22];
+            % Create EventrangesEditField
+            app.EventrangesEditField = uieditfield(app.UIFigure, 'text');
+            app.EventrangesEditField.Position = [1201 295 87 22];
 
             % Create XLimsEditField_2Label
             app.XLimsEditField_2Label = uilabel(app.UIFigure);
@@ -2280,11 +2294,11 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.XLimsEditField_2.Position = [1160 582 100 22];
             app.XLimsEditField_2.Value = '0:end';
 
-            % Create OnlyPlotButton
-            app.OnlyPlotButton = uibutton(app.UIFigure, 'push');
-            app.OnlyPlotButton.ButtonPushedFcn = createCallbackFcn(app, @OnlyPlotButtonPushed, true);
-            app.OnlyPlotButton.Position = [1207 49 57 23];
-            app.OnlyPlotButton.Text = 'Only Plot';
+            % Create OnlyplotButton
+            app.OnlyplotButton = uibutton(app.UIFigure, 'push');
+            app.OnlyplotButton.ButtonPushedFcn = createCallbackFcn(app, @OnlyplotButtonPushed, true);
+            app.OnlyplotButton.Position = [1205 49 62 23];
+            app.OnlyplotButton.Text = 'Only plot';
 
             % Create Button
             app.Button = uibutton(app.UIFigure, 'push');
@@ -2340,10 +2354,10 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.LoadButton.Position = [891 707 73 23];
             app.LoadButton.Text = 'Load';
 
-            % Create smoothCheckBox
-            app.smoothCheckBox = uicheckbox(app.UIFigure);
-            app.smoothCheckBox.Text = 'smooth';
-            app.smoothCheckBox.Position = [1099 414 61 22];
+            % Create SmoothCheckBox
+            app.SmoothCheckBox = uicheckbox(app.UIFigure);
+            app.SmoothCheckBox.Text = 'Smooth';
+            app.SmoothCheckBox.Position = [1099 414 63 22];
 
             % Create windowsEditFieldLabel
             app.windowsEditFieldLabel = uilabel(app.UIFigure);
