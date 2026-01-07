@@ -58,7 +58,8 @@ Before inference, you should have trained your own model or downloaded our pre-t
 python test.py --input './datasets/noisy/file_00020_ch1_deripple.tif' --output './datasets/noisy/file_00020_ch1_deripple_denoise.tif' --denoise_model 3PM --GPU 0 --patch_x 128 --patch_t 128
 
 # Key parameters:
---datasets_folder: the folder containing the data to be processed (one or more *.tif stacks)
+--input: input filepath
+--output: output filepath
 --denoise_model: the subfolder (under pth/) containing pre-trained models (e.g., ad_03hz).
 --GPU: specify the GPU(s) used for inference. (e.g., '0', '0,1', '0,1,2')
 --patch_x, --patch_t: patch size in three dimensions (xy and t), should be divisible by 8.
