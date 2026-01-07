@@ -1,5 +1,5 @@
 classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
-
+    
     % Properties that correspond to app components
     properties (Access = public)
         UIFigure                       matlab.ui.Figure
@@ -48,7 +48,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
         MovingImagePathLabel           matlab.ui.control.Label
         ImageAxes                      matlab.ui.control.UIAxes
     end
-
+    
     % Internal properties (corresponding to original class properties)
     properties (Access = private)
         fixedImage
@@ -441,12 +441,12 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             % 初始化显示
             initializeDisplay(app);
         end
-
+        
     end
-
+    
     % Callbacks that handle component events
     methods (Access = private)
-
+        
         % Code that executes after component creation
         function startupFcn(app, movingImagePath)
             basepath= fileparts(mfilename('fullpath'));
@@ -458,7 +458,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
                 loadImages(app);
             end
         end
-
+        
         % Button pushed function: MovingImageBrowseButton
         function browseMovingImage(app, event)
             [filename,path] = utils.select_file({'*.tif;*.tiff', 'TIFF Files'}, 'Select moving image');
@@ -468,7 +468,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
                 loadImages(app);
             end
         end
-
+        
         % Button pushed function: LoadReferenceImageButton
         function loadReferenceImage(app, event)
             if isempty(app.movingImagePath)
@@ -501,7 +501,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
                 end
             end
         end
-
+        
         % Value changed function: EnableAffineModeButton
         function toggleAffineMode(app, event)
             app.affineMode = app.EnableAffineModeButton.Value;
@@ -521,8 +521,8 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
                 app.ShearYSpinner.Enable = 'off';
             end
         end
-
-        % Value changed function: RotationSpinner, ScaleXSpinner, 
+        
+        % Value changed function: RotationSpinner, ScaleXSpinner,
         % ...and 3 other components
         function updateAffineTransform(app, event)
             app.scaleX = app.ScaleXSpinner.Value;
@@ -533,7 +533,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             
             applyTransformation(app);
         end
-
+        
         % Value changed function: XOffsetSpinner, YOffsetSpinner
         function updateOffsetFromSpinner(app, event)
             app.xoffset = app.XOffsetSpinner.Value;
@@ -541,7 +541,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             
             applyTransformation(app);
         end
-
+        
         % Key press function: UIFigure
         function keyPressCallback(app, event)
             step = 1;
@@ -572,13 +572,13 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             end
             applyTransformation(app);
         end
-
+        
         % Button pushed function: ResetAllTransformationsButton
         function resetAll(app, event)
             resetTransformParams(app);
             applyTransformation(app);
         end
-
+        
         % Value changed function: FrameSlider
         function updateFrame(app, event)
             if hasTransformationApplied(app) && app.autoSave
@@ -620,7 +620,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
                 clim(app.ImageAxes, [app.climMin, app.climMax]);
             end
         end
-
+        
         % Value changed function: FrameSpinner
         function updateFrameFromSpinner(app, event)
             newFrame = app.FrameSpinner.Value;
@@ -631,7 +631,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
                 app.FrameSpinner.Value = app.currentFrame;
             end
         end
-
+        
         % Value changing function: FrameSlider
         function updateFrameWhileDragging(app, event)
             newFrame = round(event.Value);
@@ -692,7 +692,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
                 clim(app.ImageAxes, [app.climMin, app.climMax]);
             end
         end
-
+        
         % Button pushed function: SetcurrentButton
         function setCurrentAsReference(app, event)
             prevRefFrame = app.referenceFrameNum;
@@ -709,7 +709,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
                 app.fixed_layer.Visible = 'off';
             end
         end
-
+        
         % Value changed function: RefAlphaEdit
         function updateRefAlpha(app, event)
             newAlpha = app.RefAlphaEdit.Value;
@@ -725,12 +725,12 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
                 app.RefAlphaEdit.Value = app.refAlpha;
             end
         end
-
+        
         % Value changed function: AutoSaveCheckBox
         function toggleAutoSave(app, event)
             app.autoSave = app.AutoSaveCheckBox.Value;
         end
-
+        
         % Button pushed function: ApplyregistrationButton
         function applyRegistration(app, event)
             if hasTransformationApplied(app)
@@ -765,7 +765,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             
             applyTransformation(app);
         end
-
+        
         % Button pushed function: CopytransformationsButton
         function copyTransform(app, event)
             app.copiedTransform = struct('xoffset', app.xoffset, 'yoffset', app.yoffset, ...
@@ -776,7 +776,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             
             applyTransformation(app);
         end
-
+        
         % Button pushed function: PastetransformationsButton
         function pasteTransform(app, event)
             app.xoffset = app.copiedTransform.xoffset;
@@ -799,7 +799,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             
             app.mouseClickedInImage = false;
         end
-
+        
         % Button pushed function: ApplytoframesButton
         function applyToAllFrames(app, event)
             startFrame = app.FramesToApplyStartEdit.Value;
@@ -887,21 +887,21 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             
             clim(app.ImageAxes, [app.climMin, app.climMax]);
         end
-
+        
         % Value changed function: ContrastSlider
         function ContrastSliderValueChanged(app, event)
             app.climMin = app.ContrastSlider.Value(1);
             app.climMax = app.ContrastSlider.Value(2);
             clim(app.ImageAxes, [app.climMin, app.climMax]);
         end
-
+        
         % Value changing function: ContrastSlider
         function ContrastSliderValueChanging(app, event)
             app.climMin = event.Value(1);
             app.climMax = event.Value(2);
             clim(app.ImageAxes, [app.climMin, app.climMax]);
         end
-
+        
         % Value changed function: ShowRefCheckBox
         function toggleReferenceVisibility(app, event)
             app.showReference = app.ShowRefCheckBox.Value;
@@ -912,7 +912,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
                 app.fixed_layer.Visible = 'off';
             end
         end
-
+        
         % Button pushed function: UsezprojectionButton
         function useZProjection(app, event)
             if isempty(app.tiff_memmap)
@@ -962,19 +962,19 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             end
         end
     end
-
+    
     % Component initialization
     methods (Access = private)
-
+        
         % Create UIFigure and components
         function createComponents(app)
-
+            
             % Create UIFigure and hide until all components are created
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.Position = [100 100 926 838];
             app.UIFigure.Name = 'Manual Image Registration';
             app.UIFigure.KeyPressFcn = createCallbackFcn(app, @keyPressCallback, true);
-
+            
             % Create ImageAxes
             app.ImageAxes = uiaxes(app.UIFigure);
             app.ImageAxes.PlotBoxAspectRatio = [1 1 1];
@@ -989,27 +989,27 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             app.ImageAxes.LineWidth = 1;
             app.ImageAxes.Box = 'on';
             app.ImageAxes.Position = [9 140 683 651];
-
+            
             % Create MovingImagePathLabel
             app.MovingImagePathLabel = uilabel(app.UIFigure);
             app.MovingImagePathLabel.Position = [21 803 120 22];
             app.MovingImagePathLabel.Text = 'Movie';
-
+            
             % Create MovingImagePathEdit
             app.MovingImagePathEdit = uieditfield(app.UIFigure, 'text');
             app.MovingImagePathEdit.Position = [141 805 540 20];
-
+            
             % Create MovingImageBrowseButton
             app.MovingImageBrowseButton = uibutton(app.UIFigure, 'push');
             app.MovingImageBrowseButton.ButtonPushedFcn = createCallbackFcn(app, @browseMovingImage, true);
             app.MovingImageBrowseButton.Position = [690 803 100 22];
             app.MovingImageBrowseButton.Text = 'Browse...';
-
+            
             % Create FrameLabel
             app.FrameLabel = uilabel(app.UIFigure);
             app.FrameLabel.Position = [30 111 50 20];
             app.FrameLabel.Text = 'Frame:';
-
+            
             % Create FrameSlider
             app.FrameSlider = uislider(app.UIFigure);
             app.FrameSlider.Limits = [1 1000];
@@ -1019,23 +1019,23 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             app.FrameSlider.MinorTicks = [];
             app.FrameSlider.Position = [109 121 300 3];
             app.FrameSlider.Value = 1;
-
+            
             % Create FrameSpinner
             app.FrameSpinner = uispinner(app.UIFigure);
             app.FrameSpinner.ValueChangedFcn = createCallbackFcn(app, @updateFrameFromSpinner, true);
             app.FrameSpinner.Position = [446 110 60 22];
             app.FrameSpinner.Value = 1;
-
+            
             % Create MaxFramesLabel
             app.MaxFramesLabel = uilabel(app.UIFigure);
             app.MaxFramesLabel.Position = [509 110 80 22];
             app.MaxFramesLabel.Text = '/1000';
-
+            
             % Create ContrastSliderLabel
             app.ContrastSliderLabel = uilabel(app.UIFigure);
             app.ContrastSliderLabel.Position = [30 73 60 22];
             app.ContrastSliderLabel.Text = 'Contrast:';
-
+            
             % Create ContrastSlider
             app.ContrastSlider = uislider(app.UIFigure, 'range');
             app.ContrastSlider.Limits = [0 2500];
@@ -1043,35 +1043,35 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             app.ContrastSlider.ValueChangingFcn = createCallbackFcn(app, @ContrastSliderValueChanging, true);
             app.ContrastSlider.Position = [109 91 300 3];
             app.ContrastSlider.Value = [0 400];
-
+            
             % Create RefAlphaLabel
             app.RefAlphaLabel = uilabel(app.UIFigure);
             app.RefAlphaLabel.Position = [130 26 60 20];
             app.RefAlphaLabel.Text = 'Ref Alpha:';
-
+            
             % Create RefAlphaEdit
             app.RefAlphaEdit = uieditfield(app.UIFigure, 'numeric');
             app.RefAlphaEdit.ValueChangedFcn = createCallbackFcn(app, @updateRefAlpha, true);
             app.RefAlphaEdit.Position = [202 26 50 20];
             app.RefAlphaEdit.Value = 0.3;
-
+            
             % Create ShowRefCheckBox
             app.ShowRefCheckBox = uicheckbox(app.UIFigure);
             app.ShowRefCheckBox.ValueChangedFcn = createCallbackFcn(app, @toggleReferenceVisibility, true);
             app.ShowRefCheckBox.Text = 'Show Ref';
             app.ShowRefCheckBox.Position = [31 25 100 22];
             app.ShowRefCheckBox.Value = true;
-
+            
             % Create AffinePanel
             app.AffinePanel = uipanel(app.UIFigure);
             app.AffinePanel.Title = 'Affine Transformation Controls';
             app.AffinePanel.Position = [708 30 185 761];
-
+            
             % Create XOffsetLabel
             app.XOffsetLabel = uilabel(app.AffinePanel);
             app.XOffsetLabel.Position = [10 732 150 20];
             app.XOffsetLabel.Text = 'X Offset:';
-
+            
             % Create XOffsetSpinner
             app.XOffsetSpinner = uispinner(app.AffinePanel);
             app.XOffsetSpinner.Step = 1;
@@ -1079,12 +1079,12 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             app.XOffsetSpinner.ValueChangedFcn = createCallbackFcn(app, @updateOffsetFromSpinner, true);
             app.XOffsetSpinner.Position = [10 710 150 22];
             app.XOffsetSpinner.Value = 0;
-
+            
             % Create YOffsetLabel
             app.YOffsetLabel = uilabel(app.AffinePanel);
             app.YOffsetLabel.Position = [10 687 150 20];
             app.YOffsetLabel.Text = 'Y Offset:';
-
+            
             % Create YOffsetSpinner
             app.YOffsetSpinner = uispinner(app.AffinePanel);
             app.YOffsetSpinner.Step = 1;
@@ -1092,23 +1092,23 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             app.YOffsetSpinner.ValueChangedFcn = createCallbackFcn(app, @updateOffsetFromSpinner, true);
             app.YOffsetSpinner.Position = [10 665 150 22];
             app.YOffsetSpinner.Value = 0;
-
+            
             % Create EnableAffineModeButton
             app.EnableAffineModeButton = uibutton(app.AffinePanel, 'state');
             app.EnableAffineModeButton.ValueChangedFcn = createCallbackFcn(app, @toggleAffineMode, true);
             app.EnableAffineModeButton.Text = 'Enable Affine Mode';
             app.EnableAffineModeButton.Position = [9 632 150 30];
-
+            
             % Create ScaleXLabel
             app.ScaleXLabel = uilabel(app.AffinePanel);
             app.ScaleXLabel.Position = [9 606 150 20];
             app.ScaleXLabel.Text = 'Scale X:';
-
+            
             % Create ScaleYLabel
             app.ScaleYLabel = uilabel(app.AffinePanel);
             app.ScaleYLabel.Position = [9 552 150 20];
             app.ScaleYLabel.Text = 'Scale Y:';
-
+            
             % Create ScaleXSpinner
             app.ScaleXSpinner = uispinner(app.AffinePanel);
             app.ScaleXSpinner.Step = 0.01;
@@ -1116,7 +1116,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             app.ScaleXSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
             app.ScaleXSpinner.Position = [10 580 150 22];
             app.ScaleXSpinner.Value = 1;
-
+            
             % Create ScaleYSpinner
             app.ScaleYSpinner = uispinner(app.AffinePanel);
             app.ScaleYSpinner.Step = 0.01;
@@ -1124,156 +1124,156 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             app.ScaleYSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
             app.ScaleYSpinner.Position = [10 526 150 22];
             app.ScaleYSpinner.Value = 1;
-
+            
             % Create RotationLabel
             app.RotationLabel = uilabel(app.AffinePanel);
             app.RotationLabel.Position = [8 494 150 20];
             app.RotationLabel.Text = 'Rotation (degrees):';
-
+            
             % Create RotationSpinner
             app.RotationSpinner = uispinner(app.AffinePanel);
             app.RotationSpinner.Step = 0.5;
             app.RotationSpinner.Limits = [-30 30];
             app.RotationSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
             app.RotationSpinner.Position = [9 468 150 22];
-
+            
             % Create ShearXLabel
             app.ShearXLabel = uilabel(app.AffinePanel);
             app.ShearXLabel.Position = [8 438 150 20];
             app.ShearXLabel.Text = 'Shear X:';
-
+            
             % Create ShearXSpinner
             app.ShearXSpinner = uispinner(app.AffinePanel);
             app.ShearXSpinner.Step = 0.01;
             app.ShearXSpinner.Limits = [-0.5 0.5];
             app.ShearXSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
             app.ShearXSpinner.Position = [8 412 150 22];
-
+            
             % Create ShearYLabel
             app.ShearYLabel = uilabel(app.AffinePanel);
             app.ShearYLabel.Position = [8 380 150 20];
             app.ShearYLabel.Text = 'Shear Y:';
-
+            
             % Create ShearYSpinner
             app.ShearYSpinner = uispinner(app.AffinePanel);
             app.ShearYSpinner.Step = 0.01;
             app.ShearYSpinner.Limits = [-0.5 0.5];
             app.ShearYSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
             app.ShearYSpinner.Position = [8 354 150 22];
-
+            
             % Create CopytransformationsButton
             app.CopytransformationsButton = uibutton(app.AffinePanel, 'push');
             app.CopytransformationsButton.ButtonPushedFcn = createCallbackFcn(app, @copyTransform, true);
             app.CopytransformationsButton.Position = [10 230 150 30];
             app.CopytransformationsButton.Text = 'Copy transformations';
-
+            
             % Create PastetransformationsButton
             app.PastetransformationsButton = uibutton(app.AffinePanel, 'push');
             app.PastetransformationsButton.ButtonPushedFcn = createCallbackFcn(app, @pasteTransform, true);
             app.PastetransformationsButton.Position = [10 190 150 30];
             app.PastetransformationsButton.Text = 'Paste transformations';
-
+            
             % Create ApplyregistrationButton
             app.ApplyregistrationButton = uibutton(app.AffinePanel, 'push');
             app.ApplyregistrationButton.ButtonPushedFcn = createCallbackFcn(app, @applyRegistration, true);
             app.ApplyregistrationButton.Position = [10 274 150 30];
             app.ApplyregistrationButton.Text = 'Apply registration';
-
+            
             % Create ApplytoframesButton
             app.ApplytoframesButton = uibutton(app.AffinePanel, 'push');
             app.ApplytoframesButton.ButtonPushedFcn = createCallbackFcn(app, @applyToAllFrames, true);
             app.ApplytoframesButton.Position = [10 151 150 30];
             app.ApplytoframesButton.Text = 'Apply to frames';
-
+            
             % Create FromframeLabel
             app.FromframeLabel = uilabel(app.AffinePanel);
             app.FromframeLabel.Position = [10 122 75 20];
             app.FromframeLabel.Text = 'From frame:';
-
+            
             % Create FramesToApplyStartEdit
             app.FramesToApplyStartEdit = uieditfield(app.AffinePanel, 'numeric');
             app.FramesToApplyStartEdit.Position = [85 122 75 20];
             app.FramesToApplyStartEdit.Value = 2;
-
+            
             % Create ToframeLabel
             app.ToframeLabel = uilabel(app.AffinePanel);
             app.ToframeLabel.Position = [10 92 75 20];
             app.ToframeLabel.Text = 'To frame:';
-
+            
             % Create FramesToApplyEndEdit
             app.FramesToApplyEndEdit = uieditfield(app.AffinePanel, 'numeric');
             app.FramesToApplyEndEdit.Position = [85 92 75 20];
             app.FramesToApplyEndEdit.Value = 1000;
-
+            
             % Create ResetAllTransformationsButton
             app.ResetAllTransformationsButton = uibutton(app.AffinePanel, 'push');
             app.ResetAllTransformationsButton.ButtonPushedFcn = createCallbackFcn(app, @resetAll, true);
             app.ResetAllTransformationsButton.Position = [10 46 150 30];
             app.ResetAllTransformationsButton.Text = 'Reset All Transformations';
-
+            
             % Create AutoSaveCheckBox
             app.AutoSaveCheckBox = uicheckbox(app.AffinePanel);
             app.AutoSaveCheckBox.ValueChangedFcn = createCallbackFcn(app, @toggleAutoSave, true);
             app.AutoSaveCheckBox.Text = 'Auto Save';
             app.AutoSaveCheckBox.Position = [10 16 150 30];
             app.AutoSaveCheckBox.Value = true;
-
+            
             % Create ApplyLabel
             app.ApplyLabel = uilabel(app.AffinePanel);
             app.ApplyLabel.Position = [10 313 150 22];
             app.ApplyLabel.Text = 'Apply:';
-
+            
             % Create SetcurrentButton
             app.SetcurrentButton = uibutton(app.UIFigure, 'push');
             app.SetcurrentButton.ButtonPushedFcn = createCallbackFcn(app, @setCurrentAsReference, true);
             app.SetcurrentButton.Position = [342 21 83 30];
             app.SetcurrentButton.Text = 'Set current';
-
+            
             % Create UsezprojectionButton
             app.UsezprojectionButton = uibutton(app.UIFigure, 'push');
             app.UsezprojectionButton.ButtonPushedFcn = createCallbackFcn(app, @useZProjection, true);
             app.UsezprojectionButton.Position = [441 21 108 30];
             app.UsezprojectionButton.Text = 'Use z projection';
-
+            
             % Create LoadReferenceImageButton
             app.LoadReferenceImageButton = uibutton(app.UIFigure, 'push');
             app.LoadReferenceImageButton.ButtonPushedFcn = createCallbackFcn(app, @loadReferenceImage, true);
             app.LoadReferenceImageButton.Position = [564 20 94 30];
             app.LoadReferenceImageButton.Text = 'Load image';
-
+            
             % Create SetRefLabel
             app.SetRefLabel = uilabel(app.UIFigure);
             app.SetRefLabel.Position = [295 25 45 22];
             app.SetRefLabel.Text = 'Set Ref';
-
+            
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
         end
     end
-
+    
     % App creation and deletion
     methods (Access = public)
-
+        
         % Construct app
         function app = ManualImageRegistrationApp_exported(varargin)
-
+            
             % Create UIFigure and components
             createComponents(app)
-
+            
             % Register the app with App Designer
             registerApp(app, app.UIFigure)
-
+            
             % Execute the startup function
             runStartupFcn(app, @(app)startupFcn(app, varargin{:}))
-
+            
             if nargout == 0
                 clear app
             end
         end
-
+        
         % Code that executes before app deletion
         function delete(app)
-
+            
             % Delete UIFigure when app is deleted
             delete(app.UIFigure)
         end
