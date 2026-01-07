@@ -43,27 +43,41 @@ def infer_frame(model, frame, device, block_size=128):
 
     return deripple
 def main():
-    parser = argparse.ArgumentParser(description="Periodic denoising inference")
-    parser.add_argument('--input', type=str, default='./datasets/file_00020_ch1.tif', help='Input multi-page TIFF file')
-    parser.add_argument('--output', type=str, default='./results/file_00020_ch1_deripple.tif', help='Output deripple TIFF file')
-    parser.add_argument('--model', type=str, default='./train_out/periodic_denoise_pth_model/dperiodic_denoise_pth_model_202512161659/net_dependent_noise_G20.pth', help='Path to generator_A2B .pth file')
-    parser.add_argument('--block_size', type=int, default=128, help='Number of rows per GPU block')
-    parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
-    opt = parser.parse_args()
+    # 检查是否从 pyrunfile 调用（全局变量存在）
+    if 'input' in globals():
+        input_file = globals()['input']
+        output_file = globals()['output']
+        model_path = globals()['model']
+        block_size_val = int(globals()['block_size'])
+        device_str = globals()['device']
+    else:
+        # 命令行参数解析
+        parser = argparse.ArgumentParser(description="Periodic denoising inference")
+        parser.add_argument('--input', type=str, default='./datasets/file_00020_ch1.tif', help='Input multi-page TIFF file')
+        parser.add_argument('--output', type=str, default='./results/file_00020_ch1_deripple.tif', help='Output deripple TIFF file')
+        parser.add_argument('--model', type=str, default='./train_out/periodic_denoising_model/net_dependent_noise_G20.pth', help='Path to generator_A2B .pth file')
+        parser.add_argument('--block_size', type=int, default=128, help='Number of rows per GPU block')
+        parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
+        opt = parser.parse_args()
+        input_file = opt.input
+        output_file = opt.output
+        model_path = opt.model
+        block_size_val = opt.block_size
+        device_str = opt.device
 
-    device = torch.device(opt.device)
+    device = torch.device(device_str)
     print(f"Using device: {device}")
 
     # Load model
     netG = Generator(input_nc=1, output_nc=1)
-    netG.load_state_dict(torch.load(opt.model, map_location=device))
+    netG.load_state_dict(torch.load(model_path, map_location=device))
     netG.to(device).eval()
     print("Model loaded.")
 
     # Open input TIFF
-    with TiffFile(opt.input) as tif_in:
+    with TiffFile(input_file) as tif_in:
         n_frames = len(tif_in.pages)
-        print(f"Processing {n_frames} frames from {opt.input}")
+        print(f"Processing {n_frames} frames from {input_file}")
 
         # Get first frame to determine shape and dtype
         first_page = tif_in.pages[0]
@@ -82,14 +96,14 @@ def main():
             output_offset = 0
 
         # Write output TIFF
-        with TiffWriter(opt.output) as tif_out:
+        with TiffWriter(output_file) as tif_out:
             for i in range(n_frames):
                 print(f"\rProcessing frame {i+1}/{n_frames}", end="", flush=True)
                 # Read frame
                 frame = tif_in.pages[i].asarray()
                 frame_float = auto_dc_correct(frame)  # [H, W] float32
                 # Inference
-                deripple_float = infer_frame(netG, frame_float, device, block_size=opt.block_size)
+                deripple_float = infer_frame(netG, frame_float, device, block_size=block_size_val)
                 # Convert back to integer
                 if output_offset != 0:
                     deripple_int = np.clip(deripple_float + output_offset, 0, 65535).astype(output_dtype)
@@ -99,6 +113,6 @@ def main():
                 # Write frame
                 tif_out.write(deripple_int, contiguous=True)
 
-    print(f"\n Done! Output saved to: {opt.output}")
+    print(f"\n Done! Output saved to: {output_file}")
 if __name__ == '__main__':
     main()

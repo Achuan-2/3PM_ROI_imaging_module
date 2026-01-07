@@ -25,15 +25,16 @@ Follow these steps to set up the environment on Windows using Anaconda:
 **1. Create a new conda environment**
 
 ```bash
-conda create -n periodic_denoise python=3.9
-
-conda activate periodic_denoise
+conda create -n ROI_Imaging_Module python=3.10
+conda activate ROI_Imaging_Module
 ```
 
 **2. Install PyTorch with CUDA support (or CPU-only)**
 
+Please select the correct Pytorch version that matches your CUDA version from [https://pytorch.org/get-started/previous-versions/](https://pytorch.org/get-started/previous-versions/). 
+
 ```bash
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
 **3. Install dependencies**
@@ -45,7 +46,7 @@ pip install numpy scipy pillow tifffile visdom
 **4. (Optional) Start Visdom server for training monitoring**
 
 ```bash
-conda activate periodic\_denoise
+conda activate ROI_Imaging_Module
 python -m visdom.server -port 10000
 ```
 
@@ -73,33 +74,32 @@ python -m visdom.server -port 10000
 Open Anaconda Prompt, activate your environment, and run:
 
 ```bash
-conda activate periodic_denoise
-
-python Train_periodic_denoising.py
-
-  --raw_tif ./datasets/sample_raw.tif
-  --noise_tif ./datasets/sample_ripple.tif
-  --datanum 10000
-  --batchSize 10
-  --n_epochs 30
-  --size 512
-  --lr 0.0001
-  --decay_epoch 20
-  --trainoutput ./train_out/periodic_denoise_pth_model
-  --visdom_port 10000
-  --seed 2
+conda activate ROI_Imaging_Module
+python Train_periodic_denoising.py \
+  --raw_tif ./datasets/sample_raw.tif \
+  --noise_tif ./datasets/sample_ripple.tif \
+  --datanum 10000 \
+  --batchSize 10 \
+  --n_epochs 30 \
+  --size 512 \
+  --lr 0.0001 \
+  --decay_epoch 20 \
+  --trainoutput ./train_out/3PM \
+  --visdom_port 10000 \
+  --seed 2 \
   --cuda
 ```
 
 **2. Inference(Example)**
 
-```
-python Inference_periodic_denoise.py
-  --input ./datasets/sample_raw.tif
-  --output ./results/sample_deripple.tif
-  --model ./train_out/periodic_denoising_model/net_deperiodic_denoise_G30.pth
-  --block_size 128
-  --device cuda
+```bash
+conda activate ROI_Imaging_Module
+python Inference_periodic_denoise.py \
+    --input ./datasets/sample_raw.tif \
+    --output ./results/sample_deripple.tif \
+    --model ./train_out/3PM/net_dependent_noise_G20.pth \
+    --block_size 128 \
+    --device cuda
 ```
 
 

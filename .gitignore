@@ -3,3 +3,4 @@ cellposeModels/
 *.pyc
 /config.json
 /config_signal_extract.json
+__pycache__
