@@ -21,15 +21,15 @@ from utils import save_yaml_train
 from sampling import *
 
 #############################################################################################################################################
-# 检查是否从 pyrunfile 调用（全局变量存在）
+# Check if called from pyrunfile (global variables exist)
 if 'GPU' in globals() and 'denoise_model' in globals():
-    # 从 MATLAB pyrunfile 调用，使用全局变量，所有参数都有默认值
+    # Called from MATLAB pyrunfile, use global variables, all parameters have defaults
     class Opt:
         pass
     opt = Opt()
     opt.GPU = globals().get('GPU', '0')
     opt.denoise_model = globals().get('denoise_model', None)
-    # 支持input/output模式或datasets模式
+    # Support input/output mode or datasets mode
     opt.input = globals().get('input', None)
     opt.output = globals().get('output', None)
     opt.datasets_folder = globals().get('datasets_folder', 'train')
@@ -42,13 +42,13 @@ if 'GPU' in globals() and 'denoise_model' in globals():
     opt.pth_path = globals().get('pth_path', './pth')
     opt.output_path = globals().get('output_path', './results')
 else:
-    # 命令行参数解析
+    # Command line argument parsing
     parser = argparse.ArgumentParser()
     parser.add_argument('--GPU', type=str, default='0,1', help="the index of GPU used for computation (e.g., '0', '0,1', '0,1,2')")
 
     parser.add_argument('--denoise_model', type=str, default=None, help='A folder containing models to be tested')
     
-    # 支持两种模式：input/output单文件模式 或 datasets文件夹模式
+    # Support two modes: input/output single file mode or datasets folder mode
     parser.add_argument('--input', type=str, default=None, help='Input single TIFF file (alternative to datasets_folder)')
     parser.add_argument('--output', type=str, default=None, help='Output single TIFF file (used with --input)')
     parser.add_argument('--datasets_folder', type=str, default='train', help="A folder containing all *.tif files for training")
@@ -76,7 +76,7 @@ opt.gap_y = int(opt.patch_y * (1 - opt.overlap_factor))
 opt.ngpu = str(opt.GPU).count(',') + 1
 opt.batch_size = opt.ngpu                       # By default, the batch size is equal to the number of GPU for minimal memory consumption
 print('\033[1;31mParameters -----> \033[0m')
-# 打印所有参数
+# Print all parameters
 for key, value in vars(opt).items():
     print(f"  {key}: {value}")
 
@@ -93,7 +93,7 @@ if not model_list:
 
 model_list.sort()
 
-# 过滤掉 yaml 文件，只保留模型文件
+# Filter out yaml files, keep only model files
 model_list = [f for f in model_list if '.pth' in f and '.yaml' not in f]
 if not model_list:
     raise FileNotFoundError(f"No .pth model files found in: {model_path}")
@@ -102,9 +102,9 @@ print('If there are multiple models, only the last one will be used for denoisin
 model_list.sort()
 model_list[:-1] = []
 
-# 判断使用哪种模式：input/output单文件模式 或 datasets文件夹模式
+# Determine which mode to use: input/output single file mode or datasets folder mode
 if opt.input is not None:
-    # 单文件模式
+    # Single file mode
     print('\033[1;31mUsing single file mode -----> \033[0m')
     if not os.path.exists(opt.input):
         raise FileNotFoundError(f"Input file not found: {opt.input}")
@@ -116,7 +116,7 @@ if opt.input is not None:
     opt.datasets_folder = ''
     im_folder = opt.datasets_path
     
-    # 设置输出路径为指定的output文件的目录
+    # Set output path to the directory of the specified output file
     output_dir = os.path.dirname(opt.output)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -124,7 +124,7 @@ if opt.input is not None:
     single_file_mode = True
     output_filename = os.path.basename(opt.output)
 else:
-    # datasets文件夹模式
+    # Datasets folder mode
     print('\033[1;31mUsing datasets folder mode -----> \033[0m')
     im_folder = os.path.join(opt.datasets_path, opt.datasets_folder)
     
@@ -188,10 +188,10 @@ def test():
             pth_name = model_list[pth_index]
             
             if single_file_mode:
-                # 单文件模式：直接使用output_path1作为输出目录
+                # Single file mode: directly use output_path1 as output directory
                 output_path = output_path1
             else:
-                # datasets模式：创建模型名称子目录
+                # Datasets mode: create model name subdirectory
                 output_path = os.path.join(output_path1, pth_name.replace('.pth', ''))
                 if not os.path.exists(output_path):
                     os.mkdir(output_path)
@@ -215,10 +215,10 @@ def test():
                 denoise_img = np.zeros(noise_img.shape)
                 
                 if single_file_mode:
-                    # 单文件模式：使用指定的输出文件名
+                    # Single file mode: use specified output filename
                     result_name = opt.output
                 else:
-                    # datasets模式：生成带模型名的输出文件名
+                    # Datasets mode: generate output filename with model name
                     result_file_name = img_list[N].replace('.tif', '') + '_' + pth_name.replace('.pth','') + '_output.tif'
                     result_name = os.path.join(output_path, result_file_name)
                 print(os.getcwd())
