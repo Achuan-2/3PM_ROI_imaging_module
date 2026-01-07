@@ -11,7 +11,6 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
         ContrastSlider_2Label         matlab.ui.control.Label
         ContrastSlider_2              matlab.ui.control.RangeSlider
         ContrastSliderLabel_2         matlab.ui.control.Label
-        neddrewriteCheckBox           matlab.ui.control.CheckBox
         SyncUIaxes1                   matlab.ui.control.Button
         SyncUIaxes2                   matlab.ui.control.Button
         MasksettingsButton            matlab.ui.control.Button
@@ -751,79 +750,73 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 %% load tiff
                 app.tiff_path = fullfile(app.last_selected_folder,filename);
                 app.tiff_current_frame  = 1;
-                rewrite = app.neddrewriteCheckBox.Value;
-                if ~rewrite
-                    try
-                        app.tiff_memmap= memory_map_tiff(app.tiff_path,[],1,true); % 不能直接memory_map_tiff(app.tiff_path,[],1,true).Data，这样相当于读取所有数据会非常卡
-                        app.tiff_all_frames = length(app.tiff_memmap.Data);
-                    catch
-                        d.Message = "Try rewrite image";
-
-                        fid=fopen(app.tiff_path,'r');
-                        fseek(fid,0,'eof');
-                        len=ftell(fid);
-                        fclose(fid);
-
-                        info=readtifftags(data);
-                        if isfield(info,'ImageDescription')
-                            desc=info(1).ImageDescription;
+                
+                try
+                    app.tiff_memmap = memory_map_tiff(app.tiff_path,[],1,true); % 不能直接memory_map_tiff(app.tiff_path,[],1,true).Data，这样相当于读取所有数据会非常卡
+                    app.tiff_all_frames = length(app.tiff_memmap.Data);
+                catch ME
+                    % 如果是 big-endian 错误或者其他可恢复的加载错误，弹出对话框询问
+                    if contains(ME.message, 'big-endian') || contains(ME.message, 'endian')
+                        choice = questdlg(['The TIFF file is in an incompatible format (possibly big-endian) and cannot be memory mapped. ' ...
+                            'Would you like to rewrite the file to little-endian format? ' ...
+                            'A new file with suffix "_rewrite.tif" will be created.'], ...
+                            'Incompatible TIFF format', ...
+                            'Yes', 'No', 'Yes');
+                        
+                        if strcmp(choice, 'Yes')
+                            d.Message = 'Rewriting TIFF file...';
+                            
+                            % 获取文件信息
+                            fid = fopen(app.tiff_path, 'r');
+                            fseek(fid, 0, 'eof');
+                            len = ftell(fid);
+                            fclose(fid);
+                            
+                            info = readtifftags(app.tiff_path);
+                            if isfield(info, 'ImageDescription')
+                                desc = info(1).ImageDescription;
+                            else
+                                desc = [];
+                            end
+                            newfile = fullfile(app.last_selected_folder, strcat(name, '_rewrite.tif'));
+                            
+                            try
+                                % 根据文件大小选择写入方式
+                                if len/1e9 < 3.99
+                                    TiffWriter = Fast_Tiff_Write(newfile, info(1).Xresolution, 0, desc);
+                                else
+                                    TiffWriter = Fast_BigTiff_Write(newfile, info(1).Xresolution, 0, desc);
+                                end
+                                
+                                t = Tiff(app.tiff_path, 'r');
+                                app.tiff_all_frames = length(info);
+                                % 使用进度条更新
+                                for i = 1:app.tiff_all_frames
+                                    t.setDirectory(i);
+                                    img = t.read();
+                                    TiffWriter.WriteIMG(img');
+                                    d.Message = sprintf('Rewriting frame %d/%d...', i, app.tiff_all_frames);
+                                end
+                                close(TiffWriter);
+                                t.close();
+                                
+                                % 使用重写的文件
+                                app.tiff_path = newfile;
+                                app.tiff_memmap = memory_map_tiff(newfile, [], 1, true);
+                                msgbox('File successfully rewritten to little-endian format.', 'Success');
+                            catch rewriteErr
+                                close(d);
+                                errordlg(['Failed to rewrite file: ' rewriteErr.message], 'Error');
+                                return;
+                            end
                         else
-                            desc=[];
+                            close(d);
+                            return;
                         end
-                        newfile = fullfile(app.last_selected_folder,strcat(name,'_rewrite.tif'));
-
-
-                        if len/1e9<3.99
-                            TiffWriter=Fast_Tiff_Write(newfile,info(1).Xresolution,0,desc);
-                        else
-                            TiffWriter=Fast_BigTiff_Write(newfile,info(1).Xresolution,0,desc);
-                        end
-
-                        t = Tiff(app.tiff_path,'r');
-                        app.tiff_all_frames = length(info);
-                        for i = 1:app.tiff_all_frames
-                            t.setDirectory(i);
-                            img = t.read();
-                            TiffWriter.WriteIMG(img');
-                        end
-
-                        t.close();
-                        app.tiff_memmap= memory_map_tiff(newfile,[],1,true);
-                        app.tiff_path = newfile;
-
+                    else
+                        close(d);
+                        rethrow(ME);
                     end
-                else
-                        fid=fopen(app.tiff_path,'r');
-                        fseek(fid,0,'eof');
-                        len=ftell(fid);
-                        fclose(fid);
-
-                        info=readtifftags(app.tiff_path);
-                        if isfield(info,'ImageDescription')
-                            desc=info(1).ImageDescription;
-                        else
-                            desc=[];
-                        end
-                        newfile = fullfile(app.last_selected_folder,strcat(name,'_rewrite.tif'));
-
-
-                        if len/1e9<3.99
-                            TiffWriter=Fast_Tiff_Write(newfile,info(1).Xresolution,0,desc);
-                        else
-                            TiffWriter=Fast_BigTiff_Write(newfile,info(1).Xresolution,0,desc);
-                        end
-
-                        t = Tiff(app.tiff_path,'r');
-                        app.tiff_all_frames = length(info);
-                        for i = 1:app.tiff_all_frames
-                            t.setDirectory(i);
-                            img = t.read();
-                            TiffWriter.WriteIMG(img');
-                        end
-                        close(TiffWriter);
-                        t.close();
-                        app.tiff_memmap= memory_map_tiff(newfile,[],1,true);
-                        app.tiff_path = newfile;
                 end
 
 
@@ -2395,11 +2388,6 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.SyncUIaxes1.Tooltip = {'Sync View'};
             app.SyncUIaxes1.Position = [455 674 38 23];
             app.SyncUIaxes1.Text = '';
-
-            % Create neddrewriteCheckBox
-            app.neddrewriteCheckBox = uicheckbox(app.UIFigure);
-            app.neddrewriteCheckBox.Text = 'nedd rewrite';
-            app.neddrewriteCheckBox.Position = [50 738 88 22];
 
             % Create ContrastSliderLabel_2
             app.ContrastSliderLabel_2 = uilabel(app.UIFigure);

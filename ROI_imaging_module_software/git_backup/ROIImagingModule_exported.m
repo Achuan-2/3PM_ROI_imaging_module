@@ -1,4 +1,4 @@
-classdef roi_imaging_module_exported < matlab.apps.AppBase
+classdef ROIImagingModule_exported < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
@@ -88,6 +88,8 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
         SimulationApp;
         PowerCaculateAPP;
         ROIMaskSettingsApp;
+        % Data process app
+        SignalExtractionApp;
 
         roiMask % Dilate之后
 
@@ -1996,6 +1998,11 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
             end
         end
 
+        % Menu selected function: SignalExtractionMenu
+        function SignalExtractionMenuSelected(app, event)
+            app.SignalExtractionApp= CalciumSignalExtraction();
+        end
+
         % Changes arrangement of the app based on UIFigure width
         function updateAppLayout(app, event)
             currentFigureWidth = app.UIFigure.Position(3);
@@ -2101,6 +2108,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
 
             % Create SignalExtractionMenu
             app.SignalExtractionMenu = uimenu(app.DataprocessMenu);
+            app.SignalExtractionMenu.MenuSelectedFcn = createCallbackFcn(app, @SignalExtractionMenuSelected, true);
             app.SignalExtractionMenu.Text = 'Signal Extraction';
 
             % Create HelpMenu
@@ -2457,7 +2465,7 @@ classdef roi_imaging_module_exported < matlab.apps.AppBase
     methods (Access = public)
 
         % Construct app
-        function app = roi_imaging_module_exported
+        function app = ROIImagingModule_exported
 
             runningApp = getRunningApp(app);
 
