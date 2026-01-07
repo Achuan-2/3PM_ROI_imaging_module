@@ -160,22 +160,198 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
     end
 
     methods
-        function config_read(app)
-            text = fileread(fullfile(app.dir,'config','config_signal_extract.json'));
-            config = jsondecode(text);
-
-            if isfield(config, 'last_tiff_path')
-                app.last_selected_folder = config.last_tiff_path;
+        function config_read(app, allow_select_path)
+            % 读取配置文件
+            % allow_select_path: 如果为true，允许用户选择配置文件路径
+            if nargin < 2
+                allow_select_path = false;
+            end
+            
+            % 确定配置文件路径
+            if allow_select_path
+                [filename, path] = utils.select_file({'*.json'}, fullfile(app.dir, 'config'));
+                if isequal(filename, 0)
+                    return; % 用户取消了选择
+                end
+                
+                fullpath = fullfile(path, filename);
+            else
+                fullpath = fullfile(app.dir,'config','config_signal_extract.json');
+            end
+            
+            try
+                % 读取JSON文件
+                text = fileread(fullpath);
+                config = jsondecode(text);
+                
+                if isfield(config, 'last_tiff_path')
+                    app.last_selected_folder = config.last_tiff_path;
+                end
+                
+                % 加载UI配置参数
+                if isfield(config, 'FramerateEditField')
+                    app.FramerateEditField.Value = config.FramerateEditField;
+                end
+                if isfield(config, 'ScabartypeDropDown')
+                    app.ScabartypeDropDown.Value = config.ScabartypeDropDown;
+                end
+                if isfield(config, 'FScalebarSpinner')
+                    app.FScalebarSpinner.Value = config.FScalebarSpinner;
+                end
+                if isfield(config, 'TimeScalebarSpinner')
+                    app.TimeScalebarSpinner.Value = config.TimeScalebarSpinner;
+                end
+                if isfield(config, 'XTickintervalsEditField')
+                    app.XTickintervalsEditField.Value = config.XTickintervalsEditField;
+                end
+                if isfield(config, 'XLimsEditField_2')
+                    app.XLimsEditField_2.Value = config.XLimsEditField_2;
+                end
+                if isfield(config, 'SignaltypeDropDown')
+                    app.SignaltypeDropDown.Value = config.SignaltypeDropDown;
+                end
+                if isfield(config, 'F0BaselinecorrectionCheckBox')
+                    app.F0BaselinecorrectionCheckBox.Value = config.F0BaselinecorrectionCheckBox;
+                end
+                if isfield(config, 'F0StartEditField')
+                    app.F0StartEditField.Value = config.F0StartEditField;
+                end
+                if isfield(config, 'F0EndEditField')
+                    app.F0EndEditField.Value = config.F0EndEditField;
+                end
+                if isfield(config, 'useNormalF0CheckBox')
+                    app.useNormalF0CheckBox.Value = config.useNormalF0CheckBox;
+                end
+                if isfield(config, 'F0TypeEventCheckBox')
+                    app.F0TypeEventCheckBox.Value = config.F0TypeEventCheckBox;
+                end
+                if isfield(config, 'AverageEditField')
+                    app.AverageEditField.Value = config.AverageEditField;
+                end
+                if isfield(config, 'SmoothCheckBox')
+                    app.SmoothCheckBox.Value = config.SmoothCheckBox;
+                end
+                if isfield(config, 'windowsEditField')
+                    app.windowsEditField.Value = config.windowsEditField;
+                end
+                if isfield(config, 'ROIprefixlabelEditField')
+                    app.ROIprefixlabelEditField.Value = config.ROIprefixlabelEditField;
+                end
+                if isfield(config, 'EventrangesEditField')
+                    app.EventrangesEditField.Value = config.EventrangesEditField;
+                end
+                if isfield(config, 'EventnameEditField')
+                    app.EventnameEditField.Value = config.EventnameEditField;
+                end
+                if isfield(config, 'EventcolorEditField')
+                    app.EventcolorEditField.Value = config.EventcolorEditField;
+                end
+                if isfield(config, 'ROIintervalSpinner')
+                    app.ROIintervalSpinner.Value = config.ROIintervalSpinner;
+                end
+                if isfield(config, 'TraceColorDropDown')
+                    app.TraceColorDropDown.Value = config.TraceColorDropDown;
+                end
+                if isfield(config, 'TraceFixedColor')
+                    app.TraceFixedColor.Value = config.TraceFixedColor;
+                end
+                if isfield(config, 'ColormapColorDropDown')
+                    app.ColormapColorDropDown.Value = config.ColormapColorDropDown;
+                end
+                if isfield(config, 'sortCheckBox')
+                    app.sortCheckBox.Value = config.sortCheckBox;
+                end
+                if isfield(config, 'thresholdSpinner')
+                    app.thresholdSpinner.Value = config.thresholdSpinner;
+                end
+                if isfield(config, 'norm_blocksizeSpinner')
+                    app.norm_blocksizeSpinner.Value = config.norm_blocksizeSpinner;
+                end
+                
+                % 如果是用户选择的文件，显示成功消息
+                if allow_select_path
+                    disp(['Config Loaded from File: ', fullpath]);
+                end
+                
+            catch ME
+                % 错误处理
+                if allow_select_path
+                    errordlg(['Failed to load config: ', ME.message], 'Load Config Error');
+                else
+                    warning('Failed to load config: %s', ME.message);
+                end
             end
         end
 
-        function config_save(app)
+        function config_save(app, allow_select_path)
+            % 保存配置文件
+            % allow_select_path: 如果为true，允许用户选择保存路径
+            if nargin < 2
+                allow_select_path = false;
+            end
+            
+            % 收集所有配置参数
             config.last_tiff_path = app.last_selected_folder;
-            json_data = jsonencode(config,'PrettyPrint',true);
-            % disp(fullfile(app.dir,'config.json'));
-            fileID = fopen(fullfile(app.dir,'config','config_signal_extract.json'), 'w');
-            fprintf(fileID, "%s",json_data);
-            fclose(fileID);
+            config.FramerateEditField = app.FramerateEditField.Value;
+            config.ScabartypeDropDown = app.ScabartypeDropDown.Value;
+            config.FScalebarSpinner = app.FScalebarSpinner.Value;
+            config.TimeScalebarSpinner = app.TimeScalebarSpinner.Value;
+            config.XTickintervalsEditField = app.XTickintervalsEditField.Value;
+            config.XLimsEditField_2 = app.XLimsEditField_2.Value;
+            config.SignaltypeDropDown = app.SignaltypeDropDown.Value;
+            config.F0BaselinecorrectionCheckBox = app.F0BaselinecorrectionCheckBox.Value;
+            config.F0StartEditField = app.F0StartEditField.Value;
+            config.F0EndEditField = app.F0EndEditField.Value;
+            config.useNormalF0CheckBox = app.useNormalF0CheckBox.Value;
+            config.F0TypeEventCheckBox = app.F0TypeEventCheckBox.Value;
+            config.AverageEditField = app.AverageEditField.Value;
+            config.SmoothCheckBox = app.SmoothCheckBox.Value;
+            config.windowsEditField = app.windowsEditField.Value;
+            config.ROIprefixlabelEditField = app.ROIprefixlabelEditField.Value;
+            config.EventrangesEditField = app.EventrangesEditField.Value;
+            config.EventnameEditField = app.EventnameEditField.Value;
+            config.EventcolorEditField = app.EventcolorEditField.Value;
+            config.ROIintervalSpinner = app.ROIintervalSpinner.Value;
+            config.TraceColorDropDown = app.TraceColorDropDown.Value;
+            config.TraceFixedColor = app.TraceFixedColor.Value;
+            config.ColormapColorDropDown = app.ColormapColorDropDown.Value;
+            config.sortCheckBox = app.sortCheckBox.Value;
+            config.thresholdSpinner = app.thresholdSpinner.Value;
+            config.norm_blocksizeSpinner = app.norm_blocksizeSpinner.Value;
+            
+            % 确定保存路径
+            if allow_select_path
+                [filename, path] = utils.save_file({'*.json'}, fullfile(app.dir, 'config'));
+                
+                if isequal(filename, 0)
+                    return; % 用户取消了保存
+                end
+                
+                fullpath = fullfile(path, filename);
+            else
+                fullpath = fullfile(app.dir,'config','config_signal_extract.json');
+            end
+            
+            try
+                % 转换为JSON并保存
+                json_data = jsonencode(config,'PrettyPrint',true);
+                fileID = fopen(fullpath, 'w');
+                fprintf(fileID, "%s", json_data);
+                fclose(fileID);
+                
+                % 如果是用户选择的保存路径，显示成功消息
+                if allow_select_path
+                    disp(['Config Saved to File: ', fullpath]);
+                end
+                
+            catch ME
+                % 错误处理
+                if allow_select_path
+                    errordlg(['Failed to save config: ', ME.message], 'Save Config Error');
+                else
+                    warning('Failed to save config: %s', ME.message);
+                end
+            end
         end
         
         
@@ -1712,12 +1888,12 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
 
         % Menu selected function: LoadConfigMenu
         function LoadConfigMenuSelected(app, event)
-            
+            app.config_read(true);
         end
 
         % Menu selected function: SaveConfigMenu
         function SaveConfigMenuSelected(app, event)
-            
+            app.config_save(true);
         end
     end
 
