@@ -1,39 +1,39 @@
-classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
+classdef ManualImageRegistration_exported < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
         UIFigure                       matlab.ui.Figure
         SetRefLabel                    matlab.ui.control.Label
         LoadReferenceImageButton       matlab.ui.control.Button
-        UsezprojectionButton           matlab.ui.control.Button
-        SetcurrentButton               matlab.ui.control.Button
+        ZprojectionButton              matlab.ui.control.Button
+        CurrentframeButton             matlab.ui.control.Button
         AffinePanel                    matlab.ui.container.Panel
-        ApplyLabel                     matlab.ui.control.Label
-        AutoSaveCheckBox               matlab.ui.control.CheckBox
-        ResetAllTransformationsButton  matlab.ui.control.Button
-        FramesToApplyEndEdit           matlab.ui.control.NumericEditField
-        ToframeLabel                   matlab.ui.control.Label
-        FramesToApplyStartEdit         matlab.ui.control.NumericEditField
-        FromframeLabel                 matlab.ui.control.Label
-        ApplytoframesButton            matlab.ui.control.Button
-        ApplyregistrationButton        matlab.ui.control.Button
-        PastetransformationsButton     matlab.ui.control.Button
-        CopytransformationsButton      matlab.ui.control.Button
-        ShearYSpinner                  matlab.ui.control.Spinner
-        ShearYLabel                    matlab.ui.control.Label
-        ShearXSpinner                  matlab.ui.control.Spinner
-        ShearXLabel                    matlab.ui.control.Label
-        RotationSpinner                matlab.ui.control.Spinner
-        RotationLabel                  matlab.ui.control.Label
-        ScaleYSpinner                  matlab.ui.control.Spinner
-        ScaleXSpinner                  matlab.ui.control.Spinner
-        ScaleYLabel                    matlab.ui.control.Label
-        ScaleXLabel                    matlab.ui.control.Label
-        XOffsetSpinner                 matlab.ui.control.Spinner
         XOffsetLabel                   matlab.ui.control.Label
-        YOffsetSpinner                 matlab.ui.control.Spinner
+        XOffsetSpinner                 matlab.ui.control.Spinner
         YOffsetLabel                   matlab.ui.control.Label
+        YOffsetSpinner                 matlab.ui.control.Spinner
         EnableAffineModeButton         matlab.ui.control.StateButton
+        ScaleXLabel                    matlab.ui.control.Label
+        ScaleYLabel                    matlab.ui.control.Label
+        ScaleXSpinner                  matlab.ui.control.Spinner
+        ScaleYSpinner                  matlab.ui.control.Spinner
+        RotationLabel                  matlab.ui.control.Label
+        RotationSpinner                matlab.ui.control.Spinner
+        ShearXLabel                    matlab.ui.control.Label
+        ShearXSpinner                  matlab.ui.control.Spinner
+        ShearYLabel                    matlab.ui.control.Label
+        ShearYSpinner                  matlab.ui.control.Spinner
+        CopytransformationsButton      matlab.ui.control.Button
+        PastetransformationsButton     matlab.ui.control.Button
+        ApplyregistrationButton        matlab.ui.control.Button
+        ApplytoframesButton            matlab.ui.control.Button
+        FromframeLabel                 matlab.ui.control.Label
+        FramesToApplyStartEdit         matlab.ui.control.NumericEditField
+        ToframeLabel                   matlab.ui.control.Label
+        FramesToApplyEndEdit           matlab.ui.control.NumericEditField
+        ResetAllTransformationsButton  matlab.ui.control.Button
+        AutoSaveCheckBox               matlab.ui.control.CheckBox
+        ApplyLabel                     matlab.ui.control.Label
         ShowRefCheckBox                matlab.ui.control.CheckBox
         RefAlphaEdit                   matlab.ui.control.NumericEditField
         RefAlphaLabel                  matlab.ui.control.Label
@@ -693,7 +693,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             end
         end
 
-        % Button pushed function: SetcurrentButton
+        % Button pushed function: CurrentframeButton
         function setCurrentAsReference(app, event)
             prevRefFrame = app.referenceFrameNum;
             app.referenceFrameNum = app.currentFrame;
@@ -913,7 +913,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             end
         end
 
-        % Button pushed function: UsezprojectionButton
+        % Button pushed function: ZprojectionButton
         function useZProjection(app, event)
             if isempty(app.tiff_memmap)
                 errordlg('Please load the image first!', 'Error');
@@ -1067,149 +1067,10 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             app.AffinePanel.Title = 'Affine Transformation Controls';
             app.AffinePanel.Position = [708 30 185 761];
 
-            % Create XOffsetLabel
-            app.XOffsetLabel = uilabel(app.AffinePanel);
-            app.XOffsetLabel.Position = [10 732 150 20];
-            app.XOffsetLabel.Text = 'X Offset:';
-
-            % Create XOffsetSpinner
-            app.XOffsetSpinner = uispinner(app.AffinePanel);
-            app.XOffsetSpinner.Step = 1;
-            app.XOffsetSpinner.Limits = [-inf inf];
-            app.XOffsetSpinner.ValueChangedFcn = createCallbackFcn(app, @updateOffsetFromSpinner, true);
-            app.XOffsetSpinner.Position = [10 710 150 22];
-            app.XOffsetSpinner.Value = 0;
-
-            % Create YOffsetLabel
-            app.YOffsetLabel = uilabel(app.AffinePanel);
-            app.YOffsetLabel.Position = [10 687 150 20];
-            app.YOffsetLabel.Text = 'Y Offset:';
-
-            % Create YOffsetSpinner
-            app.YOffsetSpinner = uispinner(app.AffinePanel);
-            app.YOffsetSpinner.Step = 1;
-            app.YOffsetSpinner.Limits = [-inf inf];
-            app.YOffsetSpinner.ValueChangedFcn = createCallbackFcn(app, @updateOffsetFromSpinner, true);
-            app.YOffsetSpinner.Position = [10 665 150 22];
-            app.YOffsetSpinner.Value = 0;
-
-            % Create EnableAffineModeButton
-            app.EnableAffineModeButton = uibutton(app.AffinePanel, 'state');
-            app.EnableAffineModeButton.ValueChangedFcn = createCallbackFcn(app, @toggleAffineMode, true);
-            app.EnableAffineModeButton.Text = 'Enable Affine Mode';
-            app.EnableAffineModeButton.Position = [9 632 150 30];
-
-            % Create ScaleXLabel
-            app.ScaleXLabel = uilabel(app.AffinePanel);
-            app.ScaleXLabel.Position = [9 606 150 20];
-            app.ScaleXLabel.Text = 'Scale X:';
-
-            % Create ScaleYLabel
-            app.ScaleYLabel = uilabel(app.AffinePanel);
-            app.ScaleYLabel.Position = [9 552 150 20];
-            app.ScaleYLabel.Text = 'Scale Y:';
-
-            % Create ScaleXSpinner
-            app.ScaleXSpinner = uispinner(app.AffinePanel);
-            app.ScaleXSpinner.Step = 0.01;
-            app.ScaleXSpinner.Limits = [0.5 2];
-            app.ScaleXSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
-            app.ScaleXSpinner.Position = [10 580 150 22];
-            app.ScaleXSpinner.Value = 1;
-
-            % Create ScaleYSpinner
-            app.ScaleYSpinner = uispinner(app.AffinePanel);
-            app.ScaleYSpinner.Step = 0.01;
-            app.ScaleYSpinner.Limits = [0.5 2];
-            app.ScaleYSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
-            app.ScaleYSpinner.Position = [10 526 150 22];
-            app.ScaleYSpinner.Value = 1;
-
-            % Create RotationLabel
-            app.RotationLabel = uilabel(app.AffinePanel);
-            app.RotationLabel.Position = [8 494 150 20];
-            app.RotationLabel.Text = 'Rotation (degrees):';
-
-            % Create RotationSpinner
-            app.RotationSpinner = uispinner(app.AffinePanel);
-            app.RotationSpinner.Step = 0.5;
-            app.RotationSpinner.Limits = [-30 30];
-            app.RotationSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
-            app.RotationSpinner.Position = [9 468 150 22];
-
-            % Create ShearXLabel
-            app.ShearXLabel = uilabel(app.AffinePanel);
-            app.ShearXLabel.Position = [8 438 150 20];
-            app.ShearXLabel.Text = 'Shear X:';
-
-            % Create ShearXSpinner
-            app.ShearXSpinner = uispinner(app.AffinePanel);
-            app.ShearXSpinner.Step = 0.01;
-            app.ShearXSpinner.Limits = [-0.5 0.5];
-            app.ShearXSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
-            app.ShearXSpinner.Position = [8 412 150 22];
-
-            % Create ShearYLabel
-            app.ShearYLabel = uilabel(app.AffinePanel);
-            app.ShearYLabel.Position = [8 380 150 20];
-            app.ShearYLabel.Text = 'Shear Y:';
-
-            % Create ShearYSpinner
-            app.ShearYSpinner = uispinner(app.AffinePanel);
-            app.ShearYSpinner.Step = 0.01;
-            app.ShearYSpinner.Limits = [-0.5 0.5];
-            app.ShearYSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
-            app.ShearYSpinner.Position = [8 354 150 22];
-
-            % Create CopytransformationsButton
-            app.CopytransformationsButton = uibutton(app.AffinePanel, 'push');
-            app.CopytransformationsButton.ButtonPushedFcn = createCallbackFcn(app, @copyTransform, true);
-            app.CopytransformationsButton.Position = [10 230 150 30];
-            app.CopytransformationsButton.Text = 'Copy transformations';
-
-            % Create PastetransformationsButton
-            app.PastetransformationsButton = uibutton(app.AffinePanel, 'push');
-            app.PastetransformationsButton.ButtonPushedFcn = createCallbackFcn(app, @pasteTransform, true);
-            app.PastetransformationsButton.Position = [10 190 150 30];
-            app.PastetransformationsButton.Text = 'Paste transformations';
-
-            % Create ApplyregistrationButton
-            app.ApplyregistrationButton = uibutton(app.AffinePanel, 'push');
-            app.ApplyregistrationButton.ButtonPushedFcn = createCallbackFcn(app, @applyRegistration, true);
-            app.ApplyregistrationButton.Position = [10 274 150 30];
-            app.ApplyregistrationButton.Text = 'Apply registration';
-
-            % Create ApplytoframesButton
-            app.ApplytoframesButton = uibutton(app.AffinePanel, 'push');
-            app.ApplytoframesButton.ButtonPushedFcn = createCallbackFcn(app, @applyToAllFrames, true);
-            app.ApplytoframesButton.Position = [10 151 150 30];
-            app.ApplytoframesButton.Text = 'Apply to frames';
-
-            % Create FromframeLabel
-            app.FromframeLabel = uilabel(app.AffinePanel);
-            app.FromframeLabel.Position = [10 122 75 20];
-            app.FromframeLabel.Text = 'From frame:';
-
-            % Create FramesToApplyStartEdit
-            app.FramesToApplyStartEdit = uieditfield(app.AffinePanel, 'numeric');
-            app.FramesToApplyStartEdit.Position = [85 122 75 20];
-            app.FramesToApplyStartEdit.Value = 2;
-
-            % Create ToframeLabel
-            app.ToframeLabel = uilabel(app.AffinePanel);
-            app.ToframeLabel.Position = [10 92 75 20];
-            app.ToframeLabel.Text = 'To frame:';
-
-            % Create FramesToApplyEndEdit
-            app.FramesToApplyEndEdit = uieditfield(app.AffinePanel, 'numeric');
-            app.FramesToApplyEndEdit.Position = [85 92 75 20];
-            app.FramesToApplyEndEdit.Value = 1000;
-
-            % Create ResetAllTransformationsButton
-            app.ResetAllTransformationsButton = uibutton(app.AffinePanel, 'push');
-            app.ResetAllTransformationsButton.ButtonPushedFcn = createCallbackFcn(app, @resetAll, true);
-            app.ResetAllTransformationsButton.Position = [10 46 150 30];
-            app.ResetAllTransformationsButton.Text = 'Reset All Transformations';
+            % Create ApplyLabel
+            app.ApplyLabel = uilabel(app.AffinePanel);
+            app.ApplyLabel.Position = [10 303 150 22];
+            app.ApplyLabel.Text = 'Apply:';
 
             % Create AutoSaveCheckBox
             app.AutoSaveCheckBox = uicheckbox(app.AffinePanel);
@@ -1218,27 +1079,160 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
             app.AutoSaveCheckBox.Position = [10 16 150 30];
             app.AutoSaveCheckBox.Value = true;
 
-            % Create ApplyLabel
-            app.ApplyLabel = uilabel(app.AffinePanel);
-            app.ApplyLabel.Position = [10 313 150 22];
-            app.ApplyLabel.Text = 'Apply:';
+            % Create ResetAllTransformationsButton
+            app.ResetAllTransformationsButton = uibutton(app.AffinePanel, 'push');
+            app.ResetAllTransformationsButton.ButtonPushedFcn = createCallbackFcn(app, @resetAll, true);
+            app.ResetAllTransformationsButton.Position = [10 46 150 30];
+            app.ResetAllTransformationsButton.Text = 'Reset All Transformations';
 
-            % Create SetcurrentButton
-            app.SetcurrentButton = uibutton(app.UIFigure, 'push');
-            app.SetcurrentButton.ButtonPushedFcn = createCallbackFcn(app, @setCurrentAsReference, true);
-            app.SetcurrentButton.Position = [342 21 83 30];
-            app.SetcurrentButton.Text = 'Set current';
+            % Create FramesToApplyEndEdit
+            app.FramesToApplyEndEdit = uieditfield(app.AffinePanel, 'numeric');
+            app.FramesToApplyEndEdit.Position = [85 92 75 20];
+            app.FramesToApplyEndEdit.Value = 1000;
 
-            % Create UsezprojectionButton
-            app.UsezprojectionButton = uibutton(app.UIFigure, 'push');
-            app.UsezprojectionButton.ButtonPushedFcn = createCallbackFcn(app, @useZProjection, true);
-            app.UsezprojectionButton.Position = [441 21 108 30];
-            app.UsezprojectionButton.Text = 'Use z projection';
+            % Create ToframeLabel
+            app.ToframeLabel = uilabel(app.AffinePanel);
+            app.ToframeLabel.Position = [10 92 75 20];
+            app.ToframeLabel.Text = 'To frame:';
+
+            % Create FramesToApplyStartEdit
+            app.FramesToApplyStartEdit = uieditfield(app.AffinePanel, 'numeric');
+            app.FramesToApplyStartEdit.Position = [85 122 75 20];
+            app.FramesToApplyStartEdit.Value = 2;
+
+            % Create FromframeLabel
+            app.FromframeLabel = uilabel(app.AffinePanel);
+            app.FromframeLabel.Position = [10 122 75 20];
+            app.FromframeLabel.Text = 'From frame:';
+
+            % Create ApplytoframesButton
+            app.ApplytoframesButton = uibutton(app.AffinePanel, 'push');
+            app.ApplytoframesButton.ButtonPushedFcn = createCallbackFcn(app, @applyToAllFrames, true);
+            app.ApplytoframesButton.Position = [10 151 150 30];
+            app.ApplytoframesButton.Text = 'Apply to frames';
+
+            % Create ApplyregistrationButton
+            app.ApplyregistrationButton = uibutton(app.AffinePanel, 'push');
+            app.ApplyregistrationButton.ButtonPushedFcn = createCallbackFcn(app, @applyRegistration, true);
+            app.ApplyregistrationButton.Position = [10 274 150 30];
+            app.ApplyregistrationButton.Text = 'Apply registration';
+
+            % Create PastetransformationsButton
+            app.PastetransformationsButton = uibutton(app.AffinePanel, 'push');
+            app.PastetransformationsButton.ButtonPushedFcn = createCallbackFcn(app, @pasteTransform, true);
+            app.PastetransformationsButton.Position = [10 190 150 30];
+            app.PastetransformationsButton.Text = 'Paste transformations';
+
+            % Create CopytransformationsButton
+            app.CopytransformationsButton = uibutton(app.AffinePanel, 'push');
+            app.CopytransformationsButton.ButtonPushedFcn = createCallbackFcn(app, @copyTransform, true);
+            app.CopytransformationsButton.Position = [10 230 150 30];
+            app.CopytransformationsButton.Text = 'Copy transformations';
+
+            % Create ShearYSpinner
+            app.ShearYSpinner = uispinner(app.AffinePanel);
+            app.ShearYSpinner.Step = 0.01;
+            app.ShearYSpinner.Limits = [-0.5 0.5];
+            app.ShearYSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
+            app.ShearYSpinner.Position = [8 347 150 22];
+
+            % Create ShearYLabel
+            app.ShearYLabel = uilabel(app.AffinePanel);
+            app.ShearYLabel.Position = [8 373 150 20];
+            app.ShearYLabel.Text = 'Shear Y:';
+
+            % Create ShearXSpinner
+            app.ShearXSpinner = uispinner(app.AffinePanel);
+            app.ShearXSpinner.Step = 0.01;
+            app.ShearXSpinner.Limits = [-0.5 0.5];
+            app.ShearXSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
+            app.ShearXSpinner.Position = [8 396 150 22];
+
+            % Create ShearXLabel
+            app.ShearXLabel = uilabel(app.AffinePanel);
+            app.ShearXLabel.Position = [8 422 150 20];
+            app.ShearXLabel.Text = 'Shear X:';
+
+            % Create RotationSpinner
+            app.RotationSpinner = uispinner(app.AffinePanel);
+            app.RotationSpinner.Step = 0.5;
+            app.RotationSpinner.Limits = [-30 30];
+            app.RotationSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
+            app.RotationSpinner.Position = [8 448 150 22];
+
+            % Create RotationLabel
+            app.RotationLabel = uilabel(app.AffinePanel);
+            app.RotationLabel.Position = [7 474 150 20];
+            app.RotationLabel.Text = 'Rotation (degrees):';
+
+            % Create ScaleYSpinner
+            app.ScaleYSpinner = uispinner(app.AffinePanel);
+            app.ScaleYSpinner.Step = 0.01;
+            app.ScaleYSpinner.Limits = [0.5 2];
+            app.ScaleYSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
+            app.ScaleYSpinner.Position = [10 496 150 22];
+            app.ScaleYSpinner.Value = 1;
+
+            % Create ScaleXSpinner
+            app.ScaleXSpinner = uispinner(app.AffinePanel);
+            app.ScaleXSpinner.Step = 0.01;
+            app.ScaleXSpinner.Limits = [0.5 2];
+            app.ScaleXSpinner.ValueChangedFcn = createCallbackFcn(app, @updateAffineTransform, true);
+            app.ScaleXSpinner.Position = [10 550 150 22];
+            app.ScaleXSpinner.Value = 1;
+
+            % Create ScaleYLabel
+            app.ScaleYLabel = uilabel(app.AffinePanel);
+            app.ScaleYLabel.Position = [9 522 150 20];
+            app.ScaleYLabel.Text = 'Scale Y:';
+
+            % Create ScaleXLabel
+            app.ScaleXLabel = uilabel(app.AffinePanel);
+            app.ScaleXLabel.Position = [9 576 150 20];
+            app.ScaleXLabel.Text = 'Scale X:';
+
+            % Create EnableAffineModeButton
+            app.EnableAffineModeButton = uibutton(app.AffinePanel, 'state');
+            app.EnableAffineModeButton.ValueChangedFcn = createCallbackFcn(app, @toggleAffineMode, true);
+            app.EnableAffineModeButton.Text = 'Enable Affine Mode';
+            app.EnableAffineModeButton.Position = [9 607 150 30];
+
+            % Create YOffsetSpinner
+            app.YOffsetSpinner = uispinner(app.AffinePanel);
+            app.YOffsetSpinner.ValueChangedFcn = createCallbackFcn(app, @updateOffsetFromSpinner, true);
+            app.YOffsetSpinner.Position = [10 646 150 22];
+
+            % Create YOffsetLabel
+            app.YOffsetLabel = uilabel(app.AffinePanel);
+            app.YOffsetLabel.Position = [10 670 150 20];
+            app.YOffsetLabel.Text = 'Y Offset:';
+
+            % Create XOffsetSpinner
+            app.XOffsetSpinner = uispinner(app.AffinePanel);
+            app.XOffsetSpinner.ValueChangedFcn = createCallbackFcn(app, @updateOffsetFromSpinner, true);
+            app.XOffsetSpinner.Position = [10 693 150 22];
+
+            % Create XOffsetLabel
+            app.XOffsetLabel = uilabel(app.AffinePanel);
+            app.XOffsetLabel.Position = [10 715 150 20];
+            app.XOffsetLabel.Text = 'X Offset:';
+
+            % Create CurrentframeButton
+            app.CurrentframeButton = uibutton(app.UIFigure, 'push');
+            app.CurrentframeButton.ButtonPushedFcn = createCallbackFcn(app, @setCurrentAsReference, true);
+            app.CurrentframeButton.Position = [345 21 89 30];
+            app.CurrentframeButton.Text = 'Current frame';
+
+            % Create ZprojectionButton
+            app.ZprojectionButton = uibutton(app.UIFigure, 'push');
+            app.ZprojectionButton.ButtonPushedFcn = createCallbackFcn(app, @useZProjection, true);
+            app.ZprojectionButton.Position = [447 21 108 30];
+            app.ZprojectionButton.Text = 'Z projection';
 
             % Create LoadReferenceImageButton
             app.LoadReferenceImageButton = uibutton(app.UIFigure, 'push');
             app.LoadReferenceImageButton.ButtonPushedFcn = createCallbackFcn(app, @loadReferenceImage, true);
-            app.LoadReferenceImageButton.Position = [564 20 94 30];
+            app.LoadReferenceImageButton.Position = [570 20 94 30];
             app.LoadReferenceImageButton.Text = 'Load image';
 
             % Create SetRefLabel
@@ -1255,7 +1249,7 @@ classdef ManualImageRegistrationApp_exported < matlab.apps.AppBase
     methods (Access = public)
 
         % Construct app
-        function app = ManualImageRegistrationApp_exported(varargin)
+        function app = ManualImageRegistration_exported(varargin)
 
             % Create UIFigure and components
             createComponents(app)

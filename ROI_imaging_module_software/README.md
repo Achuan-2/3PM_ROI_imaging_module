@@ -49,7 +49,7 @@ Download this repository from GitHub to a local folder.
 Open Matlab, navigate to the `3PM_ROI_imaging_module\ROI_imaging_module_software` folder, and run the following command in the command window to launch the software:
 
 ```bash
-roi_imaging_module
+ROIImagingModule
 ```
 
 <img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105170742-xxo1w8m.png" />
