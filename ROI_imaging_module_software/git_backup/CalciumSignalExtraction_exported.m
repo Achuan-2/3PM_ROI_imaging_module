@@ -1,5 +1,5 @@
 classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
-
+    
     % Properties that correspond to app components
     properties (Access = public)
         UIFigure                      matlab.ui.Figure
@@ -107,8 +107,8 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
         ImageUIAxes1                  matlab.ui.control.UIAxes
         ImageUIAxes2                  matlab.ui.control.UIAxes
     end
-
-
+    
+    
     properties
         dir = ''; % app当前运行路径
         % TODO 把这些tiff变量用tiff结构体数组来封装，方便查看
@@ -131,15 +131,15 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
         tiff_max_img;
         ImageUIAxes2_image_layer;
         plot_signal_handles;
-
-
+        
+        
         ROIMaskSettingsApp % Description
     end
     % ROI mask
     properties (Access = public)
         DrawROI = components.DrawROI.empty; % DrawROI模块;
     end
-
+    
     % extract calcium signal
     properties
         signal_raw;
@@ -150,15 +150,15 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
         fig_trace;
         fig_heatmap;
     end
-
+    
     properties
         seg_enable;
         seg_adjust_enable;
         drawroi_enable logical = false;
-
+        
         Segmentation = components.SegmentationPy.empty;
     end
-
+    
     methods
         function config_read(app, allow_select_path)
             % 读取配置文件
@@ -282,7 +282,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 end
             end
         end
-
+        
         function config_save(app, allow_select_path)
             % 保存配置文件
             % allow_select_path: 如果为true，允许用户选择保存路径
@@ -379,17 +379,17 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 currentPosition = app.UIFigure.UserData.activeAxes.CurrentPoint;
                 x = currentPosition(1,1);
                 y = currentPosition(1,2);
-
+                
                 if x >= app.UIFigure.UserData.activeAxes.XLim(1) && x <= app.UIFigure.UserData.activeAxes.XLim(2) && ...
                         y >= app.UIFigure.UserData.activeAxes.YLim(1) && y <= app.UIFigure.UserData.activeAxes.YLim(2)
-
+                    
                     % 强制平移模式下，当左键点击时，进入平移状态（按空格+左键）
                     if app.UIFigure.UserData.forcePanMode && strcmp(app.UIFigure.SelectionType, 'normal')
                         app.UIFigure.UserData.activeAxes.UserData.status = "axes_paning";
                         app.UIFigure.UserData.Pan.previous_point = app.UIFigure.UserData.activeAxes.CurrentPoint;
                         return;
                     end
-
+                    
                     switch app.UIFigure.SelectionType
                         case 'normal' % 左键点击
                             % 可取消当前绘制
@@ -419,14 +419,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                             else
                                 app.DrawROI.start_edit_roi(x, y);
                             end
-
+                            
                         case 'extend' % 代表 Shift+ 左键、鼠标中键或左右键一起按
                             return
                     end
                 end
             end
         end
-
+        
         function windowMotion(app, ~, ~)
             if isempty(app.UIFigure.UserData.activeAxes)
                 return;
@@ -438,9 +438,9 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             pt = get(app.UIFigure, 'CurrentPoint');
             pos1 = getpixelposition(app.ImageUIAxes1);
             pos2 = getpixelposition(app.ImageUIAxes2);
-
+            
             % 判断鼠标是否在任一UIAxes内
-
+            
             if pt(1) >= pos1(1) && pt(1) <= pos1(1)+pos1(3) && pt(2) >= pos1(2) && pt(2) <= pos1(2)+pos1(4)
                 app.UIFigure.UserData.mouseInAxes = true;
                 % 当鼠标移入UIAxes1时，自动设为活动轴
@@ -458,11 +458,11 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             else
                 app.UIFigure.UserData.mouseInAxes = false;
             end
-
+            
             currentPosition = app.UIFigure.UserData.activeAxes.CurrentPoint;
             x = currentPosition(1,1);
             y = currentPosition(1,2);
-
+            
             if  x >= app.UIFigure.UserData.activeAxes.XLim(1) && x <= app.UIFigure.UserData.activeAxes.XLim(2) && ...
                     y >= app.UIFigure.UserData.activeAxes.YLim(1) && y <= app.UIFigure.UserData.activeAxes.YLim(2)
                 switch app.UIFigure.UserData.activeAxes.UserData.status
@@ -483,7 +483,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 end
             end
         end
-
+        
         function pan_move(app)
             current_position = app.UIFigure.UserData.activeAxes.CurrentPoint;
             xlim_range = get(app.UIFigure.UserData.activeAxes, 'xlim');
@@ -493,7 +493,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             set(app.UIFigure.UserData.activeAxes, 'Ylim', ylim_range - delta_points(3));
             app.UIFigure.UserData.Pan.previous_point = app.UIFigure.UserData.activeAxes.CurrentPoint;
         end
-
+        
         function windowScrollWheel(app, ~, event)
             if isempty(app.UIFigure.UserData.activeAxes)
                 return;
@@ -514,13 +514,13 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.UIFigure.UserData.activeAxes.YLim = (ylim_range - y) * scale + y;
             end
         end
-
+        
         function windowButtonUp(app, ~, ~)
             % 只有当DrawROI对象存在且处于拖拽模式时，才停止拖拽
             if ~isempty(app.DrawROI) && app.DrawROI.is_drag_active()
                 app.DrawROI.stop_drag();
             end
-
+            
             if strcmp(app.UIFigure.UserData.activeAxes.UserData.status, "axes_paning")
                 % 无论是否在强制平移模式，松开鼠标左键后都应停止平移
                 app.UIFigure.UserData.activeAxes.UserData.status = "idle";
@@ -532,7 +532,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 end
             end
         end
-
+        
         function keyPress(app, ~, event)
             switch event.Key
                 case 'control'
@@ -545,7 +545,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     app.UIFigure.UserData.SpacePressed = true;
                     app.UIFigure.UserData.forcePanMode = true;
                     set(app.UIFigure, 'Pointer', 'hand'); % 改变鼠标指针样式以提示用户
-
+                    
                 case 'delete'
                     if app.DrawROI.selected_roi_idx > 0
                         app.DrawROI.delete_selected_roi();
@@ -616,7 +616,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     end
             end
         end
-
+        
         function keyRelease(app, ~, event)
             switch event.Key
                 case 'control'
@@ -645,7 +645,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                             app.UIFigure.UserData.activeAxes.UserData.status = "idle";
                         end
                     end
-
+                    
                 case 'escape'
                     app.UIFigure.UserData.CtrlPressed = false;
                     app.UIFigure.UserData.ShiftPressed = false;
@@ -658,8 +658,8 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     end
             end
         end
-
-
+        
+        
         function plot_signal(app)
             switch app.SignaltypeDropDown.Value
                 case 'ΔF/F'
@@ -673,19 +673,19 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 uialert(app.UIFigure,'No ROI signal','Error','Icon','error','Modal',false);
                 return
             end
-
+            
             % Parse even data
             eventRange = app.EventrangesEditField.Value;
             if ~strcmp(eventRange,'0')
                 if contains(eventRange, ':')
                     % 处理包含"end"的情况
                     eventRange = strrep(eventRange, 'end', num2str(app.tiff_all_frames/app.FramerateEditField.Value));
-
+                    
                     % 格式为 'start:end'
                     parts = split(eventRange, ':');
                     expri_event.start = str2double(parts{1});
                     expri_event.end = str2double(parts{2});
-
+                    
                 elseif strlength(eventRange)>0
                     % 格式为单个数字，表示取前N帧
                     expri_event.start= str2double(eventRange);
@@ -698,10 +698,10 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 expri_event.start=0;
                 expri_event.end=0;
             end
-
+            
             expri_event.color=app.EventcolorEditField.Value;
             expri_event.name = app.EventnameEditField.Value;
-
+            
             % parse
             % get roi color: random color or fixed color
             if app.TraceColorDropDown.Value == "fixed"
@@ -710,16 +710,16 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 trace_colormap = app.TraceColorDropDown.Value;
             end
             % 绘制信号
-
-
+            
+            
             switch app.ScabartypeDropDown.Value
                 case 'time and signal'
                     plot_scale_bar_time  = true;
                 case 'only signal'
                     plot_scale_bar_time = false;
             end
-
-
+            
+            
             % 创建或更新fig_trace
             if isempty(app.fig_trace) || ~isvalid(app.fig_trace)
                 app.fig_trace = figure("Name","Plot Trace");
@@ -727,7 +727,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 %     figure(app.fig_trace);
                 %     clf(app.fig_trace);
             end
-
+            
             % 创建或更新fig_heatmap
             if isempty(app.fig_heatmap) || ~isvalid(app.fig_heatmap)
                 app.fig_heatmap = figure("Name","Plot Heatmap");
@@ -735,7 +735,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 %     figure(app.fig_heatmap);
                 %     clf(app.fig_heatmap);
             end
-
+            
             % 绘制信号图
             plot.plot_signal(data, ...
                 'frame_rate', app.FramerateEditField.Value,...
@@ -751,7 +751,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 "roi_interval", app.ROIintervalSpinner.Value, ...
                 "sort",app.sortCheckBox.Value,...
                 "fig", app.fig_trace);
-
+            
             % % 绘制热图
             plot.plotHeatmap(data, ...
                 "selected_roi_str",app.SelectedROIEditField.Value, ...
@@ -763,14 +763,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 "sort",app.sortCheckBox.Value,...
                 "fig", app.fig_heatmap);
         end
-
+        
     end
-
-
+    
+    
     methods (Access = private)
-
+        
         function save_mask(app)
-
+            
             try
                 % 构造导出文件夹，并确保存在
                 exportFolder = fullfile(app.last_selected_folder, app.tiff_filename);
@@ -785,24 +785,24 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 data.original_roi_contours = app.DrawROI.original_roi_contours;
                 data.dilate_level = app.DrawROI.dilate_level;
                 data.roi_labeled_mask = uint16(app.DrawROI.generate_labeled_mask());
-    
+                
                 save(fullfile(exportFolder,[app.tiff_filename,'_roiMask.mat']), ...
                     "-struct", ...
                     "data");
                 % imwrite(data.roi_labeled_mask,fullfile(app.last_selected_folder,[app.tiff_filename,'_roiMask.png']));
                 % save roi mask to imageJ
                 utils.save_roiContour_to_imagej(app.DrawROI.roi_contours,fullfile(exportFolder,strcat(app.tiff_filename,'_roiMask.zip')));
-
+                
                 app.ImageUIAxes2.XLim = app.ImageUIAxes2.UserData.origin_xlim;
                 app.ImageUIAxes2.YLim = app.ImageUIAxes2.UserData.origin_ylim;
-    
-    
+                
+                
                 exportgraphics(app.ImageUIAxes2, ...
                     fullfile(exportFolder, ...
                     [app.tiff_filename,'_roiMask.pdf']), ...
                     'Resolution',600);
-    
-    
+                
+                
                 exportgraphics(app.ImageUIAxes2, ...
                     fullfile(exportFolder, ...
                     [app.tiff_filename,'_roiMask.png']), ...
@@ -813,24 +813,24 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 fprintf(2,'%s\n', ME.getReport('extended'));
             end
         end
-
+        
         function update_frame(app)
             app.tiff_current_frame = round(app.Slider.Value);
             app.Spinner.Value = app.tiff_current_frame;
             app.ImageUIAxes1_image_layer.CData = app.tiff_memmap.Data(app.tiff_current_frame).channel1';
             drawnow
-
+            
         end
     end
-
-
+    
+    
     % Callbacks that handle component events
     methods (Access = private)
-
+        
         % Code that executes after component creation
         function startupFcn(app)
-
-
+            
+            
             % assignin("base",'calcium_signal_extract_app',app);
             assignin("base",'app',app);
             app.dir = fileparts(mfilename('fullpath'));
@@ -838,32 +838,32 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             if isfile(fullfile(app.dir,'config.json'))
                 app.config_read()
             end
-
+            
             for ax = [app.ImageUIAxes1, app.ImageUIAxes2]
                 ax.YDir = "reverse";
                 ax.UserData.status = "idle";
                 ax.Toolbar.Visible = 'off';
                 axis(ax, 'equal');
             end
-
+            
             app.UIFigure.UserData.CtrlPressed = false;
             app.UIFigure.UserData.ShiftPressed = false;
             app.UIFigure.UserData.AltPressed = false;
             app.UIFigure.UserData.SpacePressed = false;
-
+            
             % 将原属性初始化到UserData中
             app.UIFigure.UserData.Pan = struct('previous_point', [0 0 0 0]);
             app.UIFigure.UserData.activeAxes = app.ImageUIAxes1; % 默认活动轴
             app.UIFigure.UserData.mouseInAxes = false;
             app.UIFigure.UserData.forcePanMode = false;
-
+            
             set(app.UIFigure, 'WindowButtonDownFcn', @app.windowButtonDown);
             set(app.UIFigure, 'WindowButtonMotionFcn', @app.windowMotion);
             set(app.UIFigure, 'WindowButtonUpFcn', @app.windowButtonUp);
             set(app.UIFigure, 'WindowKeyPressFcn', @app.keyPress);
             set(app.UIFigure, 'WindowKeyReleaseFcn', @app.keyRelease);
             set(app.UIFigure, 'WindowScrollWheelFcn', @app.windowScrollWheel);
-
+            
             %% init Seg component
             try
                 % python路径添加cellpose
@@ -872,7 +872,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     insert(py.sys.path,int32(0),folder );
                 end
                 py.importlib.import_module('pycellpose');
-
+                
                 app.Segmentation = components.SegmentationPy();
             catch ME
                 % 捕获并显示错误信息
@@ -880,12 +880,12 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 fprintf(2,'%s\n', ME.getReport('extended'));
             end
         end
-
+        
         % Value changed function: Slider
         function SliderValueChanged(app, event)
             update_frame(app);
         end
-
+        
         % Value changing function: Slider
         function SliderValueChanging(app, event)
             value = event.Value;
@@ -894,7 +894,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ImageUIAxes1_image_layer.CData =app.tiff_memmap.Data(app.tiff_current_frame).channel1';
             %drawnow
         end
-
+        
         % Close request function: UIFigure
         function UIFigureCloseRequest(app, event)
             % 关闭app之前需要保存config
@@ -904,14 +904,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             end
             % close app
             delete(app)
-
+            
         end
-
+        
         % Button pushed function: LoadTiffStackButton
         function LoadTiffStackButtonPushed(app, event)
             % 选择Tiff
             [filename,path] = utils.select_file({'*.tif'},app.last_selected_folder);
-
+            
             if filename ~= 0
                 % clear tiff_memmap, 释放memmapfile文件资源
                 app.tiff_memmap = [];
@@ -925,7 +925,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.tiff_filename = name;
                 % save path for next click
                 app.last_selected_folder = path;
-
+                
                 %% load tiff
                 app.tiff_path = fullfile(app.last_selected_folder,filename);
                 app.tiff_current_frame  = 1;
@@ -997,7 +997,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                         rethrow(ME);
                     end
                 end
-
+                
                 % update tiff info
                 app.Slider.Value =1;
                 app.Slider.Enable = 'on';
@@ -1005,12 +1005,12 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     app.Slider.Limits = [1,app.tiff_all_frames];
                 else
                     app.Slider.Enable = 'off';
-
+                    
                 end
                 app.SliderLabel.Text = sprintf("/%d",app.tiff_all_frames);
                 app.Spinner.Value = app.tiff_current_frame;
                 app.Spinner.Limits = [1 app.tiff_all_frames];
-
+                
                 % clear old signal axes and old data
                 cla(app.ImageUIAxes1);
                 cla(app.ImageUIAxes2);
@@ -1020,7 +1020,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.signal_zscore_delta = [];
                 app.signal_raw_corrected = [];
                 hold(app.ImageUIAxes1,'on');
-
+                
                 %% init ImageUIAxes1
                 % create image layer
                 app.ImageUIAxes1_image_layer = imshow(app.tiff_memmap.Data(app.tiff_current_frame).channel1',[],'parent',app.ImageUIAxes1,'border','tight','initialmagnification','fit');
@@ -1044,7 +1044,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.ImageUIAxes2_image_layer = imshow(zeros(img_size),[],'parent',app.ImageUIAxes2,'border','tight','initialmagnification','fit');
                 app.ImageUIAxes2_image_layer.AlphaData = 0;
                 hold(app.ImageUIAxes2, 'on');
-
+                
                 for ax = [app.ImageUIAxes1, app.ImageUIAxes2]
                     ax.UserData.origin_xlim = [0 img_size];
                     ax.UserData.origin_ylim = [0 img_size];
@@ -1059,11 +1059,11 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.ImageUIAxes1.UserData.origin_ylim = [0 app.DrawROI.mask_size(1)];
                 app.ImageUIAxes2.UserData.origin_xlim = [0 app.DrawROI.mask_size(2)];
                 app.ImageUIAxes2.UserData.origin_ylim = [0 app.DrawROI.mask_size(1)];
-
+                
                 % 默认选择第一个轴作为活动轴
                 app.UIFigure.UserData.activeAxes = app.ImageUIAxes1;
                 app.DrawROI.active_axes_index = 1;
-
+                
                 % 重置ROI计数
                 app.ROIsEditField.Value = 0;
                 % enable components
@@ -1071,53 +1071,53 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.drawroi_enable  = true;
                 app.seg_enable = true;
                 app.seg_adjust_enable = false;
-
-
+                
+                
                 % close the dialog box
                 close(d);
-
-
+                
+                
             end
         end
-
+        
         % Button pushed function: RunsegButton
         function RunsegButtonPushed(app, event)
-
+            
             if ~app.seg_enable
                 return
             end
-
+            
             % process bar
             progressDlg = uiprogressdlg(app.UIFigure,'Title','Running neuron segmentation',...
                 'Indeterminate','on');
             drawnow
-
-
+            
+            
             flow_threshold = app.thresholdSpinner.Value;
             norm_blocksize = app.norm_blocksizeSpinner.Value; % 可以根据需要调整或添加 UI 控件
             labeled_mask = app.Segmentation.run(app.tiff_seg_data, flow_threshold, norm_blocksize);
-
-
+            
+            
             app.MaskOnCheckBox.Value = true;
             app.DrawROI.load_from_mask(labeled_mask);
             % close the dialog box
             close(progressDlg);
-
+            
         end
-
+        
         % Value changed function: MaskOnCheckBox
         function MaskOnCheckBoxValueChanged(app, event)
             value = app.MaskOnCheckBox.Value;
             app.DrawROI.set_roi_visibility(2, value);
         end
-
+        
         % Button pushed function: UIAxesHomeButton
         function UIAxesHomeButtonPushed(app, event)
             ax = app.ImageUIAxes2;
             ax.XLim = ax.UserData.origin_xlim;
             ax.YLim = ax.UserData.origin_ylim;
         end
-
+        
         % Button pushed function: ExtractsignalButton
         function ExtractsignalButtonPushed(app, event)
             if app.ROIsEditField.Value == 0
@@ -1140,7 +1140,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             % end
             app.signal_raw = zeros(roi_num, n_frames);
             app.signal_delta = zeros(roi_num, n_frames);
-
+            
             % 逐帧读取raw signal
             for frame_index = 1:n_frames
                 frameData = double(app.tiff_memmap.Data(frame_index).channel1'); % 从内存映射中读取当前帧数据 (假设 channel1)
@@ -1159,7 +1159,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     app.signal_raw(roi_index, frame_index) = roi_raw_signal; % 存储当前帧的 raw signal
                 end
             end
-
+            
             % F0 = average
             % 解析帧范围字符串
             if app.F0BaselinecorrectionCheckBox.Value
@@ -1167,16 +1167,16 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     roi_raw_signal = app.signal_raw(roi_index,:); % 获取当前 ROI 的所有帧的 raw signal
                     % 定义时间点（帧数）
                     time_points = 1:n_frames;
-
+                    
                     % 选择多项式拟合的阶数
                     polynomial_degree = 2; % 使用二次多项式拟合
-
+                    
                     % 使用 polyfit 函数进行多项式拟合
                     coefficients = polyfit(time_points, roi_raw_signal, polynomial_degree);
-
+                    
                     % 使用 polyval 函数计算拟合的基线
                     baseline = polyval(coefficients, time_points);
-
+                    
                     % 基线校正：从原始荧光数据中减去拟合的基线
                     app.signal_raw_corrected(roi_index, :) = roi_raw_signal - baseline;
                 end
@@ -1204,7 +1204,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 if contains(frameRange, ':')
                     % 处理包含"end"的情况
                     frameRange = strrep(frameRange, 'end', num2str(n_frames));
-
+                    
                     % 格式为 'start:end'
                     parts = split(frameRange, ':');
                     startFrame = str2double(parts{1});
@@ -1215,7 +1215,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     numFrames = str2double(frameRange);
                     selectedFrames = 1:min(numFrames, n_frames);
                 end
-
+                
                 % 确保帧范围有效
                 selectedFrames = selectedFrames(selectedFrames >= 1 & selectedFrames <= n_frames);
                 if isempty(selectedFrames)
@@ -1223,20 +1223,20 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 end
                 mean_values = mean(app.signal_raw_corrected(:, selectedFrames),2);
                 app.signal_delta = (app.signal_raw_corrected -mean_values)./ mean_values;
-
+                
             end
-
+            
             if app.SmoothCheckBox.Value
                 app.signal_delta = smoothdata(app.signal_delta,2, 'gaussian', app.windowsEditField.Value); % 计算高斯平滑，窗口大小为3
             end
             % zscore 计算每个ROI的信号
             app.signal_zscore_delta = zscore(app.signal_delta,0,2);
             
-
+            
             app.OnlyplotButtonPushed();
             close(d);
         end
-
+        
         % Button pushed function: SaveAllButton
         function SaveAllButtonPushed(app, event)
             app.SaveAllButton.Enable = 'off';
@@ -1244,7 +1244,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 d = uiprogressdlg(app.UIFigure,'Title','Saving',...
                     'Indeterminate','on');
                 drawnow
-
+                
                 %save mask
                 save_mask(app);
                 % save signal
@@ -1259,7 +1259,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                         error('Failed to create export folder: %s', msg);
                     end
                 end
-
+                
                 exportgraphics(app.fig_trace, ...
                     fullfile(app.last_selected_folder,app.tiff_filename,[app.tiff_filename,'_PlotTraces.pdf']),'ContentType','vector');
                 saveas(app.fig_trace, ...
@@ -1268,7 +1268,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     fullfile(app.last_selected_folder,app.tiff_filename,[app.tiff_filename,'_PlotHeatmap.pdf']),'ContentType','vector');
                 saveas(app.fig_heatmap, ...
                     fullfile(app.last_selected_folder,app.tiff_filename,[app.tiff_filename,'_PlotHeatmap.fig']));
-
+                
                 % save data to mat
                 % data.roi_contours = app.DrawROI.roi_contours;
                 % data.original_roi_contours = app.DrawROI.original_roi_contours;
@@ -1281,7 +1281,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 save(fullfile(app.last_selected_folder,app.tiff_filename,[app.tiff_filename,'_signalData.mat']), ...
                     "-struct", ...
                     "data");
-
+                
                 %% Save the extracted calcium signal as Excel
                 % extract filename
                 filename_excel = fullfile(app.last_selected_folder, app.tiff_filename,[app.tiff_filename,'_signalData.xlsx']);
@@ -1304,8 +1304,8 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 writetable(zscore_table, ...
                     filename_excel, ...
                     Sheet='zscore_sig',WriteMode='inplace');
-
-
+                
+                
                 %% hint: done
                 close(d)
                 selection = uiconfirm(app.UIFigure, 'Saved successfully.', 'Save Done', ...
@@ -1321,14 +1321,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     end
                 end
             catch ME
-                    errordlg(ME.message, 'Error');
-                    fprintf(2,'%s\n', ME.getReport('extended'));
-                    app.SaveAllButton.Enable = 'on';
+                errordlg(ME.message, 'Error');
+                fprintf(2,'%s\n', ME.getReport('extended'));
+                app.SaveAllButton.Enable = 'on';
             end
             app.SaveAllButton.Enable = 'on';
-
+            
         end
-
+        
         % Button pushed function: SaveROIsButton
         function SaveROIsButtonPushed(app, event)
             d = uiprogressdlg(app.UIFigure,'Title','Saving',...
@@ -1350,7 +1350,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 end
             end
         end
-
+        
         % Button pushed function: LoadROIsButton
         function LoadROIsButtonPushed(app, event)
             % disable LoadMaskButton
@@ -1365,17 +1365,17 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 '*.png;*.csv;*.txt;*.xlsx','Custom files (*.png;*.csv;*.txt;*.xlsx)'; ...
                 '*.*', 'All Files (*.*)'}, ...
                 app.last_selected_folder);
-
-
+            
+            
             if filename ~= 0 % 如果不选择文件返回为0
                 % save path for next click
-
+                
                 % create progress dialog
                 d = uiprogressdlg(app.UIFigure,'Title','Loading ROI Mask',...
                     'Indeterminate','on');
                 drawnow
-
-
+                
+                
                 % load roi
                 try
                     app.DrawROI.load_roi_file(fullfile(path,filename));
@@ -1385,25 +1385,25 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     app.LoadROIsButton.Enable = 'on';
                     app.LoadROIsButton.FontColor = [0,0,0];
                     app.LoadROIsButton.BackgroundColor = [0.96,0.96,0.96];
-                    return 
+                    return
                 end
                 app.MaskOnCheckBox.Value = true;
                 % enable draw roi
                 app.seg_enable = true;
                 app.seg_adjust_enable = false;
-
-
+                
+                
                 % close the dialog box
                 close(d);
             end
-
+            
             %% update ui
             % enable load mask button
             app.LoadROIsButton.Enable = 'on';
             app.LoadROIsButton.FontColor = [0,0,0];
             app.LoadROIsButton.BackgroundColor = [0.96,0.96,0.96];
         end
-
+        
         % Button pushed function: ClearROIsButton
         function ClearROIsButtonPushed(app, event)
             if ~isempty(app.DrawROI)
@@ -1414,22 +1414,22 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 end
             end
         end
-
+        
         % Value changed function: FScalebarSpinner
         function FScalebarSpinnerValueChanged(app, event)
             % app.OnlyplotButtonPushed();
         end
-
+        
         % Value changed function: TimeScalebarSpinner
         function TimeScalebarSpinnerValueChanged(app, event)
             % app.OnlyplotButtonPushed();
         end
-
+        
         % Value changed function: FramerateEditField
         function FramerateEditFieldValueChanged(app, event)
             % app.OnlyplotButtonPushed();
         end
-
+        
         % Value changed function: DropDown
         function DropDownValueChanged(app, event)
             value = app.DropDown.Value;
@@ -1443,10 +1443,10 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                         app.tiff_seg_data = app.tiff_max_img;
                 end
                 app.ImageUIAxes2_image_layer.CData = app.tiff_seg_data;
-
+                
             end
         end
-
+        
         % Callback function
         function ContrastSliderValueChanged(app, event)
             % 更改对比度slider
@@ -1454,9 +1454,9 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             if value(1) ~= value(2)
                 app.ImageUIAxes1.CLim = value;
             end
-
+            
         end
-
+        
         % Callback function
         function ContrastSliderValueChanging(app, event)
             % 更改对比度slider
@@ -1465,7 +1465,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.ImageUIAxes1.CLim = value;
             end
         end
-
+        
         % Callback function
         function ROIMaskColorEditFieldValueChanged(app, event)
             % 更改mask颜色将直接更新mask颜色
@@ -1475,7 +1475,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.DrawROI.update_roi_color()
             end
         end
-
+        
         % Value changed function: TraceColorDropDown
         function TraceColorDropDownValueChanged(app, event)
             % 更改ΔF/F颜色
@@ -1486,20 +1486,20 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.TraceFixedColor.Visible = 'off';
             end
             app.OnlyplotButtonPushed();
-
+            
         end
-
+        
         % Value changed function: TiffMaskCheckBox
         function TiffMaskCheckBoxValueChanged(app, event)
             value = app.TiffMaskCheckBox.Value;
             app.DrawROI.set_roi_visibility(1, value);
         end
-
+        
         % Callback function
         function spacingEditFieldValueChanged(app, event)
             app.OnlyplotButtonPushed();
         end
-
+        
         % Value changed function: ScabartypeDropDown
         function ScabartypeDropDownValueChanged(app, event)
             switch app.ScabartypeDropDown.Value
@@ -1510,32 +1510,32 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             end
             app.OnlyplotButtonPushed();
         end
-
+        
         % Value changed function: XTickintervalsEditField
         function XTickintervalsEditFieldValueChanged(app, event)
             app.OnlyplotButtonPushed();
         end
-
+        
         % Value changed function: SignaltypeDropDown
         function SignaltypeDropDownValueChanged(app, event)
             app.OnlyplotButtonPushed();
         end
-
+        
         % Value changed function: EventnameEditField
         function EventnameEditFieldValueChanged(app, event)
             app.OnlyplotButtonPushed();
         end
-
+        
         % Value changed function: EventcolorEditField
         function EventcolorEditFieldValueChanged(app, event)
             app.OnlyplotButtonPushed();
         end
-
+        
         % Button down function: ImageUIAxes1
         function ImageUIAxes1ButtonDown(app, event)
-
+            
         end
-
+        
         % Callback function
         function ContrastSlider_2ValueChanged(app, event)
             value = app.ContrastSlider_2.Value;
@@ -1543,72 +1543,72 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.ImageUIAxes2.CLim =value;
             end
         end
-
+        
         % Callback function
         function ContrastSlider_2ValueChanging(app, event)
             value = event.Value;
-
+            
             if value(1) ~= value(2)
                 app.ImageUIAxes2.CLim =value;
             end
-
+            
         end
-
+        
         % Button pushed function: ZProjectionButton
         function ZProjectionButtonPushed(app, event)
-
+            
             d = uiprogressdlg(app.UIFigure,'Title','Loading Image',...
                 'Indeterminate','on');
             drawnow
-
+            
             % calculateProjections
             [app.tiff_mean_img,app.tiff_max_img,app.tiff_std_img] = calculateProjections(app.tiff_memmap,app.FramesEditField.Value);
             app.tiff_mean_img = app.tiff_mean_img;
             app.tiff_std_img = app.tiff_std_img;
-
+            
             app.tiff_max_img =mat2gray(app.tiff_max_img);
-
+            
             % show avg image
             switch app.DropDown.Value
                 case 'Mean'
-
+                    
                     app.tiff_seg_data = app.tiff_mean_img;
                 case 'Std'
                     app.tiff_seg_data = app.tiff_std_img;
                 case 'Max'
                     app.tiff_seg_data = app.tiff_max_img;
             end
-
+            
             % update structure image
             app.ImageUIAxes2_image_layer.CData = app.tiff_seg_data;
             app.ImageUIAxes2_image_layer.AlphaData = 1;
             app.ContrastSlider_2.Limits = [double(min(app.tiff_seg_data,[],"all")), double(max(app.tiff_seg_data,[],"all"))];
             app.ContrastSlider_2.Value = app.ContrastSlider_2.Limits;
-
+            
             app.ImageUIAxes2.CLim = app.ContrastSlider_2.Value;
             % uiprogressdlg
             close(d)
         end
-
+        
         % Callback function
         function showrefImageCheckBoxValueChanged(app, event)
             value = app.showrefImageCheckBox.Value;
             if value
                 app.ImageUIAxes1_refImg_layer.AlphaData  = app.ImageUIAxes1_refImg_layer_alphaData * app.AlphaSpinner.Value;
             else
-
+                
                 app.ImageUIAxes1_refImg_layer.AlphaData = 0 ;
             end
         end
-
+        
         % Callback function
         function AlphaSpinnerValueChanged(app, event)
-
+            
             if app.showrefImageCheckBox.Value
                 app.ImageUIAxes1_refImg_layer.AlphaData  = app.ImageUIAxes1_refImg_layer_alphaData * app.AlphaSpinner.Value;
             end
         end
-
+        
         % Callback function
         function UseZProjectionButtonPushed(app, event)
             if isempty(app.tiff_seg_data)
@@ -1621,12 +1621,12 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ImageUIAxes1_refImg_layer.CData = ref_img_RGB;
             app.ImageUIAxes1_refImg_layer.AlphaData = app.ImageUIAxes1_refImg_layer_alphaData *app.AlphaSpinner.Value ;
         end
-
+        
         % Button pushed function: OnlyplotButton
         function OnlyplotButtonPushed(app, event)
             plot_signal(app);
         end
-
+        
         % Value changed function: useNormalF0CheckBox
         function useNormalF0CheckBoxValueChanged(app, event)
             value = app.useNormalF0CheckBox.Value;
@@ -1635,13 +1635,13 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             end
             % app.ExtractsignalButtonPushed();
         end
-
+        
         % Value changed function: F0BaselinecorrectionCheckBox
         function F0BaselinecorrectionCheckBoxValueChanged(app, event)
             value = app.F0BaselinecorrectionCheckBox.Value;
             % app.ExtractsignalButtonPushed();
         end
-
+        
         % Value changed function: F0TypeEventCheckBox
         function F0TypeEventCheckBoxValueChanged(app, event)
             value = app.F0TypeEventCheckBox.Value;
@@ -1650,54 +1650,54 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             end
             % app.ExtractsignalButtonPushed();
         end
-
+        
         % Button pushed function: Button_2
         function Button_2Pushed(app, event)
             app.Slider.Value = app.Slider.Value+1;
             update_frame(app);
         end
-
+        
         % Button pushed function: Button
         function ButtonPushed(app, event)
             app.Slider.Value = app.Slider.Value-1;
             update_frame(app);
         end
-
+        
         % Value changed function: Spinner
         function SpinnerValueChanged(app, event)
             value = app.Spinner.Value;
             app.Slider.Value = value;
             update_frame(app)
         end
-
+        
         % Value changing function: Spinner
         function SpinnerValueChanging(app, event)
             changingValue = event.Value;
             app.Slider.Value = changingValue;
             app.tiff_current_frame = changingValue;
             app.ImageUIAxes1_image_layer.CData = app.tiff_memmap.Data(app.tiff_current_frame).channel1';
-
+            
         end
-
+        
         % Callback function
         function ManualRegButtonPushed(app, event)
             if isfile(app.tiff_path)
                 ManualImageRegistration(app.tiff_path);
             end
         end
-
+        
         % Callback function
         function MeasureButtonPushed(app, event)
             imageViewer(app.tiff_seg_data);
         end
-
+        
         % Button pushed function: UIAxesHomeButton_2
         function UIAxesHomeButton_2Pushed(app, event)
             ax = app.ImageUIAxes1;
             ax.XLim = ax.UserData.origin_xlim;
             ax.YLim = ax.UserData.origin_ylim;
         end
-
+        
         % Value changed function: DragROIsButton
         function DragROIsButtonValueChanged(app, event)
             if ~isempty(app.DrawROI)
@@ -1709,16 +1709,16 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     app.DrawROI.set_drag_mode(false);
                 end
             end
-
+            
         end
-
+        
         % Value changed function: ShowROINumbersCheckBox
         function ShowROINumbersCheckBoxValueChanged(app, event)
             if ~isempty(app.DrawROI)
                 app.DrawROI.showRoiNumber = app.ShowROINumbersCheckBox.Value;
             end
         end
-
+        
         % Button pushed function: ReorderROIsButton
         function ReorderROIsButtonPushed(app, event)
             if isempty(app.DrawROI.roi_contours) || length(app.DrawROI.roi_contours) < 2
@@ -1732,22 +1732,22 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 disp(ME.getReport('extended'));
             end
         end
-
+        
         % Callback function
         function FontSizeEditFieldValueChanged(app, event)
-
+            
             if ~isempty(app.DrawROI)
                 value = app.FontSizeEditField.Value;
                 app.DrawROI.roi_number_fontSize = value;
                 app.MaskOnCheckBox.Value = true;
             end
         end
-
+        
         % Callback function
         function LoadImageButtonValueChanged(app, event)
             value = app.LoadButton.Value;
             [filename,path] = utils.select_file({'*.tif','*.tiff'},app.last_selected_folder);
-
+            
             if filename ~= 0
                 app.tiff_seg_data = utils.tiff_read(fullfile(path,filename));
                 app.ImageUIAxes2_image_layer.CData = app.tiff_seg_data;
@@ -1758,13 +1758,13 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.ImageUIAxes2.CLim = app.ContrastSlider_2.Value;
             end
         end
-
+        
         % Button pushed function: LoadButton
         function LoadButtonPushed(app, event)
-
-
+            
+            
             [filename,path] = utils.select_file({'*.tif','*.tiff'},app.last_selected_folder);
-
+            
             if filename ~= 0
                 d = uiprogressdlg(app.UIFigure,'Title','Loading Image',...
                     'Indeterminate','on');
@@ -1777,14 +1777,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.ImageUIAxes2_image_layer.AlphaData = 1;
                 app.ContrastSlider_2.Limits = [0, round(double(max(app.tiff_seg_data,[],"all")))];
                 app.ContrastSlider_2.Value = [0, round(double(max(app.tiff_seg_data,[],"all")))];
-
+                
                 app.ImageUIAxes2.CLim = app.ContrastSlider_2.Value;
                 close(d);
             end
             
-
+            
         end
-
+        
         % Callback function
         function ROIMaskColorDropDownValueChanged(app, event)
             value = app.ROIMaskColorDropDown.Value;
@@ -1799,47 +1799,47 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                     app.DrawROI.mask_color = 'Random';
             end
         end
-
+        
         % Callback function
         function ColorEditFieldValueChanged(app, event)
             
-             if ~isempty(app.DrawROI)
+            if ~isempty(app.DrawROI)
                 value = app.ColorEditField.Value;
                 app.DrawROI.roi_number_fontColor  = value;
                 app.MaskOnCheckBox.Value = true;
-
+                
             end
         end
-
+        
         % Button pushed function: MasksettingsButton
         function MasksettingsButtonPushed(app, event)
             app.ROIMaskSettingsApp=subapp.ROIMaskSettings(app);
         end
-
+        
         % Callback function
         function MaskSettingsMenuSelected(app, event)
             app.ROIMaskSettingsApp=subapp.ROIMaskSettings(app);
         end
-
+        
         % Button pushed function: SyncUIaxes2
         function SyncUIaxes2Pushed(app, event)
             
             app.ImageUIAxes2.XLim = app.ImageUIAxes1.XLim;
             app.ImageUIAxes2.YLim = app.ImageUIAxes1.YLim;
         end
-
+        
         % Button pushed function: SyncUIaxes1
         function SyncUIaxes1ButtonPushed(app, event)
             app.ImageUIAxes1.XLim = app.ImageUIAxes2.XLim;
             app.ImageUIAxes1.YLim = app.ImageUIAxes2.YLim;
         end
-
+        
         % Value changed function: thresholdSpinner
         function thresholdSpinnerValueChanged(app, event)
             value = app.thresholdSpinner.Value;
             
         end
-
+        
         % Value changed function: ContrastSlider
         function ContrastSliderValueChanged2(app, event)
             % 更改对比度slider
@@ -1847,9 +1847,9 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             if value(1) ~= value(2)
                 app.ImageUIAxes1.CLim = value;
             end
-
+            
         end
-
+        
         % Value changed function: ContrastSlider_2
         function ContrastSlider_2ValueChanged2(app, event)
             value = app.ContrastSlider_2.Value;
@@ -1857,7 +1857,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.ImageUIAxes2.CLim =value;
             end
         end
-
+        
         % Value changing function: ContrastSlider
         function ContrastSliderValueChanging2(app, event)
             % 更改对比度slider
@@ -1866,17 +1866,17 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 app.ImageUIAxes1.CLim = value;
             end
         end
-
+        
         % Value changing function: ContrastSlider_2
         function ContrastSlider_2ValueChanging2(app, event)
             value = event.Value;
-
+            
             if value(1) ~= value(2)
                 app.ImageUIAxes2.CLim =value;
             end
-
+            
         end
-
+        
         % Menu selected function: ManualRegMenu
         function ManualRegMenuSelected(app, event)
             if isfile(app.tiff_path)
@@ -1885,27 +1885,27 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 ManualImageRegistration();
             end
         end
-
+        
         % Menu selected function: LoadConfigMenu
         function LoadConfigMenuSelected(app, event)
             app.config_read(true);
         end
-
+        
         % Menu selected function: SaveConfigMenu
         function SaveConfigMenuSelected(app, event)
             app.config_save(true);
         end
     end
-
+    
     % Component initialization
     methods (Access = private)
-
+        
         % Create UIFigure and components
         function createComponents(app)
-
+            
             % Get the file path for locating images
             pathToMLAPP = fileparts(mfilename('fullpath'));
-
+            
             % Create UIFigure and hide until all components are created
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.AutoResizeChildren = 'off';
@@ -1914,30 +1914,30 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.UIFigure.Name = 'Calcium Signal Extract';
             app.UIFigure.Resize = 'off';
             app.UIFigure.CloseRequestFcn = createCallbackFcn(app, @UIFigureCloseRequest, true);
-
+            
             % Create ConfigMenu
             app.ConfigMenu = uimenu(app.UIFigure);
             app.ConfigMenu.Text = 'Config';
-
+            
             % Create LoadConfigMenu
             app.LoadConfigMenu = uimenu(app.ConfigMenu);
             app.LoadConfigMenu.MenuSelectedFcn = createCallbackFcn(app, @LoadConfigMenuSelected, true);
             app.LoadConfigMenu.Text = 'Load Config';
-
+            
             % Create SaveConfigMenu
             app.SaveConfigMenu = uimenu(app.ConfigMenu);
             app.SaveConfigMenu.MenuSelectedFcn = createCallbackFcn(app, @SaveConfigMenuSelected, true);
             app.SaveConfigMenu.Text = 'Save Config';
-
+            
             % Create DataprocessMenu
             app.DataprocessMenu = uimenu(app.UIFigure);
             app.DataprocessMenu.Text = 'Data process';
-
+            
             % Create ManualRegMenu
             app.ManualRegMenu = uimenu(app.DataprocessMenu);
             app.ManualRegMenu.MenuSelectedFcn = createCallbackFcn(app, @ManualRegMenuSelected, true);
             app.ManualRegMenu.Text = 'Manual Reg';
-
+            
             % Create ImageUIAxes2
             app.ImageUIAxes2 = uiaxes(app.UIFigure);
             app.ImageUIAxes2.PlotBoxAspectRatio = [1 1 1];
@@ -1950,7 +1950,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ImageUIAxes2.LineWidth = 1;
             app.ImageUIAxes2.Box = 'on';
             app.ImageUIAxes2.Position = [563 159 512 512];
-
+            
             % Create ImageUIAxes1
             app.ImageUIAxes1 = uiaxes(app.UIFigure);
             app.ImageUIAxes1.PlotBoxAspectRatio = [1 1 1];
@@ -1964,7 +1964,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ImageUIAxes1.Box = 'on';
             app.ImageUIAxes1.ButtonDownFcn = createCallbackFcn(app, @ImageUIAxes1ButtonDown, true);
             app.ImageUIAxes1.Position = [50 159 512 512];
-
+            
             % Create UIAxesHomeButton
             app.UIAxesHomeButton = uibutton(app.UIFigure, 'push');
             app.UIAxesHomeButton.ButtonPushedFcn = createCallbackFcn(app, @UIAxesHomeButtonPushed, true);
@@ -1973,7 +1973,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.UIAxesHomeButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.UIAxesHomeButton.Position = [1018 676 53 23];
             app.UIAxesHomeButton.Text = '';
-
+            
             % Create ExtractsignalButton
             app.ExtractsignalButton = uibutton(app.UIFigure, 'push');
             app.ExtractsignalButton.ButtonPushedFcn = createCallbackFcn(app, @ExtractsignalButtonPushed, true);
@@ -1982,13 +1982,13 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ExtractsignalButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ExtractsignalButton.Position = [1099 49 100 23];
             app.ExtractsignalButton.Text = 'Extract signal';
-
+            
             % Create MaskDropDownLabel
             app.MaskDropDownLabel = uilabel(app.UIFigure);
             app.MaskDropDownLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.MaskDropDownLabel.Position = [565 676 58 22];
             app.MaskDropDownLabel.Text = 'ROI mask';
-
+            
             % Create MaskOnCheckBox
             app.MaskOnCheckBox = uicheckbox(app.UIFigure);
             app.MaskOnCheckBox.ValueChangedFcn = createCallbackFcn(app, @MaskOnCheckBoxValueChanged, true);
@@ -1996,7 +1996,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.MaskOnCheckBox.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.MaskOnCheckBox.Position = [631 676 14 22];
             app.MaskOnCheckBox.Value = true;
-
+            
             % Create LoadROIsButton
             app.LoadROIsButton = uibutton(app.UIFigure, 'push');
             app.LoadROIsButton.ButtonPushedFcn = createCallbackFcn(app, @LoadROIsButtonPushed, true);
@@ -2006,7 +2006,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.LoadROIsButton.Tooltip = {'Load external mask  '};
             app.LoadROIsButton.Position = [580 84 87 23];
             app.LoadROIsButton.Text = 'Load ROIs';
-
+            
             % Create SaveROIsButton
             app.SaveROIsButton = uibutton(app.UIFigure, 'push');
             app.SaveROIsButton.ButtonPushedFcn = createCallbackFcn(app, @SaveROIsButtonPushed, true);
@@ -2016,7 +2016,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.SaveROIsButton.Tooltip = {'choose where to save mask as .mat and .jpg'};
             app.SaveROIsButton.Position = [678 84 95 23];
             app.SaveROIsButton.Text = 'Save ROIs';
-
+            
             % Create ROIsEditField
             app.ROIsEditField = uieditfield(app.UIFigure, 'numeric');
             app.ROIsEditField.Limits = [0 Inf];
@@ -2024,20 +2024,20 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ROIsEditField.Editable = 'off';
             app.ROIsEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ROIsEditField.Position = [693 676 51 22];
-
+            
             % Create ROIsEditFieldLabel
             app.ROIsEditFieldLabel = uilabel(app.UIFigure);
             app.ROIsEditFieldLabel.HorizontalAlignment = 'right';
             app.ROIsEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ROIsEditFieldLabel.Position = [656 676 28 22];
             app.ROIsEditFieldLabel.Text = 'ROIs';
-
+            
             % Create thresholdSpinnerLabel
             app.thresholdSpinnerLabel = uilabel(app.UIFigure);
             app.thresholdSpinnerLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.thresholdSpinnerLabel.Position = [685 46 54 22];
             app.thresholdSpinnerLabel.Text = 'threshold';
-
+            
             % Create thresholdSpinner
             app.thresholdSpinner = uispinner(app.UIFigure);
             app.thresholdSpinner.Step = 0.05;
@@ -2048,7 +2048,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.thresholdSpinner.Tooltip = {'set  higher to get more cells, in range from (0,3]'};
             app.thresholdSpinner.Position = [757 46 55 22];
             app.thresholdSpinner.Value = 0.4;
-
+            
             % Create RunsegButton
             app.RunsegButton = uibutton(app.UIFigure, 'push');
             app.RunsegButton.ButtonPushedFcn = createCallbackFcn(app, @RunsegButtonPushed, true);
@@ -2056,7 +2056,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.RunsegButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.RunsegButton.Position = [578 45 88 23];
             app.RunsegButton.Text = 'Run seg';
-
+            
             % Create LoadTiffStackButton
             app.LoadTiffStackButton = uibutton(app.UIFigure, 'push');
             app.LoadTiffStackButton.ButtonPushedFcn = createCallbackFcn(app, @LoadTiffStackButtonPushed, true);
@@ -2065,7 +2065,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.LoadTiffStackButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.LoadTiffStackButton.Position = [50 704 30 23];
             app.LoadTiffStackButton.Text = '';
-
+            
             % Create SaveAllButton
             app.SaveAllButton = uibutton(app.UIFigure, 'push');
             app.SaveAllButton.ButtonPushedFcn = createCallbackFcn(app, @SaveAllButtonPushed, true);
@@ -2074,7 +2074,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.SaveAllButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.SaveAllButton.Position = [1099 12 100 23];
             app.SaveAllButton.Text = 'Save All';
-
+            
             % Create Slider
             app.Slider = uislider(app.UIFigure);
             app.Slider.MajorTicks = [];
@@ -2083,26 +2083,26 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.Slider.MinorTicks = [];
             app.Slider.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.Slider.Position = [66 147 490 3];
-
+            
             % Create SliderLabel
             app.SliderLabel = uilabel(app.UIFigure);
             app.SliderLabel.HorizontalAlignment = 'center';
             app.SliderLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.SliderLabel.Position = [341 115 69 22];
             app.SliderLabel.Text = '/1000';
-
+            
             % Create filenameLabel
             app.filenameLabel = uilabel(app.UIFigure);
             app.filenameLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.filenameLabel.Position = [92 705 425 22];
             app.filenameLabel.Text = 'filename';
-
+            
             % Create FF_0Label
             app.FF_0Label = uilabel(app.UIFigure);
             app.FF_0Label.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.FF_0Label.Position = [1099 634 38 22];
             app.FF_0Label.Text = 'Signal';
-
+            
             % Create FScalebarSpinner
             app.FScalebarSpinner = uispinner(app.UIFigure);
             app.FScalebarSpinner.Limits = [0 Inf];
@@ -2112,14 +2112,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.FScalebarSpinner.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.FScalebarSpinner.Position = [1152 634 55 22];
             app.FScalebarSpinner.Value = 5;
-
+            
             % Create FF_0Label_2
             app.FF_0Label_2 = uilabel(app.UIFigure);
             app.FF_0Label_2.HorizontalAlignment = 'right';
             app.FF_0Label_2.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.FF_0Label_2.Position = [1222 634 49 22];
             app.FF_0Label_2.Text = 'Time (s)';
-
+            
             % Create TimeScalebarSpinner
             app.TimeScalebarSpinner = uispinner(app.UIFigure);
             app.TimeScalebarSpinner.Limits = [0 Inf];
@@ -2128,13 +2128,13 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.TimeScalebarSpinner.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.TimeScalebarSpinner.Position = [1274 634 55 22];
             app.TimeScalebarSpinner.Value = 100;
-
+            
             % Create FramerateEditFieldLabel
             app.FramerateEditFieldLabel = uilabel(app.UIFigure);
             app.FramerateEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.FramerateEditFieldLabel.Position = [1099 688 64 22];
             app.FramerateEditFieldLabel.Text = 'Frame rate';
-
+            
             % Create FramerateEditField
             app.FramerateEditField = uieditfield(app.UIFigure, 'numeric');
             app.FramerateEditField.ValueDisplayFormat = '%.4f';
@@ -2142,7 +2142,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.FramerateEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.FramerateEditField.Position = [1182 688 62 22];
             app.FramerateEditField.Value = 3.6;
-
+            
             % Create ClearROIsButton
             app.ClearROIsButton = uibutton(app.UIFigure, 'push');
             app.ClearROIsButton.ButtonPushedFcn = createCallbackFcn(app, @ClearROIsButtonPushed, true);
@@ -2152,7 +2152,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ClearROIsButton.Tooltip = {'Load external mask  '};
             app.ClearROIsButton.Position = [783 84 86 23];
             app.ClearROIsButton.Text = 'Clear ROIs';
-
+            
             % Create ScalebarLabel
             app.ScalebarLabel = uilabel(app.UIFigure);
             app.ScalebarLabel.FontSize = 14;
@@ -2160,19 +2160,19 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ScalebarLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ScalebarLabel.Position = [1099 717 68 22];
             app.ScalebarLabel.Text = 'Scalebar:';
-
+            
             % Create SelectedROIEditFieldLabel
             app.SelectedROIEditFieldLabel = uilabel(app.UIFigure);
             app.SelectedROIEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.SelectedROIEditFieldLabel.Position = [1099 366 76 22];
             app.SelectedROIEditFieldLabel.Text = 'Selected ROI';
-
+            
             % Create SelectedROIEditField
             app.SelectedROIEditField = uieditfield(app.UIFigure, 'text');
             app.SelectedROIEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.SelectedROIEditField.Placeholder = 'e.g.  5,10:14,19:24';
             app.SelectedROIEditField.Position = [1202 368 129 22];
-
+            
             % Create DropDown
             app.DropDown = uidropdown(app.UIFigure);
             app.DropDown.Items = {'Std', 'Mean', 'Max'};
@@ -2181,14 +2181,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.DropDown.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
             app.DropDown.Position = [811 707 66 22];
             app.DropDown.Value = 'Mean';
-
+            
             % Create ContrastSliderLabel
             app.ContrastSliderLabel = uilabel(app.UIFigure);
             app.ContrastSliderLabel.HorizontalAlignment = 'right';
             app.ContrastSliderLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ContrastSliderLabel.Position = [61 94 50 22];
             app.ContrastSliderLabel.Text = 'Contrast';
-
+            
             % Create TiffMaskCheckBox
             app.TiffMaskCheckBox = uicheckbox(app.UIFigure);
             app.TiffMaskCheckBox.ValueChangedFcn = createCallbackFcn(app, @TiffMaskCheckBoxValueChanged, true);
@@ -2196,13 +2196,13 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.TiffMaskCheckBox.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.TiffMaskCheckBox.Position = [115 670 25 22];
             app.TiffMaskCheckBox.Value = true;
-
+            
             % Create ColorDropDownLabel
             app.ColorDropDownLabel = uilabel(app.UIFigure);
             app.ColorDropDownLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ColorDropDownLabel.Position = [1099 161 34 22];
             app.ColorDropDownLabel.Text = 'Color';
-
+            
             % Create TraceColorDropDown
             app.TraceColorDropDown = uidropdown(app.UIFigure);
             app.TraceColorDropDown.Items = {'hsv', 'prism', 'turbo', 'jet', 'lines', 'random', 'fixed'};
@@ -2211,46 +2211,46 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.TraceColorDropDown.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
             app.TraceColorDropDown.Position = [1139 161 79 22];
             app.TraceColorDropDown.Value = 'hsv';
-
+            
             % Create TraceFixedColor
             app.TraceFixedColor = uieditfield(app.UIFigure, 'text');
             app.TraceFixedColor.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.TraceFixedColor.Visible = 'off';
             app.TraceFixedColor.Position = [1226 162 59 22];
             app.TraceFixedColor.Value = '#FF0000';
-
+            
             % Create ROIMaskLabel
             app.ROIMaskLabel = uilabel(app.UIFigure);
             app.ROIMaskLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ROIMaskLabel.Position = [50 670 58 22];
             app.ROIMaskLabel.Text = 'ROI Mask';
-
+            
             % Create F0StartEditField
             app.F0StartEditField = uieditfield(app.UIFigure, 'numeric');
             app.F0StartEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.F0StartEditField.Position = [1122 466 27 22];
             app.F0StartEditField.Value = 5;
-
+            
             % Create F0EndEditField
             app.F0EndEditField = uieditfield(app.UIFigure, 'numeric');
             app.F0EndEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.F0EndEditField.Position = [1170 466 27 22];
             app.F0EndEditField.Value = 15;
-
+            
             % Create Label_2
             app.Label_2 = uilabel(app.UIFigure);
             app.Label_2.HorizontalAlignment = 'center';
             app.Label_2.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.Label_2.Position = [1151 466 21 22];
             app.Label_2.Text = '~';
-
+            
             % Create Label_3
             app.Label_3 = uilabel(app.UIFigure);
             app.Label_3.HorizontalAlignment = 'center';
             app.Label_3.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.Label_3.Position = [1201 466 25 22];
             app.Label_3.Text = '%';
-
+            
             % Create ReorderROIsButton
             app.ReorderROIsButton = uibutton(app.UIFigure, 'push');
             app.ReorderROIsButton.ButtonPushedFcn = createCallbackFcn(app, @ReorderROIsButtonPushed, true);
@@ -2259,13 +2259,13 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ReorderROIsButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ReorderROIsButton.Position = [879 84 103 23];
             app.ReorderROIsButton.Text = 'Reorder ROIs';
-
+            
             % Create ScabartypeDropDownLabel
             app.ScabartypeDropDownLabel = uilabel(app.UIFigure);
             app.ScabartypeDropDownLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ScabartypeDropDownLabel.Position = [1099 661 69 22];
             app.ScabartypeDropDownLabel.Text = 'Scabar type';
-
+            
             % Create ScabartypeDropDown
             app.ScabartypeDropDown = uidropdown(app.UIFigure);
             app.ScabartypeDropDown.Items = {'time and signal', 'only signal'};
@@ -2274,7 +2274,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ScabartypeDropDown.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
             app.ScabartypeDropDown.Position = [1185 661 100 22];
             app.ScabartypeDropDown.Value = 'only signal';
-
+            
             % Create SignaltypeDropDown
             app.SignaltypeDropDown = uidropdown(app.UIFigure);
             app.SignaltypeDropDown.Items = {'ΔF/F', 'zscore', 'raw'};
@@ -2283,19 +2283,19 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.SignaltypeDropDown.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
             app.SignaltypeDropDown.Position = [1180 535 59 22];
             app.SignaltypeDropDown.Value = 'ΔF/F';
-
+            
             % Create XTickintervalsEditFieldLabel
             app.XTickintervalsEditFieldLabel = uilabel(app.UIFigure);
             app.XTickintervalsEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.XTickintervalsEditFieldLabel.Position = [1099 608 91 22];
             app.XTickintervalsEditFieldLabel.Text = 'XTick interval(s)';
-
+            
             % Create SignaltypeDropDownLabel
             app.SignaltypeDropDownLabel = uilabel(app.UIFigure);
             app.SignaltypeDropDownLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.SignaltypeDropDownLabel.Position = [1099 535 64 22];
             app.SignaltypeDropDownLabel.Text = 'Signal type';
-
+            
             % Create XTickintervalsEditField
             app.XTickintervalsEditField = uieditfield(app.UIFigure, 'numeric');
             app.XTickintervalsEditField.ValueDisplayFormat = '%g';
@@ -2303,118 +2303,118 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.XTickintervalsEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.XTickintervalsEditField.Position = [1195 608 50 22];
             app.XTickintervalsEditField.Value = 100;
-
+            
             % Create EventnameEditFieldLabel
             app.EventnameEditFieldLabel = uilabel(app.UIFigure);
             app.EventnameEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.EventnameEditFieldLabel.Position = [1099 272 69 22];
             app.EventnameEditFieldLabel.Text = 'Event name';
-
+            
             % Create EventnameEditField
             app.EventnameEditField = uieditfield(app.UIFigure, 'text');
             app.EventnameEditField.ValueChangedFcn = createCallbackFcn(app, @EventnameEditFieldValueChanged, true);
             app.EventnameEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.EventnameEditField.Position = [1201 272 46 22];
-
+            
             % Create EventcolorEditFieldLabel
             app.EventcolorEditFieldLabel = uilabel(app.UIFigure);
             app.EventcolorEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.EventcolorEditFieldLabel.Position = [1099 248 65 22];
             app.EventcolorEditFieldLabel.Text = 'Event color';
-
+            
             % Create EventcolorEditField
             app.EventcolorEditField = uieditfield(app.UIFigure, 'text');
             app.EventcolorEditField.ValueChangedFcn = createCallbackFcn(app, @EventcolorEditFieldValueChanged, true);
             app.EventcolorEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.EventcolorEditField.Position = [1201 248 63 22];
             app.EventcolorEditField.Value = '#808083';
-
+            
             % Create ROILabelEditFieldLabel
             app.ROILabelEditFieldLabel = uilabel(app.UIFigure);
             app.ROILabelEditFieldLabel.Position = [1099 343 88 22];
             app.ROILabelEditFieldLabel.Text = 'ROI prefix label';
-
+            
             % Create ROIprefixlabelEditField
             app.ROIprefixlabelEditField = uieditfield(app.UIFigure, 'text');
             app.ROIprefixlabelEditField.Position = [1202 343 78 22];
             app.ROIprefixlabelEditField.Value = 'c';
-
+            
             % Create ZProjectionButton
             app.ZProjectionButton = uibutton(app.UIFigure, 'push');
             app.ZProjectionButton.ButtonPushedFcn = createCallbackFcn(app, @ZProjectionButtonPushed, true);
             app.ZProjectionButton.Position = [565 707 82 23];
             app.ZProjectionButton.Text = 'Z Projection';
-
+            
             % Create FramesEditFieldLabel
             app.FramesEditFieldLabel = uilabel(app.UIFigure);
             app.FramesEditFieldLabel.HorizontalAlignment = 'right';
             app.FramesEditFieldLabel.Position = [749 707 46 22];
             app.FramesEditFieldLabel.Text = 'Frames';
-
+            
             % Create FramesEditField
             app.FramesEditField = uieditfield(app.UIFigure, 'text');
             app.FramesEditField.Placeholder = '1:end';
             app.FramesEditField.Position = [659 707 85 22];
             app.FramesEditField.Value = '1:1000';
-
+            
             % Create EventLabel
             app.EventLabel = uilabel(app.UIFigure);
             app.EventLabel.FontSize = 14;
             app.EventLabel.FontWeight = 'bold';
             app.EventLabel.Position = [1099 318 43 22];
             app.EventLabel.Text = 'Event';
-
+            
             % Create useNormalF0CheckBox
             app.useNormalF0CheckBox = uicheckbox(app.UIFigure);
             app.useNormalF0CheckBox.ValueChangedFcn = createCallbackFcn(app, @useNormalF0CheckBoxValueChanged, true);
             app.useNormalF0CheckBox.Text = '';
             app.useNormalF0CheckBox.Position = [1099 466 25 22];
             app.useNormalF0CheckBox.Value = true;
-
+            
             % Create SignalLabel
             app.SignalLabel = uilabel(app.UIFigure);
             app.SignalLabel.FontSize = 14;
             app.SignalLabel.FontWeight = 'bold';
             app.SignalLabel.Position = [1099 559 47 22];
             app.SignalLabel.Text = 'Signal';
-
+            
             % Create F0TypeEventCheckBox
             app.F0TypeEventCheckBox = uicheckbox(app.UIFigure);
             app.F0TypeEventCheckBox.ValueChangedFcn = createCallbackFcn(app, @F0TypeEventCheckBoxValueChanged, true);
             app.F0TypeEventCheckBox.Text = '';
             app.F0TypeEventCheckBox.Position = [1099 442 25 22];
-
+            
             % Create AverageEditFieldLabel
             app.AverageEditFieldLabel = uilabel(app.UIFigure);
             app.AverageEditFieldLabel.Position = [1121 442 49 22];
             app.AverageEditFieldLabel.Text = 'Average';
-
+            
             % Create AverageEditField
             app.AverageEditField = uieditfield(app.UIFigure, 'text');
             app.AverageEditField.Placeholder = '1:end';
             app.AverageEditField.Position = [1179 442 45 22];
             app.AverageEditField.Value = '1:180';
-
+            
             % Create PlotTraceLabel
             app.PlotTraceLabel = uilabel(app.UIFigure);
             app.PlotTraceLabel.FontSize = 14;
             app.PlotTraceLabel.FontWeight = 'bold';
             app.PlotTraceLabel.Position = [1099 221 72 22];
             app.PlotTraceLabel.Text = 'Plot Trace';
-
+            
             % Create PlotHeatemapLabel
             app.PlotHeatemapLabel = uilabel(app.UIFigure);
             app.PlotHeatemapLabel.FontSize = 14;
             app.PlotHeatemapLabel.FontWeight = 'bold';
             app.PlotHeatemapLabel.Position = [1099 133 102 22];
             app.PlotHeatemapLabel.Text = 'Plot Heatemap';
-
+            
             % Create ColorDropDown_2Label
             app.ColorDropDown_2Label = uilabel(app.UIFigure);
             app.ColorDropDown_2Label.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ColorDropDown_2Label.Position = [1099 105 34 22];
             app.ColorDropDown_2Label.Text = 'Color';
-
+            
             % Create ColormapColorDropDown
             app.ColormapColorDropDown = uidropdown(app.UIFigure);
             app.ColormapColorDropDown.Items = {'jet', 'gray', 'sky', 'hsv', 'turbo', 'hot'};
@@ -2422,79 +2422,79 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ColormapColorDropDown.BackgroundColor = [0.96078431372549 0.96078431372549 0.96078431372549];
             app.ColormapColorDropDown.Position = [1139 105 79 22];
             app.ColormapColorDropDown.Value = 'gray';
-
+            
             % Create ROILabel
             app.ROILabel = uilabel(app.UIFigure);
             app.ROILabel.FontSize = 14;
             app.ROILabel.FontWeight = 'bold';
             app.ROILabel.Position = [1099 391 30 22];
             app.ROILabel.Text = 'ROI';
-
+            
             % Create BeforeeventEditFieldLabel_2
             app.BeforeeventEditFieldLabel_2 = uilabel(app.UIFigure);
             app.BeforeeventEditFieldLabel_2.Position = [1236 442 42 22];
             app.BeforeeventEditFieldLabel_2.Text = 'frames';
-
+            
             % Create F0Label
             app.F0Label = uilabel(app.UIFigure);
             app.F0Label.Position = [1100 515 29 22];
             app.F0Label.Text = 'F0 =';
-
+            
             % Create F0BaselinecorrectionCheckBox
             app.F0BaselinecorrectionCheckBox = uicheckbox(app.UIFigure);
             app.F0BaselinecorrectionCheckBox.ValueChangedFcn = createCallbackFcn(app, @F0BaselinecorrectionCheckBoxValueChanged, true);
             app.F0BaselinecorrectionCheckBox.Tooltip = {'smoothspline'};
             app.F0BaselinecorrectionCheckBox.Text = 'Baseline correction';
             app.F0BaselinecorrectionCheckBox.Position = [1099 492 124 22];
-
+            
             % Create ROIintervalSpinnerLabel
             app.ROIintervalSpinnerLabel = uilabel(app.UIFigure);
             app.ROIintervalSpinnerLabel.Position = [1099 192 68 22];
             app.ROIintervalSpinnerLabel.Text = 'ROI interval';
-
+            
             % Create ROIintervalSpinner
             app.ROIintervalSpinner = uispinner(app.UIFigure);
             app.ROIintervalSpinner.Position = [1182 192 45 22];
             app.ROIintervalSpinner.Value = 1;
-
+            
             % Create sortCheckBox
             app.sortCheckBox = uicheckbox(app.UIFigure);
             app.sortCheckBox.Text = 'sort';
             app.sortCheckBox.Position = [1100 82 42 22];
-
+            
             % Create EventrangesEditFieldLabel
             app.EventrangesEditFieldLabel = uilabel(app.UIFigure);
             app.EventrangesEditFieldLabel.Position = [1099 295 84 22];
             app.EventrangesEditFieldLabel.Text = 'Event range(s)';
-
+            
             % Create EventrangesEditField
             app.EventrangesEditField = uieditfield(app.UIFigure, 'text');
             app.EventrangesEditField.Position = [1201 295 87 22];
-
+            
             % Create XLimsEditField_2Label
             app.XLimsEditField_2Label = uilabel(app.UIFigure);
             app.XLimsEditField_2Label.Position = [1099 582 46 22];
             app.XLimsEditField_2Label.Text = 'XLim(s)';
-
+            
             % Create XLimsEditField_2
             app.XLimsEditField_2 = uieditfield(app.UIFigure, 'text');
             app.XLimsEditField_2.Placeholder = '0:end';
             app.XLimsEditField_2.Position = [1160 582 100 22];
             app.XLimsEditField_2.Value = '0:end';
-
+            
             % Create OnlyplotButton
             app.OnlyplotButton = uibutton(app.UIFigure, 'push');
             app.OnlyplotButton.ButtonPushedFcn = createCallbackFcn(app, @OnlyplotButtonPushed, true);
             app.OnlyplotButton.Position = [1205 49 62 23];
             app.OnlyplotButton.Text = 'Only plot';
-
+            
             % Create Button
             app.Button = uibutton(app.UIFigure, 'push');
             app.Button.ButtonPushedFcn = createCallbackFcn(app, @ButtonPushed, true);
             app.Button.Icon = fullfile(pathToMLAPP, '+assets', '向左.svg');
             app.Button.Position = [70 119 39 23];
             app.Button.Text = '';
-
+            
             % Create Button_2
             app.Button_2 = uibutton(app.UIFigure, 'push');
             app.Button_2.ButtonPushedFcn = createCallbackFcn(app, @Button_2Pushed, true);
@@ -2502,7 +2502,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.Button_2.FontName = 'Arial';
             app.Button_2.Position = [516 119 39 23];
             app.Button_2.Text = '';
-
+            
             % Create Spinner
             app.Spinner = uispinner(app.UIFigure);
             app.Spinner.ValueChangingFcn = createCallbackFcn(app, @SpinnerValueChanging, true);
@@ -2510,7 +2510,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.Spinner.ValueChangedFcn = createCallbackFcn(app, @SpinnerValueChanged, true);
             app.Spinner.Position = [270 115 72 22];
             app.Spinner.Value = 1;
-
+            
             % Create UIAxesHomeButton_2
             app.UIAxesHomeButton_2 = uibutton(app.UIFigure, 'push');
             app.UIAxesHomeButton_2.ButtonPushedFcn = createCallbackFcn(app, @UIAxesHomeButton_2Pushed, true);
@@ -2519,14 +2519,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.UIAxesHomeButton_2.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.UIAxesHomeButton_2.Position = [502 674 53 23];
             app.UIAxesHomeButton_2.Text = '';
-
+            
             % Create DragROIsButton
             app.DragROIsButton = uibutton(app.UIFigure, 'state');
             app.DragROIsButton.ValueChangedFcn = createCallbackFcn(app, @DragROIsButtonValueChanged, true);
             app.DragROIsButton.Icon = fullfile(pathToMLAPP, '+assets', 'drag.svg');
             app.DragROIsButton.Text = 'Drag ROIs';
             app.DragROIsButton.Position = [992 84 91 23];
-
+            
             % Create ShowROINumbersCheckBox
             app.ShowROINumbersCheckBox = uicheckbox(app.UIFigure);
             app.ShowROINumbersCheckBox.ValueChangedFcn = createCallbackFcn(app, @ShowROINumbersCheckBoxValueChanged, true);
@@ -2534,47 +2534,47 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ShowROINumbersCheckBox.Text = '';
             app.ShowROINumbersCheckBox.Position = [807 675 25 22];
             app.ShowROINumbersCheckBox.Value = true;
-
+            
             % Create LoadButton
             app.LoadButton = uibutton(app.UIFigure, 'push');
             app.LoadButton.ButtonPushedFcn = createCallbackFcn(app, @LoadButtonPushed, true);
             app.LoadButton.Icon = fullfile(pathToMLAPP, '+assets', 'upload.svg');
             app.LoadButton.Position = [891 707 73 23];
             app.LoadButton.Text = 'Load';
-
+            
             % Create SmoothCheckBox
             app.SmoothCheckBox = uicheckbox(app.UIFigure);
             app.SmoothCheckBox.Text = 'Smooth';
             app.SmoothCheckBox.Position = [1099 414 63 22];
-
+            
             % Create windowsEditFieldLabel
             app.windowsEditFieldLabel = uilabel(app.UIFigure);
             app.windowsEditFieldLabel.Position = [1171 414 51 22];
             app.windowsEditFieldLabel.Text = 'windows';
-
+            
             % Create windowsEditField
             app.windowsEditField = uieditfield(app.UIFigure, 'numeric');
             app.windowsEditField.Position = [1237 414 54 22];
             app.windowsEditField.Value = 5;
-
+            
             % Create SaveButton
             app.SaveButton = uibutton(app.UIFigure, 'push');
             app.SaveButton.Icon = fullfile(pathToMLAPP, '+assets', 'save.svg');
             app.SaveButton.Position = [973 707 71 23];
             app.SaveButton.Text = 'Save';
-
+            
             % Create ROIIDLabel_2
             app.ROIIDLabel_2 = uilabel(app.UIFigure);
             app.ROIIDLabel_2.Position = [762 676 45 22];
             app.ROIIDLabel_2.Text = 'ROI ID ';
-
+            
             % Create MasksettingsButton
             app.MasksettingsButton = uibutton(app.UIFigure, 'push');
             app.MasksettingsButton.ButtonPushedFcn = createCallbackFcn(app, @MasksettingsButtonPushed, true);
             app.MasksettingsButton.Icon = fullfile(pathToMLAPP, '+assets', '', 'setting.svg');
             app.MasksettingsButton.Position = [843 675 109 23];
             app.MasksettingsButton.Text = 'Mask settings';
-
+            
             % Create SyncUIaxes2
             app.SyncUIaxes2 = uibutton(app.UIFigure, 'push');
             app.SyncUIaxes2.ButtonPushedFcn = createCallbackFcn(app, @SyncUIaxes2Pushed, true);
@@ -2582,7 +2582,7 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.SyncUIaxes2.Tooltip = {'Sync View'};
             app.SyncUIaxes2.Position = [973 675 38 23];
             app.SyncUIaxes2.Text = '';
-
+            
             % Create SyncUIaxes1
             app.SyncUIaxes1 = uibutton(app.UIFigure, 'push');
             app.SyncUIaxes1.ButtonPushedFcn = createCallbackFcn(app, @SyncUIaxes1ButtonPushed, true);
@@ -2590,14 +2590,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.SyncUIaxes1.Tooltip = {'Sync View'};
             app.SyncUIaxes1.Position = [455 674 38 23];
             app.SyncUIaxes1.Text = '';
-
+            
             % Create ContrastSliderLabel_2
             app.ContrastSliderLabel_2 = uilabel(app.UIFigure);
             app.ContrastSliderLabel_2.HorizontalAlignment = 'right';
             app.ContrastSliderLabel_2.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ContrastSliderLabel_2.Position = [579 141 50 22];
             app.ContrastSliderLabel_2.Text = 'Contrast';
-
+            
             % Create ContrastSlider_2
             app.ContrastSlider_2 = uislider(app.UIFigure, 'range');
             app.ContrastSlider_2.Limits = [0 255];
@@ -2605,14 +2605,14 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ContrastSlider_2.ValueChangingFcn = createCallbackFcn(app, @ContrastSlider_2ValueChanging2, true);
             app.ContrastSlider_2.Position = [651 150 413 3];
             app.ContrastSlider_2.Value = [0 255];
-
+            
             % Create ContrastSlider_2Label
             app.ContrastSlider_2Label = uilabel(app.UIFigure);
             app.ContrastSlider_2Label.HorizontalAlignment = 'right';
             app.ContrastSlider_2Label.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ContrastSlider_2Label.Position = [61 94 50 22];
             app.ContrastSlider_2Label.Text = 'Contrast';
-
+            
             % Create ContrastSlider
             app.ContrastSlider = uislider(app.UIFigure, 'range');
             app.ContrastSlider.Limits = [0 2500];
@@ -2620,13 +2620,13 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.ContrastSlider.ValueChangingFcn = createCallbackFcn(app, @ContrastSliderValueChanging2, true);
             app.ContrastSlider.Position = [133 103 413 3];
             app.ContrastSlider.Value = [0 400];
-
+            
             % Create norm_blocksizeSpinnerLabel
             app.norm_blocksizeSpinnerLabel = uilabel(app.UIFigure);
             app.norm_blocksizeSpinnerLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.norm_blocksizeSpinnerLabel.Position = [825 45 88 22];
             app.norm_blocksizeSpinnerLabel.Text = 'norm_blocksize';
-
+            
             % Create norm_blocksizeSpinner
             app.norm_blocksizeSpinner = uispinner(app.UIFigure);
             app.norm_blocksizeSpinner.LowerLimitInclusive = 'off';
@@ -2635,35 +2635,35 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
             app.norm_blocksizeSpinner.Tooltip = {'set  higher to get more cells, in range from (0,3]'};
             app.norm_blocksizeSpinner.Position = [911 47 55 22];
             app.norm_blocksizeSpinner.Value = 64;
-
+            
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
         end
     end
-
+    
     % App creation and deletion
     methods (Access = public)
-
+        
         % Construct app
         function app = CalciumSignalExtraction_exported
-
+            
             % Create UIFigure and components
             createComponents(app)
-
+            
             % Register the app with App Designer
             registerApp(app, app.UIFigure)
-
+            
             % Execute the startup function
             runStartupFcn(app, @startupFcn)
-
+            
             if nargout == 0
                 clear app
             end
         end
-
+        
         % Code that executes before app deletion
         function delete(app)
-
+            
             % Delete UIFigure when app is deleted
             delete(app.UIFigure)
         end
