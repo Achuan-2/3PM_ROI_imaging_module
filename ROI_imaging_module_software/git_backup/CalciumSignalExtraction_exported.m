@@ -1709,6 +1709,16 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
                 ManualImageRegistration();
             end
         end
+
+        % Menu selected function: LoadConfigMenu
+        function LoadConfigMenuSelected(app, event)
+            
+        end
+
+        % Menu selected function: SaveConfigMenu
+        function SaveConfigMenuSelected(app, event)
+            
+        end
     end
 
     % Component initialization
@@ -1735,10 +1745,12 @@ classdef CalciumSignalExtraction_exported < matlab.apps.AppBase
 
             % Create LoadConfigMenu
             app.LoadConfigMenu = uimenu(app.ConfigMenu);
+            app.LoadConfigMenu.MenuSelectedFcn = createCallbackFcn(app, @LoadConfigMenuSelected, true);
             app.LoadConfigMenu.Text = 'Load Config';
 
             % Create SaveConfigMenu
             app.SaveConfigMenu = uimenu(app.ConfigMenu);
+            app.SaveConfigMenu.MenuSelectedFcn = createCallbackFcn(app, @SaveConfigMenuSelected, true);
             app.SaveConfigMenu.Text = 'Save Config';
 
             % Create DataprocessMenu
