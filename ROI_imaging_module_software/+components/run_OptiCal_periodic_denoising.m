@@ -1,7 +1,7 @@
 
 % MATLAB script to run Inference_periodic_denoise.py using pyrunfile
 % Set parameters for the Python script
-input_file = 'E:\Onedrive\科研项目\1_Project丨ROI成像\代码\OptiCal-master/datasets/file_00020_ch1.tif';
+input_file = 'E:\Desktop\test\test_split\Processed\file_00001_ch1.tif';
 [input_path, input_name, input_ext] = fileparts(input_file);
 output_file = fullfile(input_path, [input_name '_deripple' input_ext]);
 model_path_relative = '../OptiCal_denoising_model\periodic_denoising_model\train_out\3PM\net_dependent_noise_G20.pth';
@@ -16,7 +16,7 @@ end
 
 % Run the Python script, passing parameters
 try
-    pyrunfile('../OptiCal_denoising_model/periodic_denoising_model/Inference_periodic_denoise.py', '', ...
+    pyrunfile('../OptiCal_denoising_model/periodic_denoising_model/Inference_periodic_denoise.py', ...
         'input', input_file, ...
         'output', output_file, ...
         'model', model_path, ...

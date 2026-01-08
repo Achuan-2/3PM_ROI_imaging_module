@@ -9,8 +9,10 @@ from model.models_periodic_denoise import Generator
 def auto_dc_correct(arr):
     """Auto subtract offset for int16/uint16 centered signals."""
     if arr.dtype == np.uint16:
-        # Assume 0~65535 with DC at 32768
-        return arr.astype(np.float32) - 32768.0
+        if arr.min() >= 32768:
+            return arr.astype(np.float32) - 32768.0
+        else:
+            return arr.astype(np.float32)
     elif arr.dtype == np.int16:
         # Already signed, no shift needed
         return arr.astype(np.float32)
@@ -84,16 +86,13 @@ def main():
         sample_frame = first_page.asarray()
         H, W = sample_frame.shape
         input_dtype = sample_frame.dtype
-        # Determine output dtype (usually same as input, but signed)
+        # Determine output dtype
         if input_dtype == np.uint16:
-            output_dtype = np.int16
-            output_offset = 32768
+            output_dtype = np.uint16
         elif input_dtype == np.int16:
-            output_dtype = np.int16
-            output_offset = 0
+            output_dtype = np.uint16
         else:
             output_dtype = input_dtype
-            output_offset = 0
 
         # Write output TIFF
         with TiffWriter(output_file) as tif_out:
@@ -105,10 +104,10 @@ def main():
                 # Inference
                 deripple_float = infer_frame(netG, frame_float, device, block_size=block_size_val)
                 # Convert back to integer
-                if output_offset != 0:
-                    deripple_int = np.clip(deripple_float + output_offset, 0, 65535).astype(output_dtype)
+                if output_dtype == np.uint16:
+                    deripple_int = np.clip(deripple_float, 0, 65535).astype(np.uint16)
                 else:
-                    # For int16, clip to valid range
+                    # For signed or other types, clip to valid range
                     deripple_int = np.clip(deripple_float, -32768, 32767).astype(output_dtype)
                 # Write frame
                 tif_out.write(deripple_int, contiguous=True)

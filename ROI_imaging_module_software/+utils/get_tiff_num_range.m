@@ -1,0 +1,31 @@
+function [startNum,endNum] = get_tiff_num_range(folder)
+    % 获取所有以file_开头，以.tif结尾的文件信息
+    files = dir(fullfile(folder, 'file_*.tif')); 
+    % 获取文件名
+    filenames = {files.name}; 
+    % 获取文件名命名规则为 file_00001,file_00002,...file_00099 的文件名
+    tifFiles = filenames(~cellfun(@isempty, regexp(filenames, '^file_\d{5}\.tif$', 'once')));
+    % 获取文件名中的数字部分
+    fileNums = cellfun(@(x) str2double(regexp(x, '\d+', 'match')), tifFiles);
+    
+    % 检测文件是否正在生成
+    validFileNums = [];
+    for i = 1:length(tifFiles)
+        filePath = fullfile(folder, tifFiles{i});
+        try
+            fid = fopen(filePath, 'r');
+            if fid ~= -1
+                fclose(fid);
+                validFileNums(end+1) = fileNums(i); %#ok<AGROW>
+            else
+                break; % 如果文件正在生成，停止检测
+            end
+        catch
+            break; % 如果文件无法打开，停止检测
+        end
+    end
+    
+    % 获取起始和结束编号
+    startNum = min(validFileNums);
+    endNum = max(validFileNums);
+end

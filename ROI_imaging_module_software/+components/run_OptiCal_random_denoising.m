@@ -2,7 +2,7 @@
 % Set parameters for the Python script
 GPU = '0';
 denoise_model = '3PM';  % Model folder name (under pth directory)
-input_file = 'E:\Desktop\test\测试random denoising\file_00020_ch1_deripple.tif';
+input_file = 'E:\Desktop\test\test random denoising\file_00020_ch1_deripple.tif';
 [input_path, input_name, input_ext] = fileparts(input_file);
 output_file = fullfile(input_path, [input_name '_denoised' input_ext]);
 pth_path = fullfile(pwd, '..', 'OptiCal_denoising_model', 'random_denoising_model','pth');
@@ -20,7 +20,7 @@ try
     fprintf('Input: %s\n', input_file);
     fprintf('Output: %s\n', output_file);
     
-    pyrunfile('../OptiCal_denoising_model/random_denoising_model/test.py', '', ...
+    pyrunfile('../OptiCal_denoising_model/random_denoising_model/test.py',...
         'GPU', GPU, ...
         'denoise_model', denoise_model, ...
         'input', input_file, ...

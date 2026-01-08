@@ -75,7 +75,7 @@ opt.gap_x = int(opt.patch_x * (1 - opt.overlap_factor))
 opt.gap_y = int(opt.patch_y * (1 - opt.overlap_factor))
 opt.ngpu = str(opt.GPU).count(',') + 1
 opt.batch_size = opt.ngpu                       # By default, the batch size is equal to the number of GPU for minimal memory consumption
-print('\033[1;31mParameters -----> \033[0m')
+print('Parameters ----->')
 # Print all parameters
 for key, value in vars(opt).items():
     print(f"  {key}: {value}")
@@ -105,7 +105,7 @@ model_list[:-1] = []
 # Determine which mode to use: input/output single file mode or datasets folder mode
 if opt.input is not None:
     # Single file mode
-    print('\033[1;31mUsing single file mode -----> \033[0m')
+    print('Using single file mode ----->')
     if not os.path.exists(opt.input):
         raise FileNotFoundError(f"Input file not found: {opt.input}")
     if opt.output is None:
@@ -125,7 +125,7 @@ if opt.input is not None:
     output_filename = os.path.basename(opt.output)
 else:
     # Datasets folder mode
-    print('\033[1;31mUsing datasets folder mode -----> \033[0m')
+    print('Using datasets folder mode ----->')
     im_folder = os.path.join(opt.datasets_path, opt.datasets_folder)
     
     if not os.path.exists(im_folder):
@@ -144,7 +144,7 @@ else:
         os.mkdir(output_path1)
     single_file_mode = False
 
-print('\033[1;31mStacks to be processed -----> \033[0m')
+print('Stacks to be processed ----->')
 print('Total stack number -----> ', len(img_list))
 for img in img_list: print(img)
 
@@ -172,7 +172,7 @@ denoise_generator = SRDTrans(
 
 
 if torch.cuda.is_available():
-    print('\033[1;31mUsing {} GPU(s) for testing -----> \033[0m'.format(torch.cuda.device_count()))
+    print('Using {} GPU(s) for testing ----->'.format(torch.cuda.device_count()))
     denoise_generator = denoise_generator.cuda()
     denoise_generator = nn.DataParallel(denoise_generator, device_ids=range(opt.ngpu))
 cuda = True if torch.cuda.is_available() else False
@@ -285,26 +285,32 @@ def test():
                         else:
                             aaaa, bbbb, stack_start_w, stack_end_w, stack_start_h, stack_end_h, stack_start_s, stack_end_s = singlebatch_test_save(
                                 single_coordinate, output_image, raw_image)
-                            aaaa=aaaa+img_mean
-                            bbbb=bbbb+img_mean
+                            #aaaa=aaaa+img_mean
+                            #bbbb=bbbb+img_mean
                             denoise_img[stack_start_s:stack_end_s, stack_start_h:stack_end_h, stack_start_w:stack_end_w] \
-                                = aaaa * (np.sum(bbbb) / np.sum(aaaa)) ** 0.5
+                                = aaaa #* (np.sum(bbbb) / np.sum(aaaa)) ** 0.5
 
                     del noise_img
                     output_img = denoise_img.squeeze().astype(np.float32) * opt.scale_factor
+                    print('---------------------------------------')
+                    print(np.min(output_img))
+                    print(np.max(output_img))
+                    print('---------------------------------------')
                     del denoise_img
-                    output_img=np.clip(output_img, 0, 65535).astype('int32')
+                    # output_img = 32767 * (output_img - output_img.min()) / (output_img.max()- output_img.min())
+                    # output_img=np.clip(output_img, 0, 65535)
+                    output_img = output_img.astype('int16')
                     # Save inference image
-                    if input_data_type == 'uint16':
-                        output_img=np.clip(output_img, 0, 65535)
-                        output_img = output_img.astype('uint16')
+                    # if input_data_type == 'uint16':
+                    #     output_img=np.clip(output_img, 0, 65535)
+                    #     output_img = output_img.astype('uint16')
 
-                    elif input_data_type == 'int16':
-                        output_img=np.clip(output_img, -32767, 32767)
-                        output_img = output_img.astype('int16')
+                    # elif input_data_type == 'int16':
+                    #     output_img=np.clip(output_img, -32767, 32767)
+                    #     output_img = output_img.astype('int16')
 
-                    else:
-                        output_img = output_img.astype('int32')
+                    # else:
+                    #     output_img = output_img.astype('int32')
                             
                     io.imsave(result_name, output_img, check_contrast=False)
                     print("test result saved in:", result_name)

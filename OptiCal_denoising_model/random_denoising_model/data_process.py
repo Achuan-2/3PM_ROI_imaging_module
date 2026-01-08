@@ -332,14 +332,31 @@ def test_preprocess_lessMemoryNoTail_chooseOne (args, N):
     name_list = []
     # train_raw = []
     coordinate_list={}
-    img_list = list(os.walk(im_folder, topdown=False))[-1][-1]
-    img_list.sort()
-    # print(img_list)
-
-    im_name = img_list[N]
+    
+    # Calculate im_name more robustly
+    if hasattr(args, 'input') and args.input and args.datasets_folder == '':
+        # Single file mode: use the specified input file
+        im_name = os.path.basename(args.input)
+    else:
+        # Datasets folder mode: scan the folder
+        img_list_walk = list(os.walk(im_folder, topdown=False))[-1][-1]
+        img_list_walk.sort()
+        # Filter for tif files to avoid picking up metadata or other non-image files
+        img_list_walk = [f for f in img_list_walk if f.lower().endswith(('.tif', '.tiff'))]
+        if N < len(img_list_walk):
+            im_name = img_list_walk[N]
+        else:
+            raise IndexError(f"Index {N} out of range for image list in {im_folder}")
 
     im_dir = os.path.join(im_folder, im_name)
     noise_im = tiff.imread(im_dir)
+    
+    # Ensure noise_im has at least 3 dimensions (T, Y, X)
+    if noise_im.ndim == 2:
+        noise_im = noise_im[np.newaxis, :, :]
+    elif noise_im.ndim == 4:
+        # If (T, C, Y, X), pick the first channel or handle as needed
+        noise_im = noise_im[:, 0, :, :]
     
     input_data_type = noise_im.dtype
     img_mean = noise_im.mean()

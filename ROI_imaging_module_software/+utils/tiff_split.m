@@ -225,19 +225,9 @@ function tiff_split(inputFilePath, numChannels, options)
                 
                 % 计算平均投影
                 imgStackAvg = accumulators{i} / frameCounts(i);
-                if options.rippleNoiseEnable
-                    imgStackAvg = uint16(imgStackAvg);
-                else
-                    % 如果原始数据不是int16，这里可能需要调整
-                    imgStackAvg = cast(imgStackAvg, info(1).SampleFormat); % 尝试使用原始格式
-                    if strcmp(info(1).SampleFormat,'uint16') % 确保与原始匹配
-                         imgStackAvg = uint16(imgStackAvg);
-                    elseif strcmp(info(1).SampleFormat,'int16')
-                         imgStackAvg = int16(imgStackAvg);
-                    % 添加其他可能的类型转换
-                    end
-
-                end
+                tiffMetaData.BitsPerSample = 16;
+                tiffMetaData.SampleFormat = Tiff.SampleFormat.UInt;
+                imgStackAvg = uint16(imgStackAvg);
                 
                 
                 % 保存平均投影 (使用原始的 tiff_save，因为它处理标签)
