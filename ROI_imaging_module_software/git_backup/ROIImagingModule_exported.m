@@ -90,7 +90,7 @@ classdef ROIImagingModule_exported < matlab.apps.AppBase
         ROIMaskSettingsApp;
         % Data process app
         SignalExtractionApp;
-
+        TiffProcessApp;
         roiMask % Dilate之后
 
         % AWG
@@ -2003,6 +2003,11 @@ classdef ROIImagingModule_exported < matlab.apps.AppBase
             app.SignalExtractionApp= CalciumSignalExtraction();
         end
 
+        % Menu selected function: TiffProcessMenu
+        function TiffProcessMenuSelected(app, event)
+            app.TiffProcessApp= TiffProcess();
+        end
+
         % Changes arrangement of the app based on UIFigure width
         function updateAppLayout(app, event)
             currentFigureWidth = app.UIFigure.Position(3);
@@ -2104,6 +2109,7 @@ classdef ROIImagingModule_exported < matlab.apps.AppBase
 
             % Create TiffProcessMenu
             app.TiffProcessMenu = uimenu(app.DataprocessMenu);
+            app.TiffProcessMenu.MenuSelectedFcn = createCallbackFcn(app, @TiffProcessMenuSelected, true);
             app.TiffProcessMenu.Text = 'Tiff Process';
 
             % Create SignalExtractionMenu

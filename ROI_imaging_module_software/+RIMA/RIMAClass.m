@@ -1,6 +1,6 @@
 classdef RIMAClass
     %% USAGE:
-    % [reg_frames, refImg, offsets, corr_values] = RIMA.RIMAClass.register(roi_frames,'refImg', full_frames);
+    % [reg_frames, refImg, offsets, corr_values] = RIMA.RIMAClass.register(frames,'refImg', full_frames);
 
     methods (Static)
         function [reg_frames, refImg, offsets, corr_values] = register(frames, options)
@@ -52,7 +52,7 @@ classdef RIMAClass
         end
     end
     
-    methods (Static, Access = private)
+    methods (Static, Access = public)
         function refImg = compute_reference(frames, options)
             if nargin < 2
                 options = struct();
