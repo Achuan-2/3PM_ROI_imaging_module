@@ -18,7 +18,7 @@
   - [IVI and VXIplug&play Driver Support from Instrument Control Toolbox](https://www.mathworks.com/hardware-support/ivi-vxiplug-play-instrument-driver.html)
 - **Python** v3.10
 
-### Configure Python Environment
+### Configure Python environment
 
 Install a [miniforge](https://github.com/conda-forge/miniforge) distribution of Python.
 
