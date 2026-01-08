@@ -6,7 +6,7 @@
 
 - **Hardware**
 
-  - NI PXI-5421 + NI PXIe-PCIe8361
+  - AWG: NI PXI-5421 + NI PXIe-PCIe8361
   - For specific hardware configuration, see the [ROI imaging module hardware setup guide](../ROI_imaging_module_hardware/README.md).
 - **Imaging System**
 
