@@ -4,3 +4,4 @@ cellposeModels/
 /config.json
 /config_signal_extract.json
 __pycache__
+*.pptx
