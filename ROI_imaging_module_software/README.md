@@ -1,3 +1,5 @@
+# ROI imaging module software installation and user manual
+
 ## Software installation
 
 ### Requirements
@@ -9,38 +11,50 @@
 - **Imaging System**
 
   - Uses ScanImage as the three-photon imaging system.
-- **Matlab** >= R2022b (we use Matlab R2023b)
+- **Matlab** >= R2022b (we use Matlab R2023b)  
   The following toolboxes are required:
 
   - Instrument Control Toolbox
   - [IVI and VXIplug&play Driver Support from Instrument Control Toolbox](https://www.mathworks.com/hardware-support/ivi-vxiplug-play-instrument-driver.html)
 - **Python** v3.10
 
-### Install Cellpose-SAM
+### Configure Python Environment
 
-The software uses Cellpose-SAM for automatic cell segmentation.
+Install a [miniforge](https://github.com/conda-forge/miniforge) distribution of Python.
 
-Refer to the installation guide at [https://github.com/MouseLand/cellpose](https://github.com/MouseLand/cellpose) to install Cellpose.
+Create a new environment.
 
-1. Install a [miniforge](https://github.com/conda-forge/miniforge) distribution of Python.
-2. Create a new environment and install Cellpose.
+```bash
+# create environment
+conda create --name ROI_Imaging_Module python=3.10
+conda activate ROI_Imaging_Module
+```
 
-   ```bash
-   # create cellpose environment
-   conda create --name cellpose python=3.10
-   conda activate cellpose
-   # install pytorch
-   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-   # install cellpose
-   python -m pip install cellpose[gui]
-   ```
-3. Open Matlab and configure the Python environment to the path of your cellpose environment.
+Install Pytorch: please select the correct Pytorch version that matches your CUDA version from [https://pytorch.org/get-started/previous-versions/](https://pytorch.org/get-started/previous-versions/)
 
-   ```matlab
-   pyenv('Version', "C:\Users\[YOUR_USER_NAME]\miniforge3\envs\cellpose\python.exe", 'ExecutionMode', 'OutOfProcess')
-   ```
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
 
-   <img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105111901-tksfa1t.png" />
+Install Cellpose-SAM
+
+```bash
+python -m pip install cellpose[gui]
+```
+
+Install dependencies for OptiCal model
+
+```bash
+pip install numpy scipy pillow tifffile visdom scikit-image tqdm timm einops matplotlib
+```
+
+Open Matlab and configure the Python environment to the path of your cellpose environment.
+
+```matlab
+pyenv('Version', "C:\Users\Achuan-2\miniforge3\envs\ROI_Imaging_Module\python.exe", 'ExecutionMode', 'OutOfProcess')
+```
+
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260107224534-ok2cvs6.png" />
 
 ### Install ROI imaging module software
 
@@ -48,11 +62,11 @@ Download this repository from GitHub to a local folder.
 
 Open Matlab, navigate to the `3PM_ROI_imaging_module\ROI_imaging_module_software` folder, and run the following command in the command window to launch the software:
 
-```bash
-ROIImagingModule
+```matlab
+roi_imaging_module
 ```
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105170742-xxo1w8m.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106130949-69hhtgd.png" />
 
 ## Basic configuration of the ROI imaging module
 
@@ -60,7 +74,7 @@ ROIImagingModule
 
 Click on <kbd>Settings → AWG Settings</kbd> in the top menu bar.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105170756-z7p6bhy.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131003-bw1hazw.png" />
 
 ​`AWG Settings` interface:
 
@@ -82,23 +96,23 @@ Click on <kbd>Settings → AWG Settings</kbd> in the top menu bar.
 
 Click the <kbd>Connect</kbd> button to connect.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105171010-20tapk7.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131019-q1unte6.png" />
 
 If you are running this software on a test computer without a connected AWG and want to test the software's functionality, you can use <kbd>AWG Simulate Mode</kbd>.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105171038-07yimc2.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131030-qpfsu5a.png" />
 
 A <kbd>🎮</kbd>​ button will appear to the right of the <kbd>Connect</kbd> button. This indicates you are in Simulate mode, allowing you to connect to a virtual AWG and perform functions like waveform output.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105171051-xjj4h21.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131054-y6jm55n.png" />
 
 After successfully connecting to the virtual AWG, the software will default to `Conventional imaging` mode.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105172027-qb7nw91.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131110-4ev9yxe.png" />
 
 If you want to test custom waveform output with the AWG, you can click <kbd>Utilities → AWG Control</kbd>.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105172043-6i96hd4.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131127-xb3356i.png" />
 
 ​`AWG Control` interface:
 
@@ -110,11 +124,11 @@ If you want to test custom waveform output with the AWG, you can click <kbd>Util
 
 Click the <kbd>ScanImage</kbd> button to connect to the ScanImage software and retrieve all imaging scan parameters.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105172519-2gj3qs8.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131222-ayzsw4m.png" />
 
 Click on <kbd>Settings → Scanner Settings</kbd> in the top menu bar.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105172543-30fw0mn.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131245-rv2wod1.png" />
 
 ​`Scanner Settings` interface:
 
@@ -132,7 +146,7 @@ However, `Wait (pixels)` needs to be determined through imaging tests.
 
 You can click <kbd>Utilities → ROI imaging Simulator</kbd>​ in the top menu bar to use the `ROI imaging Simulator`​ to understand the effect of `Turnaround`​ and `Wait` parameters on ROI imaging.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105173024-77kzpyd.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131259-6mtmasz.png" />
 
 ​`ROI imaging Simulator` interface:
 
@@ -150,11 +164,17 @@ If `Turnaround`​ is correct but `Wait` is incorrect, the vertical stripes in t
 
 Once the parameters in `AWG Settings`​ and `Scanner Settings`​ are configured, you can click <kbd>File → Save Config</kbd> to save the settings.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105175526-tefe4yw.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131316-d915otk.png" />
 
-To load a saved configuration, click the <kbd>...</kbd>​ button next to `Configuration`.
+To load a saved configuration, there are two methods:
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105175715-xbi85ay.png" />
+- click <kbd>File → Load Config</kbd> .
+
+  <img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131551-ivc7ye7.png" />
+- click the <kbd>...</kbd>​ button next to `Configuration`.
+
+  <img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131603-btl04r4.png" />
+
 
 ## ROI imaging module functionality tutorial
 
@@ -166,7 +186,7 @@ For three-photon deep-tissue imaging, FPA imaging can achieve higher SNR images 
 
 Click the <kbd>FPA imaging</kbd> button to enter FPA imaging mode with a single click.
 
-<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105212424-cu3pmfu.png" />
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260106131618-h8ii81x.png" />
 
 It also features an automatic reconstruction function, which reconstructs the complete image every 10 frames.
 
@@ -242,9 +262,66 @@ Click the <kbd>Real-time registration</kbd> button to send the reference image t
 
 How to use RIMA for Real-time registration:
 
-Copy `ROI_imaging_module_software\+RIMA\RIMAMotionEstimator.m`​ to the `+scanimage\+components\+motionEstimators` folder within your ScanImage installation directory.
+Copy `+RIMA\scanimage_onlinereg\RIMAMotionEstimator.m`​ to the `+scanimage\+components\+motionEstimators` folder within your ScanImage installation directory.
 
 Click <kbd>Select Estimator</kbd>​ and choose `RIMAMotionEstimator.m`.
 
 <img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260105225453-yjqb397.png" />
 
+## Post-imaging data processing
+
+### Channel separation, noise removal, and registration
+
+After data acquisition via ROI imaging, the `Tiff Process`​ software can be opened from the top menu bar of the ROI imaging module (<kbd>Data-process → Tiff Process</kbd>​) or by entering `TiffProcess` in the terminal.
+
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260108204834-h6zlw4y.png" />
+
+The Tiff Process software includes the following features:
+
+- Periodic denoising
+- FPA imaging reconstruction
+- Scanphase correction (corrects the misalignment between odd and even rows caused by bidirectional scanning)
+- Registration
+- Random denoising
+
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260108205422-qat41v3.png" />
+
+Registration is performed using the RIMA algorithm.
+
+Registration parameters:
+
+- ​`ref_img`: Whether to use an external reference image for registration.
+- ​`nimg_init`: The number of initial frames used to generate the reference image.
+- ​`batch_size`: The number of frames to register per batch.
+- ​`smooth_sigma`: Sigma for image smoothing to reduce noise.
+- ​`maxregshift`: The maximum allowed offset size.
+
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260108205807-i85oxkx.png" />
+
+The Registration panel also supports manual registration.
+
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260108210250-p9mwi50.png" />
+
+The features of Manual Image Registration:
+
+- Set a reference image or right-click to select an ROI, then scroll the frame slider to check for any misaligned frames.
+- Apply translations and transformations to a single frame.
+- Supports applying transformations to all frames in a batch.
+
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260107171623-kiekxbh.png" />
+
+### Calcium signal extraction
+
+After the data has been registered and denoised, the `Calcium Signal Extraction`​ software can be opened from the top menu bar of the ROI imaging module (<kbd>Data-process → Signal Extraction</kbd>​) or by entering `CalciumSignalExtraction` in the terminal.
+
+Software features:
+
+- Load and display Tiff files, adjust contrast, and view the content of different frames.
+- Automatic cell segmentation and manual ROI selection. Supports saving and loading ROI masks, and importing ROI.zip files from ImageJ.
+- Extract neuronal ΔF/F signals and plot their traces and heatmaps.
+
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260107173727-8wyf3f8.png" />
+
+Saved files:
+
+<img alt="image" src="https://fastly.jsdelivr.net/gh/Achuan-2/PicBed@pic/assets/image-20260107173802-yl5bxvx.png" />
