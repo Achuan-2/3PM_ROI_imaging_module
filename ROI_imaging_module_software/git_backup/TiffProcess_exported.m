@@ -1508,8 +1508,8 @@ classdef TiffProcess_exported < matlab.apps.AppBase
 
             app.exePath = utils.GetExecutableFolder();
 
-            if isfile(fullfile(app.exePath, 'config_tiff_process.json'))
-                text = fileread(fullfile(app.exePath, 'config_tiff_process.json'));
+            if isfile(fullfile(app.exePath, 'config/config_tiff_process.json'))
+                text = fileread(fullfile(app.exePath, 'config/config_tiff_process.json'));
                 config = jsondecode(text);
                 if isfield(config, 'ripple_noise')
                     app.RemoveRippleNoiseSpinner.Value = config.ripple_noise;
@@ -1532,7 +1532,7 @@ classdef TiffProcess_exported < matlab.apps.AppBase
                 config.nChannel = app.nChannelSpinner.Value;
                 json_data = jsonencode(config);
 
-                fileID = fopen(fullfile(app.exePath, 'config_tiff_process.json'), 'w');
+                fileID = fopen(fullfile(app.exePath, 'config/config_tiff_process.json'), 'w');
                 fprintf(fileID, json_data);
                 fclose(fileID);
 
@@ -1644,7 +1644,7 @@ classdef TiffProcess_exported < matlab.apps.AppBase
             json_data = jsonencode(config);
 
 
-            fileID = fopen( fullfile(app.exePath, 'config_tiff_process.json'), 'w');
+            fileID = fopen( fullfile(app.exePath, 'config/config_tiff_process.json'), 'w');
             fprintf(fileID, json_data);
             fclose(fileID);
 
