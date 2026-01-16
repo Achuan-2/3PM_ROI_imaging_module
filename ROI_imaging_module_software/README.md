@@ -15,6 +15,7 @@
   The following toolboxes are required:
 
   - Instrument Control Toolbox
+  - Parallel Computing Toolbox
   - [IVI and VXIplug&play Driver Support from Instrument Control Toolbox](https://www.mathworks.com/hardware-support/ivi-vxiplug-play-instrument-driver.html)
 - **Python** v3.10
 
